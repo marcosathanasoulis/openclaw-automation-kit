@@ -1,0 +1,16 @@
+{
+  "id": "web.public_page_check",
+  "version": "0.1.0",
+  "entrypoint": "runner.py",
+  "inputs_schema": "schemas/input.json",
+  "outputs_schema": "schemas/output.json",
+  "description": "Fetch a public web page and return a short summary",
+  "execution_mode": "stateless",
+  "permissions": {
+    "browser": false,
+    "network_domains": [
+      "*"
+    ]
+  },
+  "requires_human_steps": []
+}

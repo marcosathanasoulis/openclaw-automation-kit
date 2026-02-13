@@ -23,10 +23,44 @@ AIRLINE_TO_SCRIPT = {
 
 def _detect_script_dir(query: str) -> str:
     q = query.lower()
+    has_url = re.search(r"https?://", query) is not None
+    if has_url:
+        return "examples/public_page_check"
+    if "home page" in q or "homepage" in q:
+        return "examples/public_page_check"
     for token, script_dir in AIRLINE_TO_SCRIPT.items():
         if token in q:
             return script_dir
-    return "examples/united_award"
+    return "examples/public_page_check"
+
+
+def _extract_url(query: str) -> str | None:
+    url_match = re.search(r"https?://[^\s\"']+", query)
+    if not url_match:
+        return None
+    return url_match.group(0).rstrip(".,;:!?")
+
+
+def _extract_keyword(query: str, default: str = "news") -> str:
+    # Highest priority: quoted text, e.g. "mental health"
+    quoted = re.search(r"\"([^\"]{2,80})\"", query)
+    if quoted:
+        return quoted.group(1).strip()
+
+    # Task phrases
+    patterns = [
+        r"(?:mentions?|count|times?)\s+of\s+([a-zA-Z][a-zA-Z0-9_\-\s]{1,60})",
+        r"check\s+(?:if\s+)?([a-zA-Z][a-zA-Z0-9_\-\s]{1,60})\s+(?:is|exists|appears)",
+        r"contains?\s+([a-zA-Z][a-zA-Z0-9_\-\s]{1,60})",
+        r"about\s+([a-zA-Z][a-zA-Z0-9_\-\s]{1,60})",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, query, flags=re.IGNORECASE)
+        if match:
+            candidate = re.sub(r"\s+", " ", match.group(1)).strip(" .,:;!?")
+            if candidate:
+                return candidate
+    return default
 
 
 def _extract_airport_codes(query: str) -> List[str]:
@@ -83,7 +117,12 @@ def parse_query_to_run(query: str) -> ParsedQuery:
     notes = [f"script={script_dir}", f"cabin={cabin}"]
 
     inputs: Dict[str, object]
-    if "award" in script_dir:
+    if script_dir == "examples/public_page_check":
+        url = _extract_url(query) or "https://www.yahoo.com"
+        keyword = _extract_keyword(query, default="news")
+        inputs = {"url": url, "keyword": keyword}
+        notes = [f"script={script_dir}", f"url={url}", f"keyword={keyword}"]
+    elif "award" in script_dir:
         inputs = {
             "from": from_code,
             "to": to_codes,

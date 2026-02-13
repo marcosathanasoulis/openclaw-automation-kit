@@ -10,6 +10,18 @@ This framework can automate high-impact actions. Treat credentials and second fa
 - Prefer read-only tokens where possible.
 - Rotate credentials regularly.
 
+## Shared responsibility model
+This framework gives automation capability; you own security operations.
+
+At minimum, enforce:
+- MFA on every admin/operator account
+- strict IAM/ACL boundaries around secrets and runtime hosts
+- network ingress controls (no open admin endpoints)
+- per-run audit trails (who triggered what, when, with which account)
+- emergency kill switch to disable all credentialed runs
+
+If these controls are not in place, do not enable credentialed automations.
+
 ## BYO secret-store policy
 - This project does **not** provide credential import/export from Dashlane, 1Password, Chrome, or any vault.
 - Users/admins provision secrets directly in their secure store.
@@ -118,5 +130,8 @@ Keep channel connectors out of core runtime; use webhook adapters.
 - Restrict outbound domains per script manifest.
 - Add allowlist/denylist for high-risk actions.
 - Enforce timeout and kill-switch controls.
+- Require human confirmation for transactions, account changes, and outbound communication.
+- Rate-limit resume/2FA endpoints and expire all tokens quickly.
+- Never send raw passwords or long-lived tokens through chat channels.
 
 If this is not locked down, an automation bug can become an account takeover or financial loss event.

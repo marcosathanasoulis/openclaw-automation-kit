@@ -4,7 +4,7 @@ import os
 import subprocess
 import sys
 from dataclasses import dataclass
-from typing import Dict, Tuple
+from typing import Dict
 
 
 @dataclass(frozen=True)
@@ -57,4 +57,3 @@ def resolve_credential_refs(credential_refs: Dict[str, str]) -> CredentialResolu
 def redacted_keys(credential_refs: Dict[str, str]) -> Dict[str, str]:
     # Keep refs visible but never reveal values in logs/responses.
     return {k: v for k, v in credential_refs.items()}
-

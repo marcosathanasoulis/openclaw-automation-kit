@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["summary", "url", "title", "keyword", "keyword_count"],
+  "properties": {
+    "summary": {
+      "type": "string"
+    },
+    "url": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "highlights": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "keyword": {
+      "type": "string"
+    },
+    "keyword_count": {
+      "type": "integer"
+    },
+    "errors": {
+      "type": "array"
+    }
+  }
+}

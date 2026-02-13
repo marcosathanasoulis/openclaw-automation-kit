@@ -36,3 +36,7 @@ If your PR adds browser automation logic:
 - Use human checkpoints for MFA/CAPTCHA.
 - Do not add stealth or anti-bot bypass code.
 - Only submit automations for public sites or workflows where users have legitimate authorized access.
+
+## Platform note
+- Primary validation so far: macOS and Linux.
+- Windows support is expected but less field-tested; Windows-focused bugfix PRs are encouraged.

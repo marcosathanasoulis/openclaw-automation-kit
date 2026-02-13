@@ -4,24 +4,34 @@ These examples are meant to get a new user running quickly, even with manual cre
 
 ## Example set
 
-1. `united.award_search`
+1. `web.public_page_check`
+- No credentials required
+- Public URL smoke test (title + keyword count)
+
+2. `united.award_search`
 - Award travel scan using miles
 - Best for learning date-window extraction
 
-2. `singapore.award_search`
+3. `singapore.award_search`
 - Alternate airline flow with dynamic form behavior
 - Good stress test for waits/selectors
 
-3. `ana.award_search`
+4. `ana.award_search`
 - Additional airline pattern and credential references
 
-4. `github.signin_check` (added for onboarding)
+5. `github.signin_check` (added for onboarding)
 - Login/2FA checkpoint demo pattern
 - Good first script for human-loop wiring
 
 ## Recommended first run
 
-Use plain English:
+```bash
+python -m openclaw_automation.cli run \
+  --script-dir examples/public_page_check \
+  --input '{"url":"https://www.yahoo.com","keyword":"news"}'
+```
+
+Then try plain English:
 
 ```bash
 python -m openclaw_automation.cli run-query \
@@ -48,4 +58,3 @@ They demonstrate:
 - human-loop event patterns
 
 For live production scraping, replace the placeholder extraction code with your OpenClaw browser steps.
-

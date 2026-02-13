@@ -55,9 +55,27 @@ cp .env.example .env
 ```
 Then fill values per `docs/CONFIGURATION.md`.
 
-### 2. Validate example script contracts
+## Platform support
+
+The framework is intended to be cross-platform. Current practical testing has been on:
+- macOS
+- Linux (selected environments)
+
+Windows support is expected but not yet broadly validated in real-world runs.  
+If you hit Windows-specific issues, please open an issue or submit a PR.
+
+### 2. Zero-credential quickstart (works immediately)
 
 ```bash
+python -m openclaw_automation.cli run \
+  --script-dir examples/public_page_check \
+  --input '{"url":"https://www.yahoo.com","keyword":"news"}'
+```
+
+### 3. Validate example script contracts
+
+```bash
+python -m openclaw_automation.cli validate --script-dir examples/public_page_check
 python -m openclaw_automation.cli validate --script-dir examples/united_award
 python -m openclaw_automation.cli validate --script-dir examples/singapore_award
 python -m openclaw_automation.cli validate --script-dir examples/ana_award
@@ -65,7 +83,7 @@ python -m openclaw_automation.cli validate --script-dir examples/bofa_alert
 python -m openclaw_automation.cli validate --script-dir examples/github_signin_check
 ```
 
-### 3. Run an example
+### 4. Run an award example
 
 ```bash
 python -m openclaw_automation.cli run \
@@ -73,7 +91,7 @@ python -m openclaw_automation.cli run \
   --input '{"from":"SFO","to":["AMS","LIS","FCO"],"max_miles":120000,"days_ahead":30,"travelers":2,"cabin":"economy","credential_refs":{"airline_username":"openclaw/united/username","airline_password":"openclaw/united/password"}}'
 ```
 
-### 4. Run from plain English
+### 5. Run from plain English
 
 ```bash
 python -m openclaw_automation.cli run-query \
@@ -82,6 +100,23 @@ python -m openclaw_automation.cli run-query \
 ```
 
 This mode is optimized for award-travel style requests (airline + route + cabin + travelers + mileage cap).
+
+It also supports public page checks:
+
+```bash
+python -m openclaw_automation.cli run-query \
+  --query "Open https://www.yahoo.com and count mentions of news"
+```
+
+More English task examples:
+
+```bash
+python -m openclaw_automation.cli run-query \
+  --query "Load https://crediblemind.com and check if \"mental health\" appears on it"
+
+python -m openclaw_automation.cli run-query \
+  --query "Search United award travel business from SFO to AMS,LIS,FCO for 2 travelers in next 30 days under 120k miles"
+```
 
 ## OpenClaw integration model
 
@@ -114,6 +149,18 @@ Also see:
 ## Security and credentials
 
 Read `/Users/Marcos/code-projects/openclaw-automation-kit/docs/CREDENTIALS_AND_2FA.md` before deploying.
+
+### Shared-responsibility warning
+
+If you connect real account credentials + 2FA channels, this system can perform high-impact actions as that user.
+You (the deployer/operator) are fully responsible for:
+- secret storage hardening
+- access control to the automation runtime
+- approval gates for sensitive actions
+- webhook and messaging channel security
+- audit logging and incident response
+
+If you cannot operate those controls safely, do not run credentialed automations.
 
 It documents:
 - macOS Keychain setup

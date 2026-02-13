@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Deque, Dict, List, Set
+from typing import Deque, Dict, List
 
 
 @dataclass
@@ -77,4 +77,3 @@ class RunQueue:
             "held_locks": self.locks.held_locks(),
             "max_concurrent_runs": self.max_concurrent_runs,
         }
-
