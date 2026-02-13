@@ -6,6 +6,10 @@ Current skill packages:
 - `skills/openclaw-web-automation-basic` (no credentials)
 - `skills/openclaw-award-search` (credentials + 2FA human-loop)
 
+Local skill entrypoints:
+- `python skills/openclaw-web-automation-basic/scripts/run_query.py --query "..."`
+- `python skills/openclaw-award-search/scripts/run_query.py --query "..." --credential-refs '{...}'`
+
 ## 1. Install CLI and authenticate
 
 ```bash

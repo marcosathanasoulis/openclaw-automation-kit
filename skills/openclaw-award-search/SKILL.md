@@ -22,15 +22,34 @@ Examples:
 Use the built-in plain-English path:
 
 ```bash
-python -m openclaw_automation.cli run-query --query "<user request>"
+python skills/openclaw-award-search/scripts/run_query.py --query "<user request>"
 ```
 
 If credentials are needed, include refs:
 
 ```bash
-python -m openclaw_automation.cli run-query \
+python skills/openclaw-award-search/scripts/run_query.py \
   --query "<user request>" \
   --credential-refs '{"airline_username":"openclaw/united/username","airline_password":"openclaw/united/password"}'
+```
+
+Optional iMessage notification via BlueBubbles (dry run by default):
+
+```bash
+python skills/openclaw-award-search/scripts/run_query.py \
+  --query "<user request>" \
+  --credential-refs '{"airline_username":"openclaw/united/username","airline_password":"openclaw/united/password"}' \
+  --notify-imessage "+14152268266"
+```
+
+Actually send:
+
+```bash
+python skills/openclaw-award-search/scripts/run_query.py \
+  --query "<user request>" \
+  --credential-refs '{"airline_username":"openclaw/united/username","airline_password":"openclaw/united/password"}' \
+  --notify-imessage "+14152268266" \
+  --send-notification
 ```
 
 ## Safety
