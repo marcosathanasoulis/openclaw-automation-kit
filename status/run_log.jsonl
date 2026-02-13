@@ -1,0 +1,2 @@
+{"timestamp_utc": "2026-02-13T04:30:00Z", "script_id": "singapore.award_search", "status": "pass", "duration_seconds": 180, "notes": "SIA hybrid test - 3 steps login, Playwright form fill, 25 entries scraped, 0 matches under 120K miles", "agent": "opus"}
+{"timestamp_utc": "2026-02-13T08:57:03Z", "script_id": "united.award_search", "status": "pass", "duration_seconds": 318.1, "notes": "SFO-NRT business 1pax, elapsed=318.1s, 0 matches", "agent": "opus"}

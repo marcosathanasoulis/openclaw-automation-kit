@@ -97,3 +97,74 @@ Both agents can now run browser tests in parallel on different machines. CDPLock
 6. **Daily regression** — script exists (`scripts/collect_automation_status.py --write-readme`) but needs browser test integration
 7. **SSH timeout** — long-running browser tests drop SSH connections. Use nohup or tmux
 8. **ANTHROPIC_API_KEY** — must be in env when running via nohup (use wrapper script with `set -a && source .env`)
+9. **BofA runner is a stub** — returns starter message only
+10. **No human-loop callback wiring** — GitHub 2FA emits event but nothing picks it up
+11. **Award runners need ANTHROPIC_API_KEY** — BrowserAgent uses Claude API for vision
+
+---
+
+## Cooldown Rules (MANDATORY)
+
+Some airline sites (especially Singapore Airlines with Akamai) will block or throttle repeated automated requests. **Always check cooldowns before running browser tests.**
+
+| Site | Min Gap Between Runs | Reason |
+|---|---|---|
+| Singapore Airlines | 5 minutes | Akamai WAF, aggressive rate limiting |
+| AeroMexico | 3 minutes | reCAPTCHA sensitivity increases |
+| United | 2 minutes | Generally tolerant but don't hammer |
+| ANA | 2 minutes | Moderate rate limiting |
+| Delta | 2 minutes | Generally tolerant |
+| BofA | 5 minutes | Sensitive to rapid logins |
+
+### Run Log
+
+All automation runs MUST be logged to `status/run_log.jsonl`. Use the helper:
+
+```bash
+# Log a completed run:
+python log_run.py --script-id "united.award_search" --status pass --duration 104.8 --notes "SFO-CDG business, 2 flights found" --agent opus
+
+# Check cooldown before starting:
+python log_run.py --check-cooldown "singapore.award_search" --min-gap 300
+# Exit code 0 = safe to proceed, 1 = wait
+```
+
+### Taking Things Slow
+
+- Run ONE browser test at a time (CDP lock enforces this)
+- Space out tests for the same airline
+- If a test fails with rate limiting or CAPTCHA, wait 10+ minutes before retrying
+- Prefer testing different airlines in sequence rather than hammering one airline
+
+---
+
+## Chrome Session State (CRITICAL)
+
+**Chrome was restarted on Feb 13 and lost ALL airline session cookies.**
+
+Before running browser tests, airline sites need a manual login first to establish cookies:
+
+| Site | Status | Manual Login Needed |
+|---|---|---|
+| Delta | CAPTCHA on fresh login | Yes - SkyMiles 9396260433 |
+| United | "No account found" error | Yes - MileagePlus ka388724 |
+| Singapore Airlines | Unknown (cookies lost) | Yes |
+| ANA | Unknown (cookies lost) | Yes |
+| AeroMexico | Unknown (cookies lost) | Yes |
+
+### How to Fix
+1. Open Chrome on Mac Mini (already running with `--remote-debugging-port=9222`)
+2. Navigate to each airline site and log in manually
+3. Complete any CAPTCHA/2FA challenges
+4. Once logged in, the automation can maintain the session
+
+### Why This Happens
+- Airline sites detect automated access patterns on fresh sessions
+- CAPTCHAs, "no account found" errors, and 2FA challenges appear
+- Once a human establishes the session, the automation can use the cookies
+- Chrome was restarted via SSH which cleared all previous sessions
+
+### Browser Agent Fixes (commit 2a30588)
+- Added 15s timeout to page.screenshot()
+- Added crash detection to _take_snapshot and get_interactive_snapshot
+- Prevents infinite hangs on heavy SPA pages (Delta results especially)
