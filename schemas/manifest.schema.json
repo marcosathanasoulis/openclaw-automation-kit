@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["id", "version", "entrypoint", "inputs_schema", "outputs_schema", "permissions"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z0-9]+(\\.[a-z0-9_]+)+$"},
+    "version": {"type": "string"},
+    "entrypoint": {"type": "string"},
+    "inputs_schema": {"type": "string"},
+    "outputs_schema": {"type": "string"},
+    "description": {"type": "string"},
+    "permissions": {
+      "type": "object",
+      "required": ["browser", "network_domains"],
+      "additionalProperties": false,
+      "properties": {
+        "browser": {"type": "boolean"},
+        "network_domains": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "requires_human_steps": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}

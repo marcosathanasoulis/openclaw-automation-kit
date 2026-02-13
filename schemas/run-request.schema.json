@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["script_id", "inputs"],
+  "additionalProperties": false,
+  "properties": {
+    "script_id": {"type": "string"},
+    "script_version": {"type": "string"},
+    "inputs": {"type": "object"},
+    "output_targets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type"],
+        "properties": {
+          "type": {"type": "string"},
+          "url": {"type": "string"}
+        }
+      }
+    }
+  }
+}

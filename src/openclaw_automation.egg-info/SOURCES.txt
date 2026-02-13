@@ -1,0 +1,15 @@
+LICENSE
+README.md
+pyproject.toml
+src/openclaw_automation/__init__.py
+src/openclaw_automation/cli.py
+src/openclaw_automation/contract.py
+src/openclaw_automation/engine.py
+src/openclaw_automation.egg-info/PKG-INFO
+src/openclaw_automation.egg-info/SOURCES.txt
+src/openclaw_automation.egg-info/dependency_links.txt
+src/openclaw_automation.egg-info/entry_points.txt
+src/openclaw_automation.egg-info/requires.txt
+src/openclaw_automation.egg-info/top_level.txt
+tests/test_contract_validation.py
+tests/test_run_united.py
