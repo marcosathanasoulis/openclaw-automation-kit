@@ -56,6 +56,7 @@ python -m openclaw_automation.cli validate --script-dir examples/united_award
 python -m openclaw_automation.cli validate --script-dir examples/singapore_award
 python -m openclaw_automation.cli validate --script-dir examples/ana_award
 python -m openclaw_automation.cli validate --script-dir examples/bofa_alert
+python -m openclaw_automation.cli validate --script-dir examples/github_signin_check
 ```
 
 ### 3. Run an example
@@ -96,6 +97,10 @@ Recommended pattern:
 2. Engine sends challenge event to user via webhook adapter.
 3. User replies with solve instructions/token (for example tile indexes).
 4. Script resumes with short-lived `resume_token`.
+
+Also see:
+- `/Users/Marcos/code-projects/openclaw-automation-kit/docs/MESSAGING_HUMAN_LOOP_SETUP.md`
+- `/Users/Marcos/code-projects/openclaw-automation-kit/docs/STARTER_EXAMPLES.md`
 
 ## Security and credentials
 

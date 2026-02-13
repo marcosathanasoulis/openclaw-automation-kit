@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["username", "credential_refs"],
+  "additionalProperties": false,
+  "properties": {
+    "username": {"type": "string"},
+    "credential_refs": {
+      "type": "object",
+      "required": ["password"],
+      "additionalProperties": {"type": "string"}
+    },
+    "messaging_target": {
+      "type": "object",
+      "description": "Connector-specific destination info",
+      "additionalProperties": true
+    }
+  }
+}

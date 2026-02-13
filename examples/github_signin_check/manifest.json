@@ -1,0 +1,13 @@
+{
+  "id": "github.signin_check",
+  "version": "0.1.0",
+  "entrypoint": "runner.py",
+  "inputs_schema": "schemas/input.json",
+  "outputs_schema": "schemas/output.json",
+  "description": "Login check workflow with explicit 2FA human-loop scaffolding",
+  "permissions": {
+    "browser": true,
+    "network_domains": ["github.com"]
+  },
+  "requires_human_steps": ["login_2fa_if_required"]
+}

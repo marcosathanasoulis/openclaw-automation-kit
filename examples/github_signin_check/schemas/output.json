@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["status", "summary", "events", "errors"],
+  "properties": {
+    "status": {"type": "string"},
+    "summary": {"type": "string"},
+    "events": {"type": "array"},
+    "errors": {"type": "array"}
+  }
+}
