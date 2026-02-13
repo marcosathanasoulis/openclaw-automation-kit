@@ -31,4 +31,4 @@ Do not use this software for:
 - unauthorized access
 - fraud, impersonation, or abuse
 - bypassing access controls or anti-bot protections in violation of terms/law
-
+- automating non-public accounts/systems unless you already have legitimate access and permission

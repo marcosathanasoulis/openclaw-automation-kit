@@ -130,6 +130,16 @@ See also:
 - `/Users/Marcos/code-projects/openclaw-automation-kit/docs/CONFIGURATION.md`
 - `/Users/Marcos/code-projects/openclaw-automation-kit/DISCLAIMER.md`
 
+## Acceptable use
+
+We do **not** condone use of this project to automate:
+- accounts, systems, or data you do not legitimately own or have explicit authorization to access
+- private sites/services without permission
+
+Use is intended for:
+- public websites
+- your own authorized accounts and workflows
+
 ## Connectors (bring your own)
 
 This repo intentionally keeps delivery adapters separate.

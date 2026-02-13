@@ -35,3 +35,4 @@ If your PR adds browser automation logic:
 - Scope scripts to least privilege.
 - Use human checkpoints for MFA/CAPTCHA.
 - Do not add stealth or anti-bot bypass code.
+- Only submit automations for public sites or workflows where users have legitimate authorized access.
