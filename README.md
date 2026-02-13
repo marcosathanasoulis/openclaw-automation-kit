@@ -268,6 +268,12 @@ Provider/integration PRs must include at least one deterministic test case we ca
 
 Apache-2.0
 
+## Development note
+
+This project was produced with AI-assisted implementation under experienced developer oversight and extensive testing.
+That does not create any warranty or guarantee that the software will work for every environment or use case.
+See [`DISCLAIMER.md`](DISCLAIMER.md) and [`SECURITY.md`](SECURITY.md).
+
 <!-- AUTOMATION_STATUS:START -->
 ## Daily Automation Health
 
