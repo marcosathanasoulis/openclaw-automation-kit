@@ -12,19 +12,19 @@
 
 **Fix**: Removed locking from the adapter. BrowserAgent handles its own locking internally in `_start_browser()` / `_stop_browser()`. The adapter just imports, instantiates, and calls `run()`.
 
-**For other agents**: If you're calling BrowserAgent through the adapter, locking is automatic. If calling BrowserAgent directly, it also locks automatically. You do NOT need to manually acquire CDPLock.
-
 ---
 
-## What's on the PR branch (feat/skill-manifests-and-tests)
+## What is on the PR branch (feat/skill-manifests-and-tests)
 
 ### Already committed and pushed:
 
 1. **Skill manifests + schemas + runners** for both skill directories
-2. **14 new tests** (32 total, all passing)
-3. **Lint fix** (E402 — imports moved inside `run()`)
+2. **New tests** (34 total, all passing) including error handling, NL parser, skill runners
+3. **Lint fix** (E402 -- imports moved inside `run()`)
 4. **Double-lock fix** in browser_agent_adapter.py
 5. **INPROCESS.md** for coordination
+6. **Standalone integration test** (`test_integration_united.py`)
+7. **Merged Codex PR #2**: placeholder mode, contracts, parser coverage
 
 ### On main (already merged):
 
@@ -36,38 +36,21 @@
 
 ---
 
-## Testing Coordination
+## Browser Test Results
 
-### Setup on Mac Mini for real browser tests:
-```bash
-# Clone and checkout PR branch:
-cd /tmp && git clone git@github.com:marcosathanasoulis/openclaw-automation-kit.git
-cd openclaw-automation-kit && git checkout feat/skill-manifests-and-tests
-
-# Install with the project venv:
-~/athanasoulis-ai-assistant/.venv/bin/pip install -e '.[dev]'
-
-# Environment for BrowserAgent integration:
-export OPENCLAW_USE_BROWSER_AGENT=true
-export OPENCLAW_BROWSER_AGENT_MODULE=browser_agent
-export OPENCLAW_BROWSER_AGENT_PATH=~/athanasoulis-ai-assistant/src/browser
-export OPENCLAW_CDP_URL=http://127.0.0.1:9222
-export ANTHROPIC_API_KEY=<key>
-```
-
-### Test split:
-| Skill/Runner | Agent | Status |
-|---|---|---|
-| public_page_check (Yahoo) | Opus | DONE - works |
-| Credential resolution pipeline | Opus | DONE - works |
-| github_signin_check (2FA flow) | Opus | DONE - works |
-| United award (BrowserAgent) | **Codes** | TODO |
-| SIA award (BrowserAgent) | **Codes** | TODO |
-| ANA award (BrowserAgent) | **Codes** | TODO |
-| bofa_alert | — | STUB (needs implementation) |
+| Test | Agent | Status | Notes |
+|---|---|---|---|
+| public_page_check (Yahoo) | Opus | PASS | Engine pipeline works end-to-end |
+| Credential resolution | Opus | PASS | env vars + keychain chain |
+| United award (1 traveler) | Opus | Pipeline OK | Hit 60-step limit on travelers UI bug |
+| United award (2 travelers) | Opus | Pipeline OK | Search executed, SSH dropped at step 17 |
+| United award to CDG | Codex | Pipeline OK | Ran via CLI |
+| SIA award search | Codex | Running | PID 45370 |
+| CDPLock cross-agent | Both | PASS | Opus waited 85s for Codex lock, acquired when released |
+| ANA award search | -- | TODO | |
 
 ### CDPLock rules:
-- BrowserAgent handles locking automatically — no manual lock needed
+- BrowserAgent handles locking automatically
 - Only one browser automation at a time on Mac Mini
 - Lock file: `/tmp/browser_cdp.lock`
 - If a lock gets stuck: check `cat /tmp/browser_cdp.lock` for PID, verify with `ps`
@@ -76,6 +59,7 @@ export ANTHROPIC_API_KEY=<key>
 
 ## Remaining Gaps
 
-1. **BofA runner is a stub** — returns starter message only
-2. **No human-loop callback wiring** — GitHub 2FA emits event but nothing picks it up
-3. **Award runners need ANTHROPIC_API_KEY** — BrowserAgent uses Claude API for vision
+1. **BofA runner is a stub** -- returns starter message only
+2. **No human-loop callback wiring** -- GitHub 2FA emits event but nothing picks it up
+3. **Award runners need ANTHROPIC_API_KEY** -- BrowserAgent uses Claude API for vision
+4. **SSH timeout** -- long-running browser tests drop SSH connections. Use nohup or tmux
