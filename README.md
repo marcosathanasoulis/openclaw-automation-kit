@@ -8,6 +8,25 @@ This project is designed for people who want to:
 - Expose a stable API for execution and scheduling
 - Keep channel delivery (WhatsApp/iMessage/Slack/email) pluggable
 
+## What makes this useful
+
+You can give plain-English instructions and have the automation execute real browser tasks, including authenticated flows:
+- "Log in and check if business-class award seats to Europe are under 120k miles."
+- "Open a dashboard and confirm if a specific metric changed today."
+- "Go to my bank alerts page and report new notices."
+
+For protected flows, it supports semi-automated human checkpoints:
+- 2FA codes via chat channels (iMessage/WhatsApp/email connectors)
+- CAPTCHA pause + human solve + resume
+
+For image-based challenges (CAPTCHA/screenshot review), the practical pattern is:
+1. save challenge image locally,
+2. publish it via a lightweight HTTP endpoint (local service, tunnel, or your own web server),
+3. send that link in chat,
+4. accept user reply token/instructions and resume the run.
+
+This keeps humans in control while still automating the repetitive browser work.
+
 ## Why this exists
 
 Most automation projects fail on structure: scripts are ad-hoc, outputs are inconsistent, and adding contributors is risky.
