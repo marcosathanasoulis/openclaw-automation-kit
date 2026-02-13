@@ -95,3 +95,34 @@ export ANTHROPIC_API_KEY=<key>
 - CDP coordination:
   - One run at a time only.
   - Respect `/tmp/browser_cdp.lock` ownership and avoid parallel launches.
+
+## Codex update (2026-02-13, later)
+
+- Extraction gap mitigation pushed on branch `codex/fix-award-extraction-gap`:
+  - `src/openclaw_automation/result_extract.py`
+  - `library/united_award/runner.py`
+  - `library/singapore_award/runner.py`
+  - `library/ana_award/runner.py`
+  - `tests/test_result_extract.py`
+- Change details:
+  - runners now instruct BrowserAgent to return strict `MATCH|...` lines
+  - parser now prioritizes `MATCH|...` format, then falls back to legacy patterns
+  - additional fallback parses standalone `130,000 miles` style mentions
+- Validation:
+  - local tests: `22 passed`
+
+## Parallel CDP endpoint on home-mind.local
+
+- Chromium headless CDP endpoint is now runnable on Ubuntu host as a second automation target.
+- Launch command (already validated):
+  ```bash
+  nohup /snap/bin/chromium --headless=new --disable-gpu \
+    --remote-debugging-address=127.0.0.1 --remote-debugging-port=9223 \
+    --user-data-dir=/home/marcos/snap/chromium/common/openclaw/profile-9223 \
+    about:blank >/home/marcos/snap/chromium/common/openclaw/logs/chromium-9223.log 2>&1 &
+  ```
+- Health check:
+  ```bash
+  curl -sS http://127.0.0.1:9223/json/version
+  ```
+- Note: for cross-machine usage, either run automation directly on `home-mind.local` or tunnel `9223`; current bind is loopback for safety.
