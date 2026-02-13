@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["query"],
+  "additionalProperties": false,
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "Natural-language award search request, e.g. 'search United SFO to NRT business 2 people max 100k'"
+    },
+    "credential_refs": {
+      "type": "object",
+      "additionalProperties": {"type": "string"},
+      "description": "Logical references to OS/cloud secrets (not raw credentials)"
+    }
+  }
+}
