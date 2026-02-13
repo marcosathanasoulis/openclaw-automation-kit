@@ -245,3 +245,19 @@ Provider/integration PRs must include at least one deterministic test case we ca
 ## License
 
 Apache-2.0
+
+<!-- AUTOMATION_STATUS:START -->
+## Daily Automation Health
+
+_Last generated (UTC): 2026-02-13 04:08:34_
+
+| Automation | Location | Validate | Smoke | Status | Notes |
+|---|---|---|---|---|---|
+| `ana.award_search` | `library/ana_award` | pass | pass | ✅ pass | ok |
+| `bofa.account_alerts` | `library/bofa_alert` | pass | pass | ✅ pass | ok |
+| `github.signin_check` | `library/github_signin_check` | pass | pass | ✅ pass | ok |
+| `singapore.award_search` | `library/singapore_award` | pass | pass | ✅ pass | ok |
+| `united.award_search` | `library/united_award` | pass | pass | ✅ pass | ok |
+| `web.public_page_check` | `examples/public_page_check` | pass | pass | ✅ pass | ok |
+
+<!-- AUTOMATION_STATUS:END -->

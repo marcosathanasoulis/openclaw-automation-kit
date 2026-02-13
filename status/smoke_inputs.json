@@ -1,0 +1,43 @@
+{
+  "web.public_page_check": {
+    "url": "https://www.yahoo.com",
+    "keyword": "news"
+  },
+  "united.award_search": {
+    "from": "SFO",
+    "to": ["AMS", "LIS", "FCO"],
+    "days_ahead": 30,
+    "max_miles": 120000,
+    "travelers": 2,
+    "cabin": "economy"
+  },
+  "singapore.award_search": {
+    "from": "SFO",
+    "to": ["SIN", "BKK"],
+    "days_ahead": 30,
+    "max_miles": 120000,
+    "travelers": 2,
+    "cabin": "economy"
+  },
+  "ana.award_search": {
+    "from": "SFO",
+    "to": ["HND"],
+    "days_ahead": 30,
+    "max_miles": 120000,
+    "travelers": 2,
+    "cabin": "economy"
+  },
+  "bofa.account_alerts": {
+    "query": "Show latest account alerts"
+  },
+  "github.signin_check": {
+    "username": "demo-user",
+    "credential_refs": {
+      "password": "openclaw/github/password"
+    },
+    "messaging_target": {
+      "type": "imessage",
+      "address": "+15555550123"
+    }
+  }
+}

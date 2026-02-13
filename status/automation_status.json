@@ -1,0 +1,57 @@
+{
+  "generated_at_utc": "2026-02-13 04:08:34",
+  "total": 6,
+  "pass": 6,
+  "fail": 0,
+  "skip": 0,
+  "results": [
+    {
+      "script_id": "ana.award_search",
+      "location": "library/ana_award",
+      "validate_ok": true,
+      "smoke_ok": true,
+      "status": "PASS",
+      "notes": "ok"
+    },
+    {
+      "script_id": "bofa.account_alerts",
+      "location": "library/bofa_alert",
+      "validate_ok": true,
+      "smoke_ok": true,
+      "status": "PASS",
+      "notes": "ok"
+    },
+    {
+      "script_id": "github.signin_check",
+      "location": "library/github_signin_check",
+      "validate_ok": true,
+      "smoke_ok": true,
+      "status": "PASS",
+      "notes": "ok"
+    },
+    {
+      "script_id": "singapore.award_search",
+      "location": "library/singapore_award",
+      "validate_ok": true,
+      "smoke_ok": true,
+      "status": "PASS",
+      "notes": "ok"
+    },
+    {
+      "script_id": "united.award_search",
+      "location": "library/united_award",
+      "validate_ok": true,
+      "smoke_ok": true,
+      "status": "PASS",
+      "notes": "ok"
+    },
+    {
+      "script_id": "web.public_page_check",
+      "location": "examples/public_page_check",
+      "validate_ok": true,
+      "smoke_ok": true,
+      "status": "PASS",
+      "notes": "ok"
+    }
+  ]
+}
