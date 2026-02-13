@@ -18,7 +18,11 @@ def _goal(inputs: Dict[str, Any]) -> str:
         f"Cabin: {inputs.get('cabin', 'economy')}. "
         f"Days ahead: {inputs['days_ahead']}. "
         f"Max miles: {inputs['max_miles']}. "
-        "Prefer mixed-cabin hidden and sort by miles in requested cabin."
+        "Prefer mixed-cabin hidden and sort by miles in requested cabin. "
+        "When you finish, respond with ONLY lines in this exact format: "
+        "MATCH|YYYY-MM-DD|MILES|TAXES|STOPS|CARRIER|NOTES. "
+        "If you cannot determine a value, use 'unknown'. "
+        "Only include matches at or under max miles."
     )
 
 
