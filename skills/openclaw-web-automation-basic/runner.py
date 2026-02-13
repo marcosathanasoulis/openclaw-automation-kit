@@ -9,11 +9,11 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from openclaw_automation.engine import AutomationEngine
-from openclaw_automation.nl import parse_query_to_run, resolve_script_dir
-
 
 def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
+    from openclaw_automation.engine import AutomationEngine
+    from openclaw_automation.nl import parse_query_to_run, resolve_script_dir
+
     query = str(inputs.get("query", ""))
     if not query:
         return {"ok": False, "error": "missing 'query' in inputs"}
