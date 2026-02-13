@@ -1,97 +1,58 @@
-# Handoff: Multi-Agent Coordination for OpenClaw Automation Kit
+# Handoff: Multi-Agent Coordination
 
 **Last updated by**: Claude Opus agent
-**Branch**: `feat/skill-manifests-and-tests` (PR #1)
-**PR URL**: https://github.com/marcosathanasoulis/openclaw-automation-kit/pull/1
+**Updated**: 2026-02-13 06:55 UTC
 
 ---
 
-## CRITICAL: Double-Lock Bug Fixed (commit 8b58824)
+## CURRENT STATUS: Full Test Suite Running
 
-**`browser_agent_adapter.py` was deadlocking.** The adapter acquired CDPLock, then BrowserAgent._start_browser() tried to acquire the SAME lock file. Same PID = deadlock.
+### Comprehensive test suite results (in progress):
 
-**Fix**: Removed locking from the adapter. BrowserAgent handles its own locking internally in `_start_browser()` / `_stop_browser()`. The adapter just imports, instantiates, and calls `run()`.
+| Test | Mode | Status | Time |
+|---|---|---|---|
+| Public page check (Yahoo) | live | PASS | 0.6s |
+| GitHub signin check | - | EXCEPTION (input schema mismatch) | - |
+| United placeholder | placeholder | PASS | 0.0s |
+| SIA placeholder | placeholder | PASS | 0.0s |
+| ANA placeholder | placeholder | PASS | 0.0s |
+| AeroMexico placeholder | placeholder | PASS | 0.0s |
+| BofA placeholder | placeholder | PASS | 0.0s |
+| Chase placeholder | placeholder | PASS | 0.0s |
+| **United (BROWSER)** | **live** | **PASS** | **104.8s** |
+| **BofA (BROWSER)** | **live** | **PASS** | **33.4s** |
+| **ANA (BROWSER)** | **live** | **PASS** | **98.8s** |
+| AeroMexico (BROWSER) | live | running... | - |
+| Chase (BROWSER) | - | pending | - |
+| SIA (BROWSER) | - | pending | - |
 
-**For other agents**: If you're calling BrowserAgent through the adapter, locking is automatic. If calling BrowserAgent directly, it also locks automatically. You do NOT need to manually acquire CDPLock.
-
----
-
-## What's on the PR branch (feat/skill-manifests-and-tests)
-
-### Already committed and pushed:
-
-1. **Skill manifests + schemas + runners** for both skill directories
-2. **14 new tests** (32 total, all passing)
-3. **Lint fix** (E402 — imports moved inside `run()`)
-4. **Double-lock fix** in browser_agent_adapter.py
-5. **INPROCESS.md** for coordination
-
-### On main (already merged):
-
-1. Security fix (phone number removed from SKILL.md)
-2. Engine robustness (error handling, output validation, placeholder mode)
-3. NL parser improvements (airline aliases, service routing, airport code exclusions)
-4. page_ready.py utility
-5. Connector __init__.py files
+### CDPLock is held by full_test_suite.py (PID 57274) on Mac Mini
 
 ---
 
-## Testing Coordination
+## New Runners Added (by Opus)
+- `library/aeromexico_award/` - Club Premier award search with reCAPTCHA tips
+- `library/chase_balance/` - UR points balance with push 2FA
+- Updated: `library/ana_award/` - step-by-step ANA-specific URL + form
+- Updated: `library/bofa_alert/` - BrowserAgent integration with login flow
+- Updated: `library/united_award/` - improved step-by-step goal
+- Updated: `library/singapore_award/` - KrisFlyer Vue.js-aware goal
 
-### Setup on Mac Mini for real browser tests:
-```bash
-# Clone and checkout PR branch:
-cd /tmp && git clone git@github.com:marcosathanasoulis/openclaw-automation-kit.git
-cd openclaw-automation-kit && git checkout feat/skill-manifests-and-tests
+## Dual CDP Setup (by Codex)
+- Mac Mini: `http://127.0.0.1:9222` (real Chrome, full credentials)
+- home-mind: `http://127.0.0.1:9223` (Chromium, limited credentials)
 
-# Install with the project venv:
-~/athanasoulis-ai-assistant/.venv/bin/pip install -e '.[dev]'
+## Known Issues
+- SIA Vue.js form submission: search button click does not trigger reliably
+  - Proven fix (from sia_search_v5.py): use Playwright directly for form fill, BrowserAgent only for login
+  - The pure BrowserAgent approach fails on form submission
+- GitHub signin check input schema requires `username` field, not `url`
+- AeroMexico reCAPTCHA: must use char-by-char press, not js_eval
+- Chase: requires push 2FA (user must approve on phone)
 
-# Environment for BrowserAgent integration:
-export OPENCLAW_USE_BROWSER_AGENT=true
-export OPENCLAW_BROWSER_AGENT_MODULE=browser_agent
-export OPENCLAW_BROWSER_AGENT_PATH=~/athanasoulis-ai-assistant/src/browser
-export OPENCLAW_CDP_URL=http://127.0.0.1:9222
-export ANTHROPIC_API_KEY=<key>
-```
-
-### Test split:
-| Skill/Runner | Agent | Status |
-|---|---|---|
-| public_page_check (Yahoo) | Opus | DONE - works |
-| Credential resolution pipeline | Opus | DONE - works |
-| github_signin_check (2FA flow) | Opus | DONE - works |
-| United award (BrowserAgent) | **Codes** | TODO |
-| SIA award (BrowserAgent) | **Codes** | TODO |
-| ANA award (BrowserAgent) | **Codes** | TODO |
-| bofa_alert | — | STUB (needs implementation) |
-
-### CDPLock rules:
-- BrowserAgent handles locking automatically — no manual lock needed
-- Only one browser automation at a time on Mac Mini
-- Lock file: `/tmp/browser_cdp.lock`
-- If a lock gets stuck: check `cat /tmp/browser_cdp.lock` for PID, verify with `ps`
-
----
-
-## Remaining Gaps
-
-1. **BofA runner is a stub** — returns starter message only
-2. **No human-loop callback wiring** — GitHub 2FA emits event but nothing picks it up
-3. **Award runners need ANTHROPIC_API_KEY** — BrowserAgent uses Claude API for vision
-
----
-
-## Codex update (2026-02-13)
-
-- Pulled latest `main` on local and Mac Mini.
-- Merged PRs:
-  - `#2` hardening (placeholder signaling, output validation, parser/docs updates)
-  - `#3` adapter deadlock fix (no duplicate lock acquisition)
-- Current live test status (Mac Mini):
-  - United via public engine path: **completed** (BrowserAgent run finished, trace emitted)
-  - Singapore via public engine path: **running**
-  - ANA via public engine path: **pending**
-- CDP coordination:
-  - One run at a time only.
-  - Respect `/tmp/browser_cdp.lock` ownership and avoid parallel launches.
+## Coordination Rules
+1. Check INPROCESS.md and HANDOFF.md before starting work
+2. Pull latest before making changes
+3. CDPLock prevents concurrent browser automation
+4. Commit and push changes immediately so the other agent can see them
+5. Do NOT revert or overwrite the other agents changes without coordination
