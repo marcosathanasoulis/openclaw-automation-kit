@@ -47,8 +47,11 @@ def _run_query(root: Path, query: str, credential_refs: str) -> dict:
 
 
 def _notify_imessage(target: str, summary: str) -> None:
-    # Deferred import so the skill can run without requests/connector setup.
-    from connectors.imessage_bluebubbles.webhook_example import send_imessage
+    # Deferred import so the skill can run without connector setup.
+    try:
+        from connectors.imessage_bluebubbles.webhook_example import send_imessage
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError("BlueBubbles connector is not installed/configured") from exc
 
     send_imessage(target, summary)
 

@@ -39,6 +39,7 @@ Use these when integrating an external `BrowserAgent` implementation (for exampl
 ### `OPENCLAW_BROWSER_AGENT_PATH`
 - Filesystem path to append to `sys.path` before import.
 - Example: `/Users/you/athanasoulis-ai-assistant/src/browser`
+- Security note: this is dynamic module loading. Treat this path as trusted code only.
 
 ### `OPENCLAW_CDP_URL`
 - Chrome DevTools endpoint used by BrowserAgent.
@@ -46,7 +47,7 @@ Use these when integrating an external `BrowserAgent` implementation (for exampl
 
 ### `OPENCLAW_CDP_LOCK_FILE`
 - File lock path used to serialize CDP BrowserAgent runs.
-- Default: `/tmp/browser_cdp.lock`
+- Default: `~/.openclaw/browser_cdp.lock`
 
 ### `OPENCLAW_CDP_LOCK_TIMEOUT`
 - Max seconds to wait for CDP lock before failing.

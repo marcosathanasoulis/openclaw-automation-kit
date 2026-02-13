@@ -3,7 +3,7 @@
 Automation reliability depends on scheduling discipline.  
 Do not rely on ad-hoc parallel tabs in a shared browser profile.
 
-## Default policy
+## Target policy (design)
 - Queue all runs.
 - `max_concurrent_runs = 1` by default.
 - Only raise concurrency for scripts proven isolation-safe.
@@ -39,7 +39,7 @@ If a required lock is held:
 
 For BrowserAgent-based runs, this repo now uses a file lock to serialize access
 to shared Chrome CDP sessions:
-- default lock file: `/tmp/browser_cdp.lock`
+- default lock file: `~/.openclaw/browser_cdp.lock`
 - stale PID detection and cleanup
 - bounded wait with timeout/retry controls
 
@@ -48,14 +48,14 @@ Config:
 - `OPENCLAW_CDP_LOCK_TIMEOUT`
 - `OPENCLAW_CDP_LOCK_RETRY_SECONDS`
 
-## Queue behavior
+## Queue behavior (planned)
 
 - FIFO with optional priority classes
 - retry on transient failures
 - cooldown/rate-limit support per site
 - idempotent run IDs for replay safety
 
-## Human-loop interactions
+## Human-loop interactions (planned)
 
 When a run pauses for challenge handling (`SECOND_FACTOR_REQUIRED`/`CAPTCHA_REQUIRED`):
 - keep ownership on the same run id

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from datetime import date, timedelta
 from typing import Any, Dict, List
 
@@ -56,6 +57,8 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
                 ]
             )
             return {
+                "mode": "live",
+                "real_data": True,
                 "matches": run_result.get("matches", []),
                 "summary": (
                     "BrowserAgent run completed for United award search. "
@@ -66,6 +69,10 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
             }
         observations.append(f"BrowserAgent adapter error: {agent_run['error']}")
 
+    print(
+        "WARNING: BrowserAgent not enabled. Results are placeholder data.",
+        file=sys.stderr,
+    )
     matches = [
         {
             "route": f"{inputs['from']}-{destinations[0]}",
@@ -74,13 +81,15 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
             "travelers": int(inputs["travelers"]),
             "cabin": cabin,
             "mixed_cabin": False,
-            "notes": "starter mode placeholder result",
+            "notes": "placeholder result",
         }
     ]
 
     return {
+        "mode": "placeholder",
+        "real_data": False,
         "matches": matches,
-        "summary": f"Found {len(matches)} match(es) <= {max_miles} miles (starter mode)",
+        "summary": f"PLACEHOLDER: Found {len(matches)} synthetic match(es) <= {max_miles} miles",
         "raw_observations": observations,
         "errors": [],
     }
