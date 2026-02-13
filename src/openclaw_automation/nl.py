@@ -23,9 +23,71 @@ AIRLINE_TO_SCRIPT = {
     "bank of america": "library/bofa_alert",
     "bofa": "library/bofa_alert",
     "boa": "library/bofa_alert",
-    "github": "library/github_signin_check",
     "github login": "library/github_signin_check",
     "github signin": "library/github_signin_check",
+    "github": "library/github_signin_check",
+}
+
+KNOWN_AIRPORT_CODES = {
+    "AMS",
+    "ATH",
+    "BKK",
+    "CDG",
+    "EZE",
+    "FCO",
+    "FRA",
+    "GIG",
+    "GRU",
+    "HND",
+    "LHR",
+    "LIS",
+    "MEX",
+    "NRT",
+    "SFO",
+    "SIN",
+}
+
+COMMON_THREE_LETTER_WORDS = {
+    "ANA",
+    "THE",
+    "AND",
+    "FOR",
+    "ONE",
+    "TWO",
+    "ALL",
+    "ANY",
+    "NOT",
+    "BUT",
+    "HAS",
+    "HAD",
+    "HER",
+    "HIS",
+    "HOW",
+    "ITS",
+    "LET",
+    "MAY",
+    "NEW",
+    "NOW",
+    "OLD",
+    "OUR",
+    "OUT",
+    "OWN",
+    "SAY",
+    "SHE",
+    "TOO",
+    "USE",
+    "WAY",
+    "WHO",
+    "BOY",
+    "DID",
+    "GET",
+    "HIM",
+    "MAN",
+    "RUN",
+    "DAY",
+    "FLY",
+    "MAX",
+    "VIA",
 }
 
 
@@ -50,12 +112,10 @@ def _extract_url(query: str) -> str | None:
 
 
 def _extract_keyword(query: str, default: str = "news") -> str:
-    # Highest priority: quoted text, e.g. "mental health"
     quoted = re.search(r"\"([^\"]{2,80})\"", query)
     if quoted:
         return quoted.group(1).strip()
 
-    # Task phrases
     patterns = [
         r"(?:mentions?|count|times?)\s+of\s+([a-zA-Z][a-zA-Z0-9_\-\s]{1,60})",
         r"check\s+(?:if\s+)?([a-zA-Z][a-zA-Z0-9_\-\s]{1,60})\s+(?:is|exists|appears)",
@@ -73,14 +133,10 @@ def _extract_keyword(query: str, default: str = "news") -> str:
 
 def _extract_airport_codes(query: str) -> List[str]:
     codes = re.findall(r"\b[A-Z]{3}\b", query)
-    excluded = {
-        "ANA", "THE", "AND", "FOR", "ONE", "TWO", "ALL", "ANY", "NOT",
-        "BUT", "HAS", "HAD", "HER", "HIS", "HOW", "ITS", "LET", "MAY",
-        "NEW", "NOW", "OLD", "OUR", "OUT", "OWN", "SAY", "SHE", "TOO",
-        "USE", "WAY", "WHO", "BOY", "DID", "GET", "HIM", "MAN", "RUN",
-        "DAY", "FLY", "MAX", "VIA",
-    }
-    return [code for code in codes if code not in excluded]
+    known = [code for code in codes if code in KNOWN_AIRPORT_CODES]
+    if known:
+        return known
+    return [code for code in codes if code not in COMMON_THREE_LETTER_WORDS]
 
 
 def _extract_travelers(query: str) -> int:
@@ -153,3 +209,4 @@ def parse_query_to_run(query: str) -> ParsedQuery:
 
 def resolve_script_dir(root: Path, script_dir: str) -> Path:
     return (root / script_dir).resolve()
+

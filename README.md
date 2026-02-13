@@ -15,7 +15,7 @@ Most automation projects fail on structure: scripts are ad-hoc, outputs are inco
 This repository provides:
 - **Automation spec**: manifest + input/output schemas + deterministic entrypoint
 - **Execution engine**: validate inputs, run script, normalize result
-- **API hooks**: send results to webhooks or any downstream connector
+- **CLI hooks**: send results to your own webhooks/connectors
 - **Contribution model**: PR-friendly layout, CI checks, test expectations
 
 ## Architecture
@@ -29,6 +29,18 @@ flowchart LR
   E --> F[Result JSON]
   F --> G[Webhook / Connector]
 ```
+
+## Current status
+
+| Component | Status |
+|---|---|
+| `examples/public_page_check` | Working |
+| `library/*_award` without BrowserAgent integration | Placeholder mode (`mode=placeholder`, `real_data=false`) |
+| `library/*_award` with BrowserAgent integration | Supported, depends on your private BrowserAgent runtime |
+| CDP file lock | Implemented |
+| Queue scheduler orchestration | Planned/design only |
+| CAPTCHA/2FA resume orchestration API | Planned/design only |
+| HTTP API server (`/runs`, `/resume`) | Planned/design only |
 
 ## Repository layout
 
@@ -160,7 +172,7 @@ See `library/united_award/runner.py` for the starter structure.
 
 Read [`docs/CAPTCHA_HUMAN_LOOP.md`](docs/CAPTCHA_HUMAN_LOOP.md).
 
-Recommended pattern:
+Recommended pattern (design reference, not built into core engine yet):
 1. Script detects challenge and captures screenshot + metadata.
 2. Engine sends challenge event to user via webhook adapter.
 3. User replies with solve instructions/token (for example tile indexes).
@@ -207,6 +219,7 @@ Credential policy for this repo:
 
 See also:
 - [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md)
+- [`docs/PRIVATE_TESTING.md`](docs/PRIVATE_TESTING.md)
 - [`DISCLAIMER.md`](DISCLAIMER.md)
 
 ## Acceptable use

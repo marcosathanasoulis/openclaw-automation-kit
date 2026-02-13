@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict
 
-from .cdp_lock import CDPLock
+from .cdp_lock import CDPLock, DEFAULT_LOCK_PATH
 
 
 def browser_agent_enabled() -> bool:
@@ -33,7 +33,7 @@ def run_browser_agent_goal(
     module_name = os.getenv("OPENCLAW_BROWSER_AGENT_MODULE", "browser_agent").strip() or "browser_agent"
     module_path = os.getenv("OPENCLAW_BROWSER_AGENT_PATH", "").strip()
     cdp_url = os.getenv("OPENCLAW_CDP_URL", "http://127.0.0.1:9222").strip() or "http://127.0.0.1:9222"
-    lock_file = Path(os.getenv("OPENCLAW_CDP_LOCK_FILE", "/tmp/browser_cdp.lock"))
+    lock_file = Path(os.getenv("OPENCLAW_CDP_LOCK_FILE", str(DEFAULT_LOCK_PATH)))
     lock_timeout = int(os.getenv("OPENCLAW_CDP_LOCK_TIMEOUT", "600"))
     lock_retry = int(os.getenv("OPENCLAW_CDP_LOCK_RETRY_SECONDS", "5"))
 

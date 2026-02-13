@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+DEFAULT_LOCK_PATH = Path.home() / ".openclaw" / "browser_cdp.lock"
+
 
 def _pid_alive(pid: int) -> bool:
     try:
@@ -27,6 +29,7 @@ class CDPLock:
     owner_pid: int = os.getpid()
 
     def acquire(self) -> None:
+        self.lock_file.parent.mkdir(parents=True, exist_ok=True)
         deadline = time.monotonic() + max(1, self.timeout_seconds)
 
         while True:
