@@ -28,6 +28,17 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 - Update this file when starting/stopping long browser runs.
 - Keep entries concise: `owner`, `task`, `resource`, `start_time`, `status`.
 - Move durable information to `HANDOFF.md`; keep this file operational.
+- After live-regression passes, run README/status refresh once (with cooldown gaps for anti-bot sites), then commit.
+
+## Planned Regression/README Sync
+
+- owner: `codex or parallel agent (whoever completes last live pass)`
+- task: `refresh automation status + README section`
+- command:
+  - `python scripts/collect_automation_status.py --write-readme`
+- notes:
+  - run only after live tests are complete and cooldown windows are respected.
+  - this is the final regression signal before release.
 
 ## Example Entry
 
