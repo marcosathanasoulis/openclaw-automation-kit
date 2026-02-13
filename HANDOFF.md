@@ -79,3 +79,19 @@ export ANTHROPIC_API_KEY=<key>
 1. **BofA runner is a stub** — returns starter message only
 2. **No human-loop callback wiring** — GitHub 2FA emits event but nothing picks it up
 3. **Award runners need ANTHROPIC_API_KEY** — BrowserAgent uses Claude API for vision
+
+---
+
+## Codex update (2026-02-13)
+
+- Pulled latest `main` on local and Mac Mini.
+- Merged PRs:
+  - `#2` hardening (placeholder signaling, output validation, parser/docs updates)
+  - `#3` adapter deadlock fix (no duplicate lock acquisition)
+- Current live test status (Mac Mini):
+  - United via public engine path: **completed** (BrowserAgent run finished, trace emitted)
+  - Singapore via public engine path: **running**
+  - ANA via public engine path: **pending**
+- CDP coordination:
+  - One run at a time only.
+  - Respect `/tmp/browser_cdp.lock` ownership and avoid parallel launches.
