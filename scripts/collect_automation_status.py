@@ -145,7 +145,6 @@ def main() -> int:
         try:
             manifest = engine.validate_script(script_dir)
             script_id = str(manifest.get("id", location))
-            validate_ok = True
         except Exception as exc:  # noqa: BLE001
             results.append(
                 AutomationResult(
