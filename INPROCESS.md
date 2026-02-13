@@ -51,6 +51,8 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 - home-mind:
   - independent CDP endpoint `127.0.0.1:9223` is up
   - united/singapore/ana were run live for transport/site behavior checks
+  - real Google Chrome CDP endpoint now active at `127.0.0.1:9225`
+  - cooldown-enforced United live run queued via `/tmp/codex_hm_united_cooldown.sh` (75s delay before run)
 
 ## Example Entry
 
