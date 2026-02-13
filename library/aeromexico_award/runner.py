@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 
 from openclaw_automation.browser_agent_adapter import browser_agent_enabled, run_browser_agent_goal
 
-ANA_URL = "https://aswbe-i.ana.co.jp/international_asw/pages/award/search/roundtrip/award_search_roundtrip_input.xhtml?CONNECTION_KIND=JPN&LANG=en"
+AEROMEXICO_URL = "https://www.aeromexico.com/en-us"
 
 
 def _goal(inputs: Dict[str, Any]) -> str:
@@ -18,32 +18,33 @@ def _goal(inputs: Dict[str, Any]) -> str:
     days_ahead = int(inputs["days_ahead"])
     max_miles = int(inputs["max_miles"])
     depart_date = date.today() + timedelta(days=days_ahead)
-    month_display = depart_date.strftime("%B %Y")
 
     lines = [
-        f"Search for ANA Mileage Club award flights {origin} to {dest} around {month_display}, {cabin} class.",
+        f"Search for AeroMexico Club Premier award flights {origin} to {dest}, {cabin} class.",
         "",
-        "STEP 1 - LOGIN (if needed):",
-        "Check if already logged in (look for a name/welcome message).",
-        "If not logged in, get credentials from keychain for aswbe-i.ana.co.jp.",
-        "ANA Mileage Club number: 4135234365.",
+        "STEP 1 - LOGIN:",
+        "Go to aeromexico.com/en-us. Click 'Log in' or the user icon.",
+        "Get credentials from keychain for www.aeromexico.com (account: 00667826747).",
+        "IMPORTANT: AeroMexico has reCAPTCHA. Type credentials char-by-char using press action,",
+        "NOT js_eval or fill. Human-like input avoids CAPTCHA triggers.",
+        "After login, look for Club Premier balance display.",
         "",
-        "STEP 2 - FILL SEARCH FORM:",
-        "The ANA award search form should be visible.",
-        f"  - Departure: {origin} (San Francisco)",
-        f"  - Arrival: {dest}",
-        f"  - Departure date: {depart_date.isoformat()}",
+        "STEP 2 - NAVIGATE TO AWARD SEARCH:",
+        "Click 'Book' or 'Flights'. Enable 'Use Club Premier points' toggle.",
+        "Fill in:",
+        "  - One-way",
+        f"  - From: {origin}",
+        f"  - To: {dest}",
+        f"  - Date: {depart_date.isoformat()}",
+        f"  - Travelers: {travelers} adult(s)",
         f"  - Cabin: {cabin}",
-        f"  - Passengers: {travelers} adult(s)",
-        "  - Trip type: One-way if available, otherwise round-trip",
-        "NOTE: ANA may default to round-trip. That is OK.",
         "Click Search.",
         "",
         "STEP 3 - READ RESULTS:",
         "After results load, read the available flights.",
-        "ANA shows miles per person. Report what you see.",
+        "Report flight options with their miles cost.",
         f"Note which flights are under {max_miles:,} miles total ({max_miles // travelers:,} per person).",
-        "If CAPTCHA appears, report stuck.",
+        "If no flights are under the limit, say so clearly.",
         "When done reading results, use the done action with your findings.",
     ]
     return "\n".join(lines)
@@ -69,7 +70,7 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
     if browser_agent_enabled():
         agent_run = run_browser_agent_goal(
             goal=_goal(inputs),
-            url=ANA_URL,
+            url=AEROMEXICO_URL,
             max_steps=60,
             trace=True,
             use_vision=True,
@@ -89,7 +90,7 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
                 "real_data": True,
                 "matches": run_result.get("matches", []),
                 "summary": (
-                    "BrowserAgent run completed for ANA award search. "
+                    "BrowserAgent run completed for AeroMexico award search. "
                     "If matches is empty, extraction mapping is still in progress."
                 ),
                 "raw_observations": observations,
@@ -105,7 +106,7 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
         {
             "route": f"{inputs['from']}-{destinations[0]}",
             "date": today.isoformat(),
-            "miles": min(65000, max_miles),
+            "miles": min(50000, max_miles),
             "travelers": int(inputs["travelers"]),
             "cabin": cabin,
             "mixed_cabin": False,
@@ -117,7 +118,7 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
         "mode": "placeholder",
         "real_data": False,
         "matches": matches,
-        "summary": f"PLACEHOLDER: Found {len(matches)} synthetic ANA match(es) <= {max_miles} miles",
+        "summary": f"PLACEHOLDER: Found {len(matches)} synthetic AeroMexico match(es) <= {max_miles} miles",
         "raw_observations": observations,
         "errors": [],
     }
