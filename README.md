@@ -8,6 +8,24 @@ This project is designed for people who want to:
 - Expose a stable API for execution and scheduling
 - Keep channel delivery (WhatsApp/iMessage/Slack/email) pluggable
 
+## OpenClaw-first usage
+
+This kit is optimized for OpenClaw users first:
+- You can ask in plain English from chat.
+- The automation runs in a real browser session.
+- If 2FA is needed, default behavior is human-in-the-loop via chat prompt.
+- If you configure connectors (iMessage/WhatsApp/email), the same 2FA step can be routed there.
+
+Default 2FA pattern for OpenClaw chat:
+1. automation pauses and asks for code,
+2. you reply in chat with the code/token,
+3. automation resumes.
+
+Optional routing:
+- iMessage (BlueBubbles connector)
+- WhatsApp Cloud API connector
+- Email connector
+
 ## What makes this useful
 
 You can give plain-English instructions and have the automation execute real browser tasks, including authenticated flows:
@@ -16,7 +34,7 @@ You can give plain-English instructions and have the automation execute real bro
 - "Go to my bank alerts page and report new notices."
 
 For protected flows, it supports semi-automated human checkpoints:
-- 2FA codes via chat channels (iMessage/WhatsApp/email connectors)
+- 2FA codes via chat first (default), then optional channel connectors (iMessage/WhatsApp/email)
 - CAPTCHA pause + human solve + resume
 
 For image-based challenges (CAPTCHA/screenshot review), the practical pattern is:
@@ -161,14 +179,14 @@ python -m openclaw_automation.cli run-query \
 
 ## OpenClaw integration model
 
-Scripts can call OpenClaw CLI (`openclaw browser ...`) or use a wrapper module. This kit does not hardcode a single OpenClaw strategy.
+Scripts can call OpenClaw CLI (`openclaw browser ...`) or use a wrapper module.
 
 ### OpenClaw-first, not OpenClaw-only
 
 This toolkit is intentionally portable: the core runner is not locked to one browser stack.
 You can run automations with OpenClaw, Playwright, or other browser drivers inside script runners.
 
-We still recommend OpenClaw as the default path because it gives a strong base for:
+We recommend OpenClaw as the default path because it gives a strong base for:
 - agent-friendly browser control
 - human-in-the-loop 2FA/CAPTCHA workflows
 - messaging-based checkpoints and resumes
