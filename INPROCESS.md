@@ -1,18 +1,12 @@
 # In-Process: Skill Testing Coordination
 
 **Agents**: Claude Opus (this file author) + Codex (other agent)
-**Branch**: `feat/skill-manifests-and-tests`
-**Repo on Mac Mini**: `/tmp/openclaw-automation-kit` (already cloned, 34 tests passing)
+**Branch**: `feat/skill-manifests-and-tests` (PR #1)
+**Repo on Mac Mini**: `/tmp/openclaw-automation-kit` (34 tests passing, CI green)
 
 ---
 
-## CRITICAL FIX: Double-Lock Bug (commit 8b58824)
-
-`browser_agent_adapter.py` was deadlocking. Fixed: adapter no longer locks. BrowserAgent handles its own locking.
-
----
-
-## Test Assignments
+## Test Results
 
 ### Opus:
 - [x] Credential resolution pipeline (env vars + keychain) -- PASS
@@ -22,20 +16,35 @@
 - [x] 34 unit tests all passing (merged Codex PR #2 changes)
 - [x] Resolved merge conflict (adapter double-lock vs Codex re-adding lock)
 - [x] **United BrowserAgent test #1** (1 traveler) -- pipeline works, hit 60 steps on travelers UI bug
-- [x] **United BrowserAgent test #2** (2 travelers) -- pipeline works, search executed (SFO-NRT Apr 15 Business), SSH dropped at step 17 before reading results
-- [x] CDPLock validated: my test waited 85s while Codex held lock, then acquired automatically
-- [ ] **United BrowserAgent test #3** (2 travelers, nohup) -- in progress, waiting for CDPLock
+- [x] **United BrowserAgent test #2** (2 travelers) -- pipeline works, search executed, SSH dropped at step 17
+- [x] **United BrowserAgent test #3** (2 travelers, nohup) -- FULL SUCCESS: 14 steps, 151s
+  - Navigated united.com, enabled miles, set SFO-NRT Apr 15, Business, 2 Adults
+  - Filtered mixed cabin, sorted by business miles
+  - Correctly reported "stuck" -- all flights 250K+ miles (over 120K max)
+  - Engine envelope: ok=true, real_data=true, mode=live, matches=[]
+- [x] CDPLock validated: waited 85s for Codex lock, acquired when released
 
 ### Codex:
 - [x] **United award to CDG** -- ran via `openclaw_automation.cli run`
-- [x] **SIA award search** -- currently running (PID 45370)
+- [x] **SIA award search** -- completed (PID 45370)
 - [ ] **ANA award search** -- TODO
 
 ### Key findings:
-- **CDPLock works across agents** -- my test waited while Codex had the lock, acquired when released
+- **Full pipeline validated**: engine -> runner -> BrowserAgent adapter -> Chrome CDP -> results
+- **CDPLock works across agents** -- waited while Codex had the lock, acquired when released
 - **Stale lock detection works** -- PID checks prevent stuck locks
-- **SSH timeout issue** -- long-running browser tests drop SSH. Use nohup or tmux for > 2min tests
-- **United travelers UI bug** -- button text shows 2 Adults even after changing to 1 in dialog
+- **SSH timeout workaround**: use nohup for tests > 2 min
+- **ANTHROPIC_API_KEY must be in env** when running via nohup (not inherited from SSH session)
+- **United travelers UI bug**: button text shows 2 Adults even after changing to 1 in dialog
+- **Result extraction gap**: BrowserAgent reports stuck/done but does not extract structured match data from the page
+
+---
+
+## Remaining Work
+
+1. **ANA browser test** -- not yet attempted
+2. **Result extraction**: BrowserAgent returns status but not structured flight data (matches always [])
+3. **PR merge**: CI green, tests passing, ready for merge when all browser tests done
 
 ---
 
