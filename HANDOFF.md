@@ -38,27 +38,41 @@
 - `cdp_lock.py` — reviewed, already well-designed (lock_file is a required param, callers choose path)
 - `browser_agent_adapter.py` — reviewed, clean framework
 - `scheduler.py` — reviewed, functional
-- Skill manifest.json files — see reality check below
 
-### Test Results
-All 18 tests passing after changes.
+---
+
+## PR #1: feat/skill-manifests-and-tests (pending merge)
+
+**PR URL:** https://github.com/marcosathanasoulis/openclaw-automation-kit/pull/1
+
+### Changes in PR
+
+1. **Skill manifests + schemas + runners** for both skill directories:
+   - `skills/openclaw-award-search/` — manifest.json, schemas/input.json, schemas/output.json, runner.py
+   - `skills/openclaw-web-automation-basic/` — manifest.json, schemas/input.json, schemas/output.json, runner.py
+   - Skills are now directly invocable via `engine.run(skill_dir, {"query": "..."})`
+   - Award search runner: parses NL query → routes to correct airline library runner
+   - Web automation runner: parses NL query → fetches public page → extracts keywords
+
+2. **14 new tests** (32 total, was 18):
+   - `test_engine_error_handling.py`: runner exceptions, non-dict returns, placeholder mode
+   - `test_nl_parser.py`: airline aliases (SQ, singapore airlines), service routing (bofa, github), airport code exclusions
+   - `test_skill_runners.py`: manifest validation + smoke tests for both skills (live Yahoo.com fetch)
+   - Updated `test_contract_validation.py` to validate skill manifests
 
 ### End-to-End Tests Run
-- `engine.run(public_page_check, {url: yahoo.com, keyword: news})` → ok, 6 matches
-- `cli run --script-dir examples/public_page_check` → ok
-- `cli run-query --query "check yahoo.com for the word sports"` → NL parsed correctly, routed, returned results
-- `cli validate --script-dir library/united_award` → ok
-- `cli run-query --query "search United SFO to NRT business 2 people max 100k"` → placeholder result returned correctly
+- `engine.run(public_page_check, {url: yahoo.com, keyword: news})` — ok, "news" found 6 times
+- `cli run --script-dir examples/public_page_check` — ok
+- `cli run-query --query "check yahoo.com for the word sports"` — NL parsed, routed, returned results
+- `cli validate --script-dir library/united_award` — ok
+- `cli run-query --query "search United SFO to NRT business 2 people max 100k"` — placeholder result correctly
+- `engine.run(skills/openclaw-award-search, {query: "search United..."})` — delegates to United runner
+- `engine.run(skills/openclaw-web-automation-basic, {query: "check yahoo..."})` — live fetch + extraction
 
-### Reality Check: What's Needed for Real OpenClaw Skill
+---
 
-**Working now:**
-- Core engine, contract validation, credential resolver, NL parser, CLI
-- public_page_check example is fully functional end-to-end (real HTTP fetches)
-- Award runners work in placeholder/starter mode
+## Remaining Gaps
 
-**Gaps for production OpenClaw skill:**
-1. **Skill directories missing manifest.json** — `skills/openclaw-award-search/` has no `manifest.json`, only a `scripts/run_query.py` wrapper. OpenClaw expects manifest + schemas + runner.py in each skill dir.
-2. **Award runners need external BrowserAgent** — Without `OPENCLAW_USE_BROWSER_AGENT=true` + importable module, they return hardcoded placeholder matches.
-3. **BofA runner is a stub** — `library/bofa_alert/runner.py` returns a starter message only.
-4. **No human-loop callback wiring** — GitHub 2FA runner emits `SECOND_FACTOR_REQUIRED` event but nothing picks it up.
+1. **Award runners need external BrowserAgent** — Without `OPENCLAW_USE_BROWSER_AGENT=true` + importable module, they return hardcoded placeholder matches. The private `browser_agent.py` on Mac Mini drives real Chrome sessions.
+2. **BofA runner is a stub** — `library/bofa_alert/runner.py` returns a starter message only.
+3. **No human-loop callback wiring** — GitHub 2FA runner emits `SECOND_FACTOR_REQUIRED` event but nothing picks it up.
