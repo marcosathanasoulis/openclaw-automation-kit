@@ -10,15 +10,44 @@ UNITED_URL = "https://www.united.com/en/us"
 
 
 def _goal(inputs: Dict[str, Any]) -> str:
-    return (
-        "Search United award travel using miles. "
-        f"Route {inputs['from']} to {', '.join(inputs['to'])}. "
-        f"Travelers: {inputs['travelers']}. "
-        f"Cabin: {inputs.get('cabin', 'economy')}. "
-        f"Days ahead: {inputs['days_ahead']}. "
-        f"Max miles: {inputs['max_miles']}. "
-        "Prefer mixed-cabin hidden and sort by miles in requested cabin."
-    )
+    origin = inputs["from"]
+    destinations = inputs["to"]
+    dest = destinations[0]
+    travelers = int(inputs["travelers"])
+    cabin = str(inputs.get("cabin", "economy"))
+    days_ahead = int(inputs["days_ahead"])
+    max_miles = int(inputs["max_miles"])
+    depart_date = date.today() + timedelta(days=days_ahead)
+    month_display = depart_date.strftime("%B %Y")
+
+    lines = [
+        f"Search for United award flights {origin} to {dest} around {month_display}, {cabin} class.",
+        "",
+        "STEP 1 - NAVIGATE TO AWARD SEARCH:",
+        "Go to united.com/en/us. Check if already logged in (look for Hi greeting).",
+        "If not logged in, that is OK -- we can still search.",
+        "Click Book in the top nav. Select Book with miles checkbox/toggle.",
+        "Fill in:",
+        "  - One-way",
+        f"  - From: {origin}",
+        f"  - To: {dest}",
+        f"  - Date: {depart_date.isoformat()}",
+        f"  - Travelers: {travelers} adult(s)",
+        f"  - Cabin: {cabin}",
+        "Click Search/Find flights.",
+        "",
+        "STEP 2 - READ RESULTS:",
+        "After results load, if there is a filter to hide mixed-cabin fares, enable it.",
+        f"Sort by miles in {cabin} cabin.",
+        "",
+        "Report the first several flight options you see in this format:",
+        "  Flight 1: departure HH:MM - arrival HH:MM, XX,XXX miles, carrier, stops",
+        "  Flight 2: ...",
+        f"Note which flights are under {max_miles:,} miles total ({max_miles // travelers:,} per person).",
+        "If no flights are under the limit, say so clearly.",
+        "When done reading results, use the done action with your findings.",
+    ]
+    return "\n".join(lines)
 
 
 def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
@@ -29,10 +58,11 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
     max_miles = int(inputs["max_miles"])
     cabin = str(inputs.get("cabin", "economy"))
 
+    dest_str = ", ".join(destinations)
     observations: List[str] = [
         "OpenClaw session expected",
         f"Range: {today.isoformat()}..{end.isoformat()}",
-        f"Destinations: {', '.join(destinations)}",
+        f"Destinations: {dest_str}",
         f"Cabin: {cabin}",
     ]
     if context.get("unresolved_credential_refs"):
@@ -62,7 +92,7 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
                 "matches": run_result.get("matches", []),
                 "summary": (
                     "BrowserAgent run completed for United award search. "
-                    "If `matches` is empty, extraction mapping is still in progress."
+                    "If matches is empty, extraction mapping is still in progress."
                 ),
                 "raw_observations": observations,
                 "errors": [],
