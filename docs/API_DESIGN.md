@@ -6,6 +6,14 @@
 - `POST /schedules`
 - `GET /scripts`
 - `POST /hooks`
+- `POST /runs/{id}/resume` (for CAPTCHA/2FA human-loop responses)
 
 ## Delivery model
 Core engine emits normalized results. Connectors (WhatsApp/iMessage/Slack/etc.) consume webhook payloads.
+
+## Human-loop events
+Recommended event types:
+- `SECOND_FACTOR_REQUIRED`
+- `CAPTCHA_REQUIRED`
+- `RUN_COMPLETED`
+- `RUN_FAILED`

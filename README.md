@@ -87,7 +87,15 @@ Recommended pattern:
 
 See `examples/united_award/runner.py` for the starter structure.
 
-## Connectors (bring your own)
+## Human-in-the-loop CAPTCHA
+
+Read `/Users/Marcos/code-projects/openclaw-automation-kit/docs/CAPTCHA_HUMAN_LOOP.md`.
+
+Recommended pattern:
+1. Script detects challenge and captures screenshot + metadata.
+2. Engine sends challenge event to user via webhook adapter.
+3. User replies with solve instructions/token (for example tile indexes).
+4. Script resumes with short-lived `resume_token`.
 
 ## Security and credentials
 
@@ -104,6 +112,7 @@ Credential policy for this repo:
 - Pass only `credential_refs` in script inputs.
 - This project does **not** import/export credentials from password managers.
 
+## Connectors (bring your own)
 
 This repo intentionally keeps delivery adapters separate.
 
@@ -112,6 +121,10 @@ Use the webhook output from the runner to integrate with:
 - BlueBubbles / iMessage bridges
 - Slack
 - Email
+
+## Building new automations
+
+Read `/Users/Marcos/code-projects/openclaw-automation-kit/docs/NEW_AUTOMATION_PLAYBOOK.md` for the recommended workflow to create production-grade new site automations.
 
 ## Contribution
 
