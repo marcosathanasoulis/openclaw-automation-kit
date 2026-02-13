@@ -40,6 +40,17 @@ Use this file for short-lived cross-agent coordination so parallel work does not
   - run only after live tests are complete and cooldown windows are respected.
   - this is the final regression signal before release.
 
+## Live Run Snapshot (current)
+
+- mac-mini:
+  - queued script `/tmp/openclaw-automation-kit/run_codex_regression.sh`
+  - united: completed (live, non-placeholder)
+  - singapore: in progress under lock PID `64677`
+  - ana: pending (same queued script)
+- home-mind:
+  - independent CDP endpoint `127.0.0.1:9223` is up
+  - united/singapore/ana were run live for transport/site behavior checks
+
 ## Example Entry
 
 - owner: `codex`
