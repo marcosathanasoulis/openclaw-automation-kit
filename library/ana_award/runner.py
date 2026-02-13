@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from typing import Any, Dict, List
 
 from openclaw_automation.browser_agent_adapter import browser_agent_enabled, run_browser_agent_goal
+from openclaw_automation.result_extract import extract_award_matches_from_text
 
 ANA_URL = "https://www.ana.co.jp/en/us/"
 
@@ -47,18 +48,28 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
         )
         if agent_run["ok"]:
             run_result = agent_run.get("result") or {}
+            extracted_matches = run_result.get("matches", [])
+            if not extracted_matches:
+                extracted_matches = extract_award_matches_from_text(
+                    str(run_result.get("result", "")),
+                    route=f"{inputs['from']}-{destinations[0]}",
+                    cabin=cabin,
+                    travelers=int(inputs["travelers"]),
+                    max_miles=max_miles,
+                )
             observations.extend(
                 [
                     "BrowserAgent run executed.",
                     f"BrowserAgent status: {run_result.get('status', 'unknown')}",
                     f"BrowserAgent steps: {run_result.get('steps', 'n/a')}",
                     f"BrowserAgent trace_dir: {run_result.get('trace_dir', 'n/a')}",
+                    f"Extracted matches: {len(extracted_matches)}",
                 ]
             )
             return {
                 "mode": "live",
                 "real_data": True,
-                "matches": run_result.get("matches", []),
+                "matches": extracted_matches,
                 "summary": (
                     "BrowserAgent run completed for ANA award search. "
                     "If `matches` is empty, extraction mapping is still in progress."
