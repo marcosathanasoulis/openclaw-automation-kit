@@ -30,6 +30,9 @@ def run_browser_agent_goal(
     module_name = os.getenv("OPENCLAW_BROWSER_AGENT_MODULE", "browser_agent").strip() or "browser_agent"
     module_path = os.getenv("OPENCLAW_BROWSER_AGENT_PATH", "").strip()
     cdp_url = os.getenv("OPENCLAW_CDP_URL", "http://127.0.0.1:9222").strip() or "http://127.0.0.1:9222"
+    trace_env = os.getenv("OPENCLAW_BROWSER_TRACE", "").strip().lower()
+    if trace_env in {"0", "false", "no", "off"}:
+        trace = False
     if module_path:
         resolved = str(Path(module_path).expanduser().resolve())
         if resolved not in sys.path:

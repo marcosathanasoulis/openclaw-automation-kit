@@ -15,6 +15,10 @@ Use this file for short-lived cross-agent coordination so parallel work does not
   - Added structured `MATCH|...` extraction path and fallback parsing.
   - Added tests in `tests/test_result_extract.py`.
   - Added validated secondary Chromium CDP endpoint on `home-mind.local:9223`.
+  - Queued locked-run regression on Mac Mini:
+    - script: `/tmp/openclaw-automation-kit/run_codex_regression.sh`
+    - outputs: `/tmp/codex_united.json`, `/tmp/codex_sia.json`, `/tmp/codex_ana.json`
+    - waits for current `/tmp/browser_cdp.lock` owner to finish.
 
 ## Coordination Rules
 
