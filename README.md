@@ -1,8 +1,8 @@
 # OpenClaw Automation Kit
 
-A production-focused framework for browser automation scripts with a clear plugin contract, API-first execution model, and optional messaging hooks.
+A production-focused framework for personal browser automations with a clear automation spec, API-first execution model, and optional messaging hooks.
 
-This project is designed for teams that want to:
+This project is designed for people who want to:
 - Run reliable browser automations using OpenClaw
 - Share and version automations as scripts
 - Expose a stable API for execution and scheduling
@@ -13,7 +13,7 @@ This project is designed for teams that want to:
 Most automation projects fail on structure: scripts are ad-hoc, outputs are inconsistent, and adding contributors is risky.
 
 This repository provides:
-- **Script contract**: manifest + input/output schemas + deterministic entrypoint
+- **Automation spec**: manifest + input/output schemas + deterministic entrypoint
 - **Execution engine**: validate inputs, run script, normalize result
 - **API hooks**: send results to webhooks or any downstream connector
 - **Contribution model**: PR-friendly layout, CI checks, test expectations
@@ -32,11 +32,11 @@ flowchart LR
 
 ## Repository layout
 
-- `src/openclaw_automation/`: core engine and contract validator
+- `src/openclaw_automation/`: core engine and schema validator
 - `examples/`: automation script examples (United, Singapore, ANA, BofA)
 - `schemas/`: JSON schemas for manifests and run payloads
 - `scripts/`: utility CLI wrappers
-- `tests/`: contract + engine tests
+- `tests/`: schema + engine tests
 - `docs/`: architecture and contribution docs
 
 ## Quickstart
@@ -72,7 +72,7 @@ python -m openclaw_automation.cli run \
   --input '{"url":"https://www.yahoo.com","keyword":"news"}'
 ```
 
-### 3. Validate example script contracts
+### 3. Validate example automation specs
 
 ```bash
 python -m openclaw_automation.cli validate --script-dir examples/public_page_check
@@ -123,7 +123,7 @@ python -m openclaw_automation.cli run-query \
 Scripts can call OpenClaw CLI (`openclaw browser ...`) or use a wrapper module. This kit does not hardcode a single OpenClaw strategy.
 
 Current recommended reasoning path for smart browser automation is Claude vision-capable workflows.  
-We welcome PRs for alternative providers/adapters (OpenAI, Gemini, local models), as long as they meet contract + test requirements.
+We welcome PRs for alternative providers/adapters (OpenAI, Gemini, local models), as long as they meet schema + test requirements.
 
 Recommended pattern:
 1. Script performs deterministic browser steps

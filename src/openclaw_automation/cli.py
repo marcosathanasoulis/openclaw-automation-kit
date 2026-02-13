@@ -13,7 +13,7 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="OpenClaw automation toolkit CLI")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_validate = sub.add_parser("validate", help="Validate a script contract")
+    p_validate = sub.add_parser("validate", help="Validate a script automation spec")
     p_validate.add_argument("--script-dir", required=True)
 
     p_run = sub.add_parser("run", help="Validate and run a script")

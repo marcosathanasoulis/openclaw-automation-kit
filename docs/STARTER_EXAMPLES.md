@@ -50,9 +50,9 @@ See:
 
 ## What to expect today
 
-Current runners in this repo are contract-valid starter implementations.  
+Current runners in this repo are schema-valid starter implementations.  
 They demonstrate:
-- input contracts
+- input schemas
 - credential reference handling
 - normalized output shape
 - human-loop event patterns
