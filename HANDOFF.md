@@ -1,78 +1,81 @@
-# Handoff: Changes Made by Claude Opus Agent
+# Handoff: Multi-Agent Coordination for OpenClaw Automation Kit
 
-## Commit: 64f9881 (pushed to main)
-
-### Changes Made
-
-1. **Security fix** — `skills/openclaw-award-search/SKILL.md`
-   - Removed exposed phone number (+14152268266 → +1XXXXXXXXXX)
-
-2. **Engine robustness** — `src/openclaw_automation/engine.py`
-   - Structured error handling: `module.run()` exceptions return `{"ok": False, "error": ..., "error_type": ...}` instead of crashing
-   - Non-dict runner results return structured error instead of raising TypeError
-   - Output schema validation: warns on stderr if result doesn't match schema, but doesn't fail
-   - Placeholder mode: surfaces `"placeholder": True` in envelope when `result.get("mode") == "placeholder"`
-
-3. **Output validation** — `src/openclaw_automation/contract.py`
-   - Added `validate_output()` function (counterpart to existing `validate_inputs()`)
-
-4. **NL parser improvements** — `src/openclaw_automation/nl.py`
-   - Added airline mappings: "singapore airlines", "sq"
-   - Added service mappings: "bank of america", "bofa", "boa", "github", "github login", "github signin"
-   - Airport code extractor: excludes common English words (THE, AND, FOR, ONE, TWO, ALL, MAX, VIA, etc.)
-
-5. **Page readiness utility** — `src/openclaw_automation/page_ready.py` (NEW)
-   - `wait_ready(page, timeout_ms, settle_ms)` — networkidle → domcontentloaded fallback → settle
-   - `wait_for_selector(page, selector, timeout_ms, state)` — returns bool
-   - Ported from battle-tested `_wait_ready()` in private browser_agent.py
-
-6. **Package structure** — connectors `__init__.py` files (NEW)
-   - `connectors/__init__.py`
-   - `connectors/imessage_bluebubbles/__init__.py`
-   - `connectors/whatsapp_cloud_api/__init__.py`
-
-7. **Exports** — `src/openclaw_automation/__init__.py`
-   - Added "page_ready" to `__all__`
-
-### Not Changed (Left for other agent)
-- `cdp_lock.py` — reviewed, already well-designed (lock_file is a required param, callers choose path)
-- `browser_agent_adapter.py` — reviewed, clean framework
-- `scheduler.py` — reviewed, functional
+**Last updated by**: Claude Opus agent
+**Branch**: `feat/skill-manifests-and-tests` (PR #1)
+**PR URL**: https://github.com/marcosathanasoulis/openclaw-automation-kit/pull/1
 
 ---
 
-## PR #1: feat/skill-manifests-and-tests (pending merge)
+## CRITICAL: Double-Lock Bug Fixed (commit 8b58824)
 
-**PR URL:** https://github.com/marcosathanasoulis/openclaw-automation-kit/pull/1
+**`browser_agent_adapter.py` was deadlocking.** The adapter acquired CDPLock, then BrowserAgent._start_browser() tried to acquire the SAME lock file. Same PID = deadlock.
 
-### Changes in PR
+**Fix**: Removed locking from the adapter. BrowserAgent handles its own locking internally in `_start_browser()` / `_stop_browser()`. The adapter just imports, instantiates, and calls `run()`.
 
-1. **Skill manifests + schemas + runners** for both skill directories:
-   - `skills/openclaw-award-search/` — manifest.json, schemas/input.json, schemas/output.json, runner.py
-   - `skills/openclaw-web-automation-basic/` — manifest.json, schemas/input.json, schemas/output.json, runner.py
-   - Skills are now directly invocable via `engine.run(skill_dir, {"query": "..."})`
-   - Award search runner: parses NL query → routes to correct airline library runner
-   - Web automation runner: parses NL query → fetches public page → extracts keywords
+**For other agents**: If you're calling BrowserAgent through the adapter, locking is automatic. If calling BrowserAgent directly, it also locks automatically. You do NOT need to manually acquire CDPLock.
 
-2. **14 new tests** (32 total, was 18):
-   - `test_engine_error_handling.py`: runner exceptions, non-dict returns, placeholder mode
-   - `test_nl_parser.py`: airline aliases (SQ, singapore airlines), service routing (bofa, github), airport code exclusions
-   - `test_skill_runners.py`: manifest validation + smoke tests for both skills (live Yahoo.com fetch)
-   - Updated `test_contract_validation.py` to validate skill manifests
+---
 
-### End-to-End Tests Run
-- `engine.run(public_page_check, {url: yahoo.com, keyword: news})` — ok, "news" found 6 times
-- `cli run --script-dir examples/public_page_check` — ok
-- `cli run-query --query "check yahoo.com for the word sports"` — NL parsed, routed, returned results
-- `cli validate --script-dir library/united_award` — ok
-- `cli run-query --query "search United SFO to NRT business 2 people max 100k"` — placeholder result correctly
-- `engine.run(skills/openclaw-award-search, {query: "search United..."})` — delegates to United runner
-- `engine.run(skills/openclaw-web-automation-basic, {query: "check yahoo..."})` — live fetch + extraction
+## What's on the PR branch (feat/skill-manifests-and-tests)
+
+### Already committed and pushed:
+
+1. **Skill manifests + schemas + runners** for both skill directories
+2. **14 new tests** (32 total, all passing)
+3. **Lint fix** (E402 — imports moved inside `run()`)
+4. **Double-lock fix** in browser_agent_adapter.py
+5. **INPROCESS.md** for coordination
+
+### On main (already merged):
+
+1. Security fix (phone number removed from SKILL.md)
+2. Engine robustness (error handling, output validation, placeholder mode)
+3. NL parser improvements (airline aliases, service routing, airport code exclusions)
+4. page_ready.py utility
+5. Connector __init__.py files
+
+---
+
+## Testing Coordination
+
+### Setup on Mac Mini for real browser tests:
+```bash
+# Clone and checkout PR branch:
+cd /tmp && git clone git@github.com:marcosathanasoulis/openclaw-automation-kit.git
+cd openclaw-automation-kit && git checkout feat/skill-manifests-and-tests
+
+# Install with the project venv:
+~/athanasoulis-ai-assistant/.venv/bin/pip install -e '.[dev]'
+
+# Environment for BrowserAgent integration:
+export OPENCLAW_USE_BROWSER_AGENT=true
+export OPENCLAW_BROWSER_AGENT_MODULE=browser_agent
+export OPENCLAW_BROWSER_AGENT_PATH=~/athanasoulis-ai-assistant/src/browser
+export OPENCLAW_CDP_URL=http://127.0.0.1:9222
+export ANTHROPIC_API_KEY=<key>
+```
+
+### Test split:
+| Skill/Runner | Agent | Status |
+|---|---|---|
+| public_page_check (Yahoo) | Opus | DONE - works |
+| Credential resolution pipeline | Opus | DONE - works |
+| github_signin_check (2FA flow) | Opus | DONE - works |
+| United award (BrowserAgent) | **Codes** | TODO |
+| SIA award (BrowserAgent) | **Codes** | TODO |
+| ANA award (BrowserAgent) | **Codes** | TODO |
+| bofa_alert | — | STUB (needs implementation) |
+
+### CDPLock rules:
+- BrowserAgent handles locking automatically — no manual lock needed
+- Only one browser automation at a time on Mac Mini
+- Lock file: `/tmp/browser_cdp.lock`
+- If a lock gets stuck: check `cat /tmp/browser_cdp.lock` for PID, verify with `ps`
 
 ---
 
 ## Remaining Gaps
 
-1. **Award runners need external BrowserAgent** — Without `OPENCLAW_USE_BROWSER_AGENT=true` + importable module, they return hardcoded placeholder matches. The private `browser_agent.py` on Mac Mini drives real Chrome sessions.
-2. **BofA runner is a stub** — `library/bofa_alert/runner.py` returns a starter message only.
-3. **No human-loop callback wiring** — GitHub 2FA runner emits `SECOND_FACTOR_REQUIRED` event but nothing picks it up.
+1. **BofA runner is a stub** — returns starter message only
+2. **No human-loop callback wiring** — GitHub 2FA emits event but nothing picks it up
+3. **Award runners need ANTHROPIC_API_KEY** — BrowserAgent uses Claude API for vision
