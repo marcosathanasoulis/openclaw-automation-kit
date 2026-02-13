@@ -44,6 +44,9 @@ flowchart LR
 
 ### 1. Install
 
+If this is a fresh machine, do Git/SSH setup first:
+- [`docs/DEVELOPER_SETUP.md`](docs/DEVELOPER_SETUP.md)
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
