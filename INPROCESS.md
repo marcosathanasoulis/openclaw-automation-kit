@@ -44,9 +44,10 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 
 - mac-mini:
   - queued script `/tmp/openclaw-automation-kit/run_codex_regression.sh`
-  - united: completed (live, non-placeholder)
-  - singapore: in progress under lock PID `64677`
-  - ana: pending (same queued script)
+  - united: completed (live, non-placeholder, status=success, extraction still empty)
+  - singapore: completed (live, non-placeholder, status=max_steps, extraction empty)
+  - ana: currently running under lock PID `67119`
+  - follow-up queued: `/tmp/run_codex_branch_live.sh` (runs latest branch code after lock clears)
 - home-mind:
   - independent CDP endpoint `127.0.0.1:9223` is up
   - united/singapore/ana were run live for transport/site behavior checks
