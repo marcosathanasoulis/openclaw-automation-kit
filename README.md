@@ -57,9 +57,9 @@ flowchart LR
 | `library/*_award` without BrowserAgent integration | Placeholder mode (`mode=placeholder`, `real_data=false`) |
 | `library/*_award` with BrowserAgent integration | Supported, depends on your private BrowserAgent runtime |
 | CDP file lock | Implemented |
-| Queue scheduler orchestration | Planned/design only |
-| CAPTCHA/2FA resume orchestration API | Planned/design only |
-| HTTP API server (`/runs`, `/resume`) | Planned/design only |
+| Queue scheduler orchestration | Prototype present (`src/openclaw_automation/scheduler.py`), not wired into engine/CLI by default |
+| CAPTCHA/2FA resume orchestration API | Implemented in private assistant stack; public kit currently docs/contracts only |
+| HTTP API server (`/runs`, `/resume`) | Implemented in private assistant stack; public kit currently docs/contracts only |
 
 ## Repository layout
 
