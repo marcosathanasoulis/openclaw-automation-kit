@@ -48,6 +48,11 @@ Use this file for short-lived cross-agent coordination so parallel work does not
   - singapore: completed (live, non-placeholder, status=max_steps, extraction empty)
   - ana: currently running under lock PID `67119`
   - follow-up queued: `/tmp/run_codex_branch_live.sh` (runs latest branch code after lock clears)
+  - new adaptive backoff sweep launched for 4 airlines:
+    - script: `/tmp/codex_run_airlines4.sh`
+    - logs: `/tmp/codex4_airlines.log`
+    - outputs: `/tmp/codex4_{united_award,delta_award,singapore_award,ana_award}.{json,err}`
+    - pacing rule: 10s default cooldown, 40s on anti-bot/error signals
 - home-mind:
   - independent CDP endpoint `127.0.0.1:9223` is up
   - united/singapore/ana were run live for transport/site behavior checks
