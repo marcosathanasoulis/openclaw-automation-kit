@@ -49,6 +49,12 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+Configure keys locally:
+```bash
+cp .env.example .env
+```
+Then fill values per `docs/CONFIGURATION.md`.
+
 ### 2. Validate example script contracts
 
 ```bash
@@ -80,6 +86,9 @@ This mode is optimized for award-travel style requests (airline + route + cabin 
 ## OpenClaw integration model
 
 Scripts can call OpenClaw CLI (`openclaw browser ...`) or use a wrapper module. This kit does not hardcode a single OpenClaw strategy.
+
+Current recommended reasoning path for smart browser automation is Claude vision-capable workflows.  
+We welcome PRs for alternative providers/adapters (OpenAI, Gemini, local models), as long as they meet contract + test requirements.
 
 Recommended pattern:
 1. Script performs deterministic browser steps
@@ -117,6 +126,10 @@ Credential policy for this repo:
 - Pass only `credential_refs` in script inputs.
 - This project does **not** import/export credentials from password managers.
 
+See also:
+- `/Users/Marcos/code-projects/openclaw-automation-kit/docs/CONFIGURATION.md`
+- `/Users/Marcos/code-projects/openclaw-automation-kit/DISCLAIMER.md`
+
 ## Connectors (bring your own)
 
 This repo intentionally keeps delivery adapters separate.
@@ -137,8 +150,10 @@ Read:
 - `CONTRIBUTING.md`
 - `docs/SCRIPT_CONTRACT.md`
 - `docs/API_DESIGN.md`
+- `docs/CONFIGURATION.md`
 
-All PRs must include schema-valid manifests and runnable tests.
+All PRs must include schema-valid manifests and runnable tests.  
+Provider/integration PRs must include at least one deterministic test case we can run in CI.
 
 ## License
 
