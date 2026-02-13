@@ -91,6 +91,12 @@ python -m openclaw_automation.cli run \
   --input '{"from":"SFO","to":["AMS","LIS","FCO"],"max_miles":120000,"days_ahead":30,"travelers":2,"cabin":"economy","credential_refs":{"airline_username":"openclaw/united/username","airline_password":"openclaw/united/password"}}'
 ```
 
+Important for real runs:
+- Award scripts require a human-loop path for 2FA (and often CAPTCHA).
+- You must either:
+  - connect a 2FA/messaging connector, or
+  - watch for challenge messages and reply with the required code/token manually.
+
 ### 5. Run from plain English
 
 ```bash

@@ -11,10 +11,12 @@ These examples are meant to get a new user running quickly, even with manual cre
 2. `united.award_search`
 - Award travel scan using miles
 - Best for learning date-window extraction
+- Real runs need 2FA handling (connector or manual challenge reply)
 
 3. `singapore.award_search`
 - Alternate airline flow with dynamic form behavior
 - Good stress test for waits/selectors
+- Real runs need 2FA handling (connector or manual challenge reply)
 
 4. `ana.award_search`
 - Additional airline pattern and credential references
