@@ -78,6 +78,12 @@ Use predictable checkpoints:
 
 Always emit `raw_observations` and `errors`.
 
+### DOM readiness guidance
+- Prefer polling for explicit DOM-ready signals (expected selectors/text/state) over fixed sleeps.
+- Keep polling bounded with reasonable per-step timeouts.
+- Add a final timeout fallback for slow pages and degraded networks.
+- Log which readiness condition succeeded (or timed out) to aid debugging.
+
 ## 5. Add challenge handling
 - Detect challenge screens early.
 - Capture screenshot and emit `CAPTCHA_REQUIRED`.
