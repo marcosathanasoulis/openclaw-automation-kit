@@ -5,6 +5,7 @@
   "inputs_schema": "schemas/input.json",
   "outputs_schema": "schemas/output.json",
   "description": "Check Bank of America account alert signals",
+  "execution_mode": "exclusive",
   "permissions": {
     "browser": true,
     "network_domains": ["bankofamerica.com"]

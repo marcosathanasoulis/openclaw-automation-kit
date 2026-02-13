@@ -154,6 +154,16 @@ Use the webhook output from the runner to integrate with:
 
 Read `/Users/Marcos/code-projects/openclaw-automation-kit/docs/NEW_AUTOMATION_PLAYBOOK.md` for the recommended workflow to create production-grade new site automations.
 
+## Concurrency and queueing
+
+To keep automations from stepping on each other, use:
+- centralized run queue
+- resource locks (browser profile, site, messaging connector)
+- explicit execution modes per script (`exclusive`, `profile_isolated`, `stateless`)
+
+See:
+- `/Users/Marcos/code-projects/openclaw-automation-kit/docs/QUEUE_AND_LOCKING.md`
+
 ## Contribution
 
 Read:
@@ -167,4 +177,4 @@ Provider/integration PRs must include at least one deterministic test case we ca
 
 ## License
 
-MIT
+Apache-2.0

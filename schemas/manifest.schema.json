@@ -10,6 +10,11 @@
     "inputs_schema": {"type": "string"},
     "outputs_schema": {"type": "string"},
     "description": {"type": "string"},
+    "execution_mode": {
+      "type": "string",
+      "enum": ["exclusive", "profile_isolated", "stateless"],
+      "default": "exclusive"
+    },
     "permissions": {
       "type": "object",
       "required": ["browser", "network_domains"],

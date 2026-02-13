@@ -5,6 +5,7 @@
   "inputs_schema": "schemas/input.json",
   "outputs_schema": "schemas/output.json",
   "description": "Search award availability with OpenClaw workflow",
+  "execution_mode": "exclusive",
   "permissions": {
     "browser": true,
     "network_domains": ["united.com"]
