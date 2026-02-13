@@ -87,6 +87,20 @@ Both agents can now run browser tests in parallel on different machines. CDPLock
 
 ---
 
+## Booking URLs
+
+All award search runners now include a `booking_url` field in both the top-level result and each match object. This gives users a clickable link to book or view the award search.
+
+| Airline | Deep Link Support | URL |
+|---|---|---|
+| United | Full (with search params) | `united.com/en/us/fsr/choose-flights?f=...&t=...&d=...` |
+| Delta | Full (with search params) | `delta.com/flight-search/book-a-flight?tripType=...&shopWithMiles=true` |
+| Singapore Airlines | Search page only | `singaporeair.com/en_UK/us/home#/book/redeemflight` |
+| ANA | Search form only | `aswbe-i.ana.co.jp/.../award_search_roundtrip_input.xhtml` |
+| AeroMexico | Homepage only | `aeromexico.com/en-us` (reCAPTCHA blocks deep links) |
+
+---
+
 ## Known Issues & Next Steps
 
 1. **SIA needs hybrid approach** — BrowserAgent for login, Playwright for Vue.js form fill (proven in `sia_search_v5.py`)
