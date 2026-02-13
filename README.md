@@ -122,6 +122,17 @@ python -m openclaw_automation.cli run-query \
 
 Scripts can call OpenClaw CLI (`openclaw browser ...`) or use a wrapper module. This kit does not hardcode a single OpenClaw strategy.
 
+### OpenClaw-first, not OpenClaw-only
+
+This toolkit is intentionally portable: the core runner is not locked to one browser stack.
+You can run automations with OpenClaw, Playwright, or other browser drivers inside script runners.
+
+We still recommend OpenClaw as the default path because it gives a strong base for:
+- agent-friendly browser control
+- human-in-the-loop 2FA/CAPTCHA workflows
+- messaging-based checkpoints and resumes
+- consistent orchestration across personal assistant automations
+
 Current recommended reasoning path for smart browser automation is Claude vision-capable workflows.  
 We welcome PRs for alternative providers/adapters (OpenAI, Gemini, local models), as long as they meet schema + test requirements.
 
