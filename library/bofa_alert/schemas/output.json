@@ -1,8 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
-  "required": ["summary", "observations"],
+  "required": ["mode", "real_data", "summary", "observations"],
   "properties": {
+    "mode": {"type": "string"},
+    "real_data": {"type": "boolean"},
     "summary": {"type": "string"},
     "observations": {"type": "array", "items": {"type": "string"}},
     "errors": {"type": "array", "items": {"type": "string"}}

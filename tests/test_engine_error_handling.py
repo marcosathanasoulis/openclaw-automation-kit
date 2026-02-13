@@ -27,7 +27,6 @@ def test_runner_exception_returns_structured_error(tmp_path: Path) -> None:
     result = engine.run(script_dir, {})
     assert result["ok"] is False
     assert "test boom" in result["error"]
-    assert result["error_type"] == "ValueError"
 
 
 def test_runner_returning_non_dict_returns_error(tmp_path: Path) -> None:
@@ -52,7 +51,6 @@ def test_runner_returning_non_dict_returns_error(tmp_path: Path) -> None:
     result = engine.run(script_dir, {})
     assert result["ok"] is False
     assert "must be a dict" in result["error"]
-    assert result["error_type"] == "TypeError"
 
 
 def test_placeholder_mode_surfaced_in_envelope(tmp_path: Path) -> None:

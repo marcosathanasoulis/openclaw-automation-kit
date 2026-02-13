@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from pathlib import Path
 from typing import Any, Dict
 
@@ -38,11 +40,11 @@ class AutomationEngine:
     def run(self, script_dir: Path, inputs: Dict[str, Any]) -> Dict[str, Any]:
         manifest = self.validate_script(script_dir)
         input_schema_path = script_dir / manifest["inputs_schema"]
+        output_schema_path = script_dir / manifest["outputs_schema"]
         validate_inputs(inputs, input_schema_path)
 
         runner_path = script_dir / manifest["entrypoint"]
         module = self._load_runner_module(runner_path)
-
         if not hasattr(module, "run"):
             raise AttributeError(f"runner has no run(context, inputs): {runner_path}")
 
@@ -57,15 +59,24 @@ class AutomationEngine:
             "unresolved_credential_refs": resolution.unresolved,
         }
 
+        timeout_seconds = int(os.getenv("OPENCLAW_RUNNER_TIMEOUT_SECONDS", "600"))
         try:
-            result = module.run(context, inputs)
-        except Exception as exc:
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(module.run, context, inputs)
+                result = future.result(timeout=timeout_seconds)
+        except FutureTimeoutError:
+            return {
+                "ok": False,
+                "script_id": manifest["id"],
+                "script_version": manifest["version"],
+                "error": f"Runner exceeded timeout ({timeout_seconds}s)",
+            }
+        except Exception as exc:  # noqa: BLE001
             return {
                 "ok": False,
                 "script_id": manifest["id"],
                 "script_version": manifest["version"],
                 "error": str(exc),
-                "error_type": type(exc).__name__,
             }
 
         if not isinstance(result, dict):
@@ -74,35 +85,44 @@ class AutomationEngine:
                 "script_id": manifest["id"],
                 "script_version": manifest["version"],
                 "error": f"runner result must be a dict, got {type(result).__name__}",
-                "error_type": "TypeError",
             }
 
-        # Validate output against schema (warn but don't fail)
-        output_schema_path = script_dir / manifest["outputs_schema"]
         try:
             validate_output(result, output_schema_path)
-        except Exception as exc:
-            import sys
-            print(f"WARNING: runner output does not match schema: {exc}", file=sys.stderr)
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "ok": False,
+                "script_id": manifest["id"],
+                "script_version": manifest["version"],
+                "error": f"output schema validation failed: {exc}",
+            }
 
-        is_placeholder = result.get("mode") == "placeholder"
+        mode = str(result.get("mode", "live"))
+        real_data = bool(result.get("real_data", mode != "placeholder"))
 
         envelope = {
             "ok": True,
             "script_id": manifest["id"],
             "script_version": manifest["version"],
+            "mode": mode,
+            "real_data": real_data,
+            "placeholder": mode == "placeholder",
             "inputs": inputs,
             "credential_status": {
                 "requested_refs": redacted_keys(credential_refs),
                 "resolved_keys": sorted(resolution.resolved.keys()),
                 "unresolved_refs": resolution.unresolved,
             },
+            "warnings": (
+                ["Runner returned placeholder data; BrowserAgent/live integration is not active."]
+                if mode == "placeholder"
+                else []
+            ),
             "result": result,
         }
-        if is_placeholder:
-            envelope["placeholder"] = True
         return envelope
 
 
 def pretty_json(data: Dict[str, Any]) -> str:
     return json.dumps(data, indent=2, sort_keys=True)
+

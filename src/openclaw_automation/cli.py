@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any, Dict
 
@@ -64,6 +65,11 @@ def main() -> None:
     if args.command == "run":
         inputs = _load_input(args.input)
         result = engine.run(script_dir, inputs)
+        if result.get("mode") == "placeholder":
+            print(
+                "WARNING: BrowserAgent not enabled. Results are placeholder data.",
+                file=sys.stderr,
+            )
         print(pretty_json(result))
         return
 
@@ -74,6 +80,11 @@ def main() -> None:
         if credential_refs:
             parsed.inputs["credential_refs"] = credential_refs
         result = engine.run(target_script_dir, parsed.inputs)
+        if result.get("mode") == "placeholder":
+            print(
+                "WARNING: BrowserAgent not enabled. Results are placeholder data.",
+                file=sys.stderr,
+            )
         print(pretty_json({"parsed_notes": parsed.notes, **result}))
         return
 
