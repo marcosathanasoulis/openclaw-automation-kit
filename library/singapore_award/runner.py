@@ -52,7 +52,7 @@ def _goal(inputs: Dict[str, Any]) -> str:
         "  c) TO FIELD: Type the destination city name in the destination field slowly.",
         "     Wait 2-3 seconds for autocomplete. Click the matching suggestion.",
         "",
-        f"  d) CLASS FIELD: The class field (name='flightClass') is READONLY.",
+        "  d) CLASS FIELD: The class field (name='flightClass') is READONLY.",
         f"     Use js_eval to set it: document.querySelector('[name=flightClass]').value = '{cabin_display}';",
         f"     Also try: document.querySelector('#flightClass2').value = '{cabin_display}';",
         "     If that does not work, look for a Vue component and use vue_interact.",
