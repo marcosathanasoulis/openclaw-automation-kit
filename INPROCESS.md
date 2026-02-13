@@ -19,6 +19,9 @@ Use this file for short-lived cross-agent coordination so parallel work does not
     - script: `/tmp/openclaw-automation-kit/run_codex_regression.sh`
     - outputs: `/tmp/codex_united.json`, `/tmp/codex_sia.json`, `/tmp/codex_ana.json`
     - waits for current `/tmp/browser_cdp.lock` owner to finish.
+  - Home-mind live attempt (CDP `:9223`) completed with transport issue:
+    - United navigation repeatedly failed with `ERR_HTTP2_PROTOCOL_ERROR` in headless Chromium.
+    - Result envelope was `mode=live`, `status=stuck`, `matches=[]`.
 
 ## Coordination Rules
 

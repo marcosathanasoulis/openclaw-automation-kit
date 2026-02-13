@@ -126,3 +126,12 @@ export ANTHROPIC_API_KEY=<key>
   curl -sS http://127.0.0.1:9223/json/version
   ```
 - Note: for cross-machine usage, either run automation directly on `home-mind.local` or tunnel `9223`; current bind is loopback for safety.
+
+### Current caveat (observed in live run)
+
+- United live run on `home-mind.local` (headless Chromium `:9223`) fails during navigation with:
+  - `net::ERR_HTTP2_PROTOCOL_ERROR`
+- BrowserAgent exits `stuck` after retries; no matches extracted.
+- Practical implication:
+  - keep award-search live runs on mac-mini Chrome for now.
+  - home-mind CDP is still useful for generic/public-page automations and non-HTTP2-problem sites.
