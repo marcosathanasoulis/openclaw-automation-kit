@@ -33,7 +33,7 @@ flowchart LR
 ## Repository layout
 
 - `src/openclaw_automation/`: core engine and contract validator
-- `examples/`: automation script examples (United, Singapore, BofA)
+- `examples/`: automation script examples (United, Singapore, ANA, BofA)
 - `schemas/`: JSON schemas for manifests and run payloads
 - `scripts/`: utility CLI wrappers
 - `tests/`: contract + engine tests
@@ -54,6 +54,7 @@ pip install -r requirements.txt
 ```bash
 python -m openclaw_automation.cli validate --script-dir examples/united_award
 python -m openclaw_automation.cli validate --script-dir examples/singapore_award
+python -m openclaw_automation.cli validate --script-dir examples/ana_award
 python -m openclaw_automation.cli validate --script-dir examples/bofa_alert
 ```
 
@@ -62,8 +63,18 @@ python -m openclaw_automation.cli validate --script-dir examples/bofa_alert
 ```bash
 python -m openclaw_automation.cli run \
   --script-dir examples/united_award \
-  --input '{"from":"SFO","to":["AMS","LIS","FCO"],"max_miles":120000,"days_ahead":30,"travelers":2}'
+  --input '{"from":"SFO","to":["AMS","LIS","FCO"],"max_miles":120000,"days_ahead":30,"travelers":2,"cabin":"economy","credential_refs":{"airline_username":"openclaw/united/username","airline_password":"openclaw/united/password"}}'
 ```
+
+### 4. Run from plain English
+
+```bash
+python -m openclaw_automation.cli run-query \
+  --query "Search ANA award travel economy from SFO to HND for 2 travelers in next 30 days under 120k miles" \
+  --credential-refs '{"airline_username":"openclaw/ana/username","airline_password":"openclaw/ana/password"}'
+```
+
+This mode is optimized for award-travel style requests (airline + route + cabin + travelers + mileage cap).
 
 ## OpenClaw integration model
 

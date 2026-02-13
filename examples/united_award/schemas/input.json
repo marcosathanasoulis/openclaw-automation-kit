@@ -9,6 +9,7 @@
     "days_ahead": {"type": "integer", "minimum": 1, "maximum": 90},
     "max_miles": {"type": "integer", "minimum": 1},
     "travelers": {"type": "integer", "minimum": 1, "maximum": 9},
+    "cabin": {"type": "string", "enum": ["economy", "business", "first"], "default": "economy"},
     "credential_refs": {
       "type": "object",
       "additionalProperties": {"type": "string"},

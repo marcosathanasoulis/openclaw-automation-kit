@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 from .contract import validate_inputs, validate_manifest
+from .credentials import redacted_keys, resolve_credential_refs
 
 
 class AutomationEngine:
@@ -45,10 +46,15 @@ class AutomationEngine:
         if not hasattr(module, "run"):
             raise AttributeError(f"runner has no run(context, inputs): {runner_path}")
 
+        credential_refs = inputs.get("credential_refs") if isinstance(inputs.get("credential_refs"), dict) else {}
+        resolution = resolve_credential_refs(credential_refs)
+
         context = {
             "script_id": manifest["id"],
             "script_version": manifest["version"],
             "script_dir": str(script_dir),
+            "credentials": resolution.resolved,
+            "unresolved_credential_refs": resolution.unresolved,
         }
 
         result = module.run(context, inputs)
@@ -60,6 +66,11 @@ class AutomationEngine:
             "script_id": manifest["id"],
             "script_version": manifest["version"],
             "inputs": inputs,
+            "credential_status": {
+                "requested_refs": redacted_keys(credential_refs),
+                "resolved_keys": sorted(resolution.resolved.keys()),
+                "unresolved_refs": resolution.unresolved,
+            },
             "result": result,
         }
 

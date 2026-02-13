@@ -69,6 +69,12 @@ Example input:
 
 The runner resolves refs via a credential adapter layer.
 
+### Runtime resolution order in this repo
+1. Environment variable with normalized ref name  
+   - Example ref: `openclaw/united/password`  
+   - Env var: `OPENCLAW_SECRET_OPENCLAW_UNITED_PASSWORD`
+2. macOS Keychain lookup by service name (same ref string)
+
 ## 2FA design (webhook-friendly)
 
 ### Baseline flow

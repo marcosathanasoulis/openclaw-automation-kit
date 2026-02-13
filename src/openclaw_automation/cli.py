@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 from .engine import AutomationEngine, pretty_json
+from .nl import parse_query_to_run, resolve_script_dir
 
 
 def _parse_args() -> argparse.Namespace:
@@ -18,6 +19,14 @@ def _parse_args() -> argparse.Namespace:
     p_run = sub.add_parser("run", help="Validate and run a script")
     p_run.add_argument("--script-dir", required=True)
     p_run.add_argument("--input", required=True, help="JSON object string")
+
+    p_query = sub.add_parser("run-query", help="Run from a plain-English query")
+    p_query.add_argument("--query", required=True)
+    p_query.add_argument(
+        "--credential-refs",
+        default="{}",
+        help="Optional JSON object of credential refs to merge into inputs",
+    )
 
     return parser.parse_args()
 
@@ -40,8 +49,11 @@ def _detect_repo_root(script_dir: Path) -> Path:
 
 def main() -> None:
     args = _parse_args()
-    script_dir = Path(args.script_dir).resolve()
-    root = _detect_repo_root(script_dir)
+    if args.command in {"validate", "run"}:
+        script_dir = Path(args.script_dir).resolve()
+        root = _detect_repo_root(script_dir)
+    else:
+        root = _detect_repo_root(Path.cwd())
     engine = AutomationEngine(root)
 
     if args.command == "validate":
@@ -53,6 +65,16 @@ def main() -> None:
         inputs = _load_input(args.input)
         result = engine.run(script_dir, inputs)
         print(pretty_json(result))
+        return
+
+    if args.command == "run-query":
+        parsed = parse_query_to_run(args.query)
+        target_script_dir = resolve_script_dir(root, parsed.script_dir)
+        credential_refs = _load_input(args.credential_refs)
+        if credential_refs:
+            parsed.inputs["credential_refs"] = credential_refs
+        result = engine.run(target_script_dir, parsed.inputs)
+        print(pretty_json({"parsed_notes": parsed.notes, **result}))
         return
 
 
