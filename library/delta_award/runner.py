@@ -6,7 +6,8 @@ from datetime import date, timedelta
 from typing import Any, Dict, List
 from urllib.parse import urlencode
 
-from openclaw_automation.browser_agent_adapter import browser_agent_enabled, run_browser_agent_goal
+from openclaw_automation.browser_agent_adapter import browser_agent_enabled
+from openclaw_automation.adaptive import adaptive_run
 
 DELTA_URL = "https://www.delta.com"
 
@@ -356,10 +357,13 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
         observations.append("Credential refs unresolved; run would require manual auth flow.")
 
     if browser_agent_enabled():
-        agent_run = run_browser_agent_goal(
+        agent_run = adaptive_run(
             goal=_goal(inputs),
             url=DELTA_URL,
             max_steps=40,
+            airline="delta",
+            inputs=inputs,
+            max_attempts=3,
             trace=True,
             use_vision=True,
         )

@@ -6,7 +6,8 @@ from datetime import date, timedelta
 from typing import Any, Dict, List
 from urllib.parse import urlencode
 
-from openclaw_automation.browser_agent_adapter import browser_agent_enabled, run_browser_agent_goal
+from openclaw_automation.browser_agent_adapter import browser_agent_enabled
+from openclaw_automation.adaptive import adaptive_run
 
 UNITED_URL = "https://www.united.com/en/us"
 
@@ -247,10 +248,13 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
     book_url = _booking_url(inputs["from"], destinations[0], depart_date, cabin, travelers)
 
     if browser_agent_enabled():
-        agent_run = run_browser_agent_goal(
+        agent_run = adaptive_run(
             goal=_goal(inputs),
             url=UNITED_URL,
             max_steps=30,
+            airline="united",
+            inputs=inputs,
+            max_attempts=3,
             trace=True,
             use_vision=True,
         )

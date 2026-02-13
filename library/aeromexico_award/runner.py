@@ -5,7 +5,8 @@ import sys
 from datetime import date, timedelta
 from typing import Any, Dict, List
 
-from openclaw_automation.browser_agent_adapter import browser_agent_enabled, run_browser_agent_goal
+from openclaw_automation.browser_agent_adapter import browser_agent_enabled
+from openclaw_automation.adaptive import adaptive_run
 
 # The Spanish booking page has the points toggle (English page does NOT)
 AEROMEXICO_AWARD_URL = "https://www.aeromexico.com/es-mx/reserva"
@@ -262,10 +263,13 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
         observations.append("Credential refs unresolved; run would require manual auth flow.")
 
     if browser_agent_enabled():
-        agent_run = run_browser_agent_goal(
+        agent_run = adaptive_run(
             goal=_goal(inputs),
             url=AEROMEXICO_AWARD_URL,
             max_steps=45,
+            airline="aeromexico",
+            inputs=inputs,
+            max_attempts=3,
             trace=True,
             use_vision=True,
         )

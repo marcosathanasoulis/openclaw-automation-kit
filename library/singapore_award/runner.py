@@ -9,6 +9,7 @@ from typing import Any, Dict, List
 from urllib.parse import urlencode
 
 from openclaw_automation.browser_agent_adapter import browser_agent_enabled, run_browser_agent_goal
+from openclaw_automation.adaptive import adaptive_run
 
 SIA_URL = "https://www.singaporeair.com"
 SIA_LOGIN_URL = "https://www.singaporeair.com/en_UK/us/ppsclub-krisflyer/login/"
@@ -272,10 +273,13 @@ def _run_hybrid(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, An
 
     # Phase 1: BrowserAgent login (short goal, ~20 steps max)
     observations.append("Phase 1: BrowserAgent login")
-    login_result = run_browser_agent_goal(
+    login_result = adaptive_run(
         goal=_login_goal(),
         url=SIA_LOGIN_URL,
         max_steps=20,
+        airline="singapore",
+        inputs=inputs,
+        max_attempts=2,
         trace=True,
         use_vision=True,
     )
