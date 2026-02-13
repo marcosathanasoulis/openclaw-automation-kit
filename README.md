@@ -174,6 +174,7 @@ Read [`docs/CREDENTIALS_AND_2FA.md`](docs/CREDENTIALS_AND_2FA.md) before deployi
 ### Shared-responsibility warning
 
 If you connect real account credentials + 2FA channels, this system can perform high-impact actions as that user.
+Use only your own credentials in local/private secret stores and never share them.
 You (the deployer/operator) are fully responsible for:
 - secret storage hardening
 - access control to the automation runtime
@@ -182,6 +183,11 @@ You (the deployer/operator) are fully responsible for:
 - audit logging and incident response
 
 If you cannot operate those controls safely, do not run credentialed automations.
+
+### Branch safety for status updates
+
+The status updater (`scripts/collect_automation_status.py --write-readme`) refuses to modify README on `main/master` by default.
+Run it from your own branch, or explicitly override with `--allow-main-readme-update` in controlled CI.
 
 That guide covers:
 - macOS Keychain setup

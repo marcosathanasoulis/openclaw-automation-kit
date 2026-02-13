@@ -5,6 +5,7 @@ This framework can automate high-impact actions. Treat credentials and second fa
 ## Non-negotiable security principles
 - Never store credentials in source control.
 - Never hardcode secrets in scripts.
+- Never share personal credentials with other users, contributors, or CI logs.
 - Scope credentials per script/integration.
 - Require explicit user approval for sensitive actions.
 - Prefer read-only tokens where possible.

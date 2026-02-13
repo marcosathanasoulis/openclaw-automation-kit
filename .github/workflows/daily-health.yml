@@ -27,7 +27,7 @@ jobs:
 
       - name: Collect automation status
         run: |
-          python scripts/collect_automation_status.py --write-readme
+          python scripts/collect_automation_status.py --write-readme --allow-main-readme-update
 
       - name: Run test suite
         run: |

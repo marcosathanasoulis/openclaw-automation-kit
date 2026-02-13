@@ -42,6 +42,11 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Also update README status section",
     )
+    parser.add_argument(
+        "--allow-main-readme-update",
+        action="store_true",
+        help="Allow README status updates when current branch is main/master",
+    )
     return parser.parse_args()
 
 
@@ -109,6 +114,22 @@ def _update_readme(root: Path, table: str) -> None:
     else:
         new_text = text.rstrip() + "\n\n" + table + "\n"
     readme.write_text(new_text)
+
+
+def _current_git_branch(root: Path) -> str | None:
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip()
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def main() -> int:
@@ -201,6 +222,11 @@ def main() -> int:
     output_path.write_text(json.dumps(data, indent=2) + "\n")
 
     if args.write_readme:
+        branch = _current_git_branch(root)
+        if branch in {"main", "master"} and not args.allow_main_readme_update:
+            raise SystemExit(
+                "Refusing to update README on main/master. Use a feature branch or pass --allow-main-readme-update."
+            )
         table = _build_markdown_table(results, generated_at)
         _update_readme(root, table)
 
