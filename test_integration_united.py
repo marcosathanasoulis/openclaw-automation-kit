@@ -2,8 +2,10 @@
 """Integration test: United award search through the full OpenClaw skill pipeline.
 
 Uses real BrowserAgent + CDPLock on Mac Mini.
-Tests the complete chain: skill runner → NL parser → engine → United library runner → BrowserAgent adapter → Chrome.
+Tests the complete chain: skill runner -> NL parser -> engine -> United library runner -> BrowserAgent adapter -> Chrome.
 """
+from __future__ import annotations
+
 import json
 import os
 import sys
@@ -23,42 +25,47 @@ os.environ["OPENCLAW_SECRET_UNITED_USERNAME"] = "marcosathanasoulis"
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from openclaw_automation.engine import AutomationEngine
 
-engine = AutomationEngine(ROOT)
+def main() -> None:
+    from openclaw_automation.engine import AutomationEngine
 
-print("=" * 60)
-print("INTEGRATION TEST: United Award Search via OpenClaw Skill")
-print("=" * 60)
+    engine = AutomationEngine(ROOT)
 
-# Test via library runner directly (with BrowserAgent)
-inputs = {
-    "from": "SFO",
-    "to": ["NRT"],
-    "days_ahead": 14,
-    "max_miles": 120000,
-    "travelers": 1,
-    "cabin": "business",
-    "credential_refs": {
-        "username": "united/username",
+    print("=" * 60)
+    print("INTEGRATION TEST: United Award Search via OpenClaw Skill")
+    print("=" * 60)
+
+    inputs = {
+        "from": "SFO",
+        "to": ["NRT"],
+        "days_ahead": 14,
+        "max_miles": 120000,
+        "travelers": 1,
+        "cabin": "business",
+        "credential_refs": {
+            "username": "united/username",
+        },
     }
-}
 
-print(f"\nInputs: {json.dumps(inputs, indent=2)}")
-print("\nRunning United award search (this will use Chrome via CDP)...")
-print("CDPLock will be acquired before browser use.\n")
+    print(f"\nInputs: {json.dumps(inputs, indent=2)}")
+    print("\nRunning United award search (this will use Chrome via CDP)...")
+    print("CDPLock will be acquired before browser use.\n")
 
-result = engine.run(ROOT / "library" / "united_award", inputs)
+    result = engine.run(ROOT / "library" / "united_award", inputs)
 
-print(json.dumps(result, indent=2))
+    print(json.dumps(result, indent=2))
 
-if result["ok"]:
-    matches = result.get("result", {}).get("matches", [])
-    observations = result.get("result", {}).get("raw_observations", [])
-    print(f"\n✓ Search completed: {len(matches)} match(es)")
-    for obs in observations:
-        print(f"  - {obs}")
-else:
-    print(f"\n✗ Search failed: {result.get('error', 'unknown')}")
+    if result["ok"]:
+        matches = result.get("result", {}).get("matches", [])
+        observations = result.get("result", {}).get("raw_observations", [])
+        print(f"\n  Search completed: {len(matches)} match(es)")
+        for obs in observations:
+            print(f"  - {obs}")
+    else:
+        print(f"\n  Search failed: {result.get('error', 'unknown')}")
 
-sys.exit(0 if result["ok"] else 1)
+    sys.exit(0 if result["ok"] else 1)
+
+
+if __name__ == "__main__":
+    main()
