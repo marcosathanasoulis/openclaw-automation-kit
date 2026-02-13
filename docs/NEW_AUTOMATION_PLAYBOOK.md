@@ -15,7 +15,7 @@ Under `examples/<site_script>/` add:
 - `runner.py`
 - `README.md`
 
-Keep the contract minimal and explicit.
+Keep the automation plan minimal and explicit.
 
 ## 3. Define inputs for plain-English compatibility
 For travel/search workflows, prefer:
@@ -73,4 +73,3 @@ Add one smoke test for:
 - Clear README explaining assumptions and user checkpoints.
 - Deterministic output shape.
 - Logs should be useful but secret-safe.
-

@@ -180,7 +180,7 @@ You (the deployer/operator) are fully responsible for:
 
 If you cannot operate those controls safely, do not run credentialed automations.
 
-It documents:
+That guide covers:
 - macOS Keychain setup
 - Linux/Windows secure store options
 - webhook-based second-factor flow
@@ -190,6 +190,8 @@ Credential policy for this repo:
 - Bring your own secrets store (OS keychain or cloud secret manager).
 - Pass only `credential_refs` in script inputs.
 - This project does **not** import/export credentials from password managers.
+- If you already use a password manager, you can sync/copy credentials into your OS secret store
+  (for example, Apple Keychain) and reference those entries from automations.
 
 See also:
 - [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md)
@@ -233,7 +235,7 @@ See:
 
 Read:
 - [`CONTRIBUTING.md`](CONTRIBUTING.md)
-- [`docs/SCRIPT_CONTRACT.md`](docs/SCRIPT_CONTRACT.md)
+- [`docs/AUTOMATION_PLANS.md`](docs/AUTOMATION_PLANS.md)
 - [`docs/API_DESIGN.md`](docs/API_DESIGN.md)
 - [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md)
 

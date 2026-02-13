@@ -26,6 +26,8 @@ If these controls are not in place, do not enable credentialed automations.
 - This project does **not** provide credential import/export from Dashlane, 1Password, Chrome, or any vault.
 - Users/admins provision secrets directly in their secure store.
 - Scripts receive only logical references (e.g., `openclaw/united/password`) and resolve at runtime.
+- If your password manager supports it, you can auto-sync or periodically sync credentials into your OS/cloud secret store.
+- Treat that sync path as sensitive infrastructure (audit it, restrict access, and rotate credentials regularly).
 
 ## Recommended credential storage by OS
 
@@ -66,7 +68,7 @@ PowerShell example with Credential Manager module:
 New-StoredCredential -Target "openclaw/united/password" -UserName "username" -Password "secret" -Persist LocalMachine
 ```
 
-## Script-side credential contract
+## Automation credential mapping
 Scripts should request credentials by logical key, never by raw value in input payloads.
 
 Example input:

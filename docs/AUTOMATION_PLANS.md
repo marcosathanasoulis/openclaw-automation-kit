@@ -1,6 +1,6 @@
-# Script Contract
+# Automation Plans
 
-Each script directory must include:
+Each automation directory must include:
 - `manifest.json`
 - input schema
 - output schema
@@ -8,4 +8,4 @@ Each script directory must include:
 
 `run()` must return a JSON-serializable dict.
 
-Required result keys are script-specific and validated by the output schema.
+Required result keys are automation-specific and validated by the output schema.
