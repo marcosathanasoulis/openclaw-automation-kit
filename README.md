@@ -143,6 +143,9 @@ We still recommend OpenClaw as the default path because it gives a strong base f
 - messaging-based checkpoints and resumes
 - consistent orchestration across personal assistant automations
 
+External BrowserAgent integration is supported via environment settings in
+[`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) (`OPENCLAW_USE_BROWSER_AGENT`, module path/name, CDP URL).
+
 Current recommended reasoning path for smart browser automation is Claude vision-capable workflows.  
 We welcome PRs for alternative providers/adapters (OpenAI, Gemini, local models), as long as they meet schema + test requirements.
 

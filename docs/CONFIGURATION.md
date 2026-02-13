@@ -26,6 +26,24 @@ Never commit keys to git. Use local environment variables, OS keychain, or cloud
 ### `OPENCLAW_API_KEY`
 - If your OpenClaw deployment requires API auth.
 
+## Optional BrowserAgent integration settings
+
+Use these when integrating an external `BrowserAgent` implementation (for example, from your assistant codebase).
+
+### `OPENCLAW_USE_BROWSER_AGENT`
+- Set to `true`/`1` to enable BrowserAgent execution path in award scripts.
+
+### `OPENCLAW_BROWSER_AGENT_MODULE`
+- Python module name to import (default: `browser_agent`).
+
+### `OPENCLAW_BROWSER_AGENT_PATH`
+- Filesystem path to append to `sys.path` before import.
+- Example: `/Users/you/athanasoulis-ai-assistant/src/browser`
+
+### `OPENCLAW_CDP_URL`
+- Chrome DevTools endpoint used by BrowserAgent.
+- Default: `http://127.0.0.1:9222`
+
 ## Optional messaging connector keys
 
 ### BlueBubbles (iMessage bridge)
@@ -42,4 +60,3 @@ Never commit keys to git. Use local environment variables, OS keychain, or cloud
 2. Set only the keys you actually use.
 3. Keep credentials in secure stores and pass only `credential_refs` to scripts.
 4. Use messaging connectors for 2FA/CAPTCHA handoff.
-
