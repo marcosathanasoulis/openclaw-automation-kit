@@ -233,6 +233,15 @@ Use the webhook output from the runner to integrate with:
 
 Read [`docs/NEW_AUTOMATION_PLAYBOOK.md`](docs/NEW_AUTOMATION_PLAYBOOK.md) for the recommended workflow to create production-grade new site automations.
 
+## Marketplace skills
+
+This repository ships publishable OpenClaw skill folders:
+- `skills/openclaw-web-automation-basic` (public sites, no credentials)
+- `skills/openclaw-award-search` (airline award queries, credentials + 2FA)
+
+Publishing and release steps are documented in:
+- [`docs/OPENCLAW_MARKETPLACE.md`](docs/OPENCLAW_MARKETPLACE.md)
+
 ## Concurrency and queueing
 
 To keep automations from stepping on each other, use:
@@ -247,6 +256,7 @@ See:
 
 Read:
 - [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- [`SECURITY.md`](SECURITY.md)
 - [`docs/AUTOMATION_PLANS.md`](docs/AUTOMATION_PLANS.md)
 - [`docs/API_DESIGN.md`](docs/API_DESIGN.md)
 - [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md)

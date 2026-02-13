@@ -10,7 +10,7 @@ def _fetch_html(url: str) -> str:
     req = Request(
         url=url,
         headers={
-            "User-Agent": "OpenClawAutomationKit/0.1 (+https://github.com/project-lifeview/openclaw-automation-kit)"
+            "User-Agent": "OpenClawAutomationKit/0.1 (+https://github.com/marcosathanasoulis/openclaw-automation-kit)"
         },
     )
     with urlopen(req, timeout=20) as response:

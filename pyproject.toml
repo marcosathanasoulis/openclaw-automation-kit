@@ -9,7 +9,7 @@ description = "Contract-first browser automation framework for OpenClaw scripts"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{name = "OpenClaw Automation Contributors"}]
-license = {text = "MIT"}
+license = {text = "Apache-2.0"}
 dependencies = [
   "jsonschema>=4.22.0",
 ]
