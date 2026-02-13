@@ -99,3 +99,9 @@ tail -f /tmp/full_suite.log
 - Only ONE browser automation at a time per machine
 - Lock file: `/tmp/browser_cdp.lock`
 - If stuck: `cat /tmp/browser_cdp.lock` to see PID, kill if stale
+
+## Codex live run note (2026-02-12 23:16 local)
+- codex regression script `/tmp/openclaw-automation-kit/run_codex_regression.sh` is active.
+- united run completed (live mode, status=success, matches currently empty in JSON extraction path).
+- singapore run is currently in progress under lock PID 64677.
+- after singapore completes, script will run ANA automatically.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import sys
 from datetime import date, timedelta
 from typing import Any, Dict, List
@@ -18,13 +19,13 @@ UNITED_CABIN_CODES = {
 
 
 def _booking_url(origin: str, dest: str, depart_date: date, cabin: str, travelers: int) -> str:
-    """Construct a United.com deep-link that opens the award search results page."""
+    """Construct a United.com deep-link for the award search results page."""
     params = {
         "f": origin,
         "t": dest,
         "d": depart_date.isoformat(),
         "tt": "1",          # one-way
-        "clm": "7",         # award / miles mode
+        "clm": "7",         # cabin class
         "taxng": "1",
         "newp": "1",
         "sc": UNITED_CABIN_CODES.get(cabin, "7"),
@@ -44,56 +45,183 @@ def _goal(inputs: Dict[str, Any]) -> str:
     days_ahead = int(inputs["days_ahead"])
     max_miles = int(inputs["max_miles"])
     depart_date = date.today() + timedelta(days=days_ahead)
-    month_display = depart_date.strftime("%B %Y")
+
+    search_url = _booking_url(origin, dest, depart_date, cabin, travelers)
+    date_str = depart_date.strftime("%b %-d")  # e.g. "Apr 14"
 
     lines = [
-        f"Search for United award flights {origin} to {dest} around {month_display}, {cabin} class.",
+        f"Search for United award flights {origin} to {dest} "
+        f"on {depart_date.strftime('%B %-d, %Y')}, {cabin} class.",
         "",
-        "STEP 1 - LOGIN (if needed):",
-        "Go to united.com/en/us. Check if already logged in (look for 'Hi' greeting in the top-right).",
-        "If already logged in, skip to STEP 2.",
+        "=== ACTION SEQUENCE (follow EXACTLY, step by step) ===",
         "",
-        "If NOT logged in, you MUST sign in FIRST before searching:",
-        "  a) Click the person/profile icon in the top-right header (NOT a dialog popup).",
-        "  b) MileagePlus number: ka388724",
-        "  c) Get the password from the keychain for www.united.com.",
-        "  d) United uses a multi-step login:",
-        "     - Enter the MileagePlus number in the username field.",
-        "     - Click Continue.",
-        "     - Wait 3 seconds for the password field to appear.",
-        "     - Enter the password in the NEW password field that appears.",
-        "     - Click Sign in / Continue.",
-        "  e) Wait 5 seconds for login to complete.",
-        "  f) If a 'Sign in' or 'Continue shopping?' dialog appears, close it first (click X).",
+        "STEP 1 - CHECK LOGIN:",
+        "Look at the page. If you see 'Hi [name]' or a greeting in the top-right, you are logged in. Skip to STEP 2.",
+        "If NOT logged in (you see 'Sign in' or person icon):",
+        "  1a. Click the person/profile icon or 'Sign in' link in the header.",
+        "  1b. credentials for www.united.com",
+        "  1c. Enter MileagePlus number ka388724 in the username field.",
+        "  1d. Click Continue.",
+        "  1e. wait 3",
+        "  1f. Enter the password in the password field that appears.",
+        "  1g. Click 'Sign in'.",
+        "  1h. wait 5",
+        "  1i. If a dialog or popup appears, close it (click X).",
         "",
-        "STEP 2 - SEARCH FOR AWARD FLIGHTS:",
-        "On the united.com homepage, find the booking widget.",
-        "Check 'Book with miles' checkbox/toggle.",
-        "Fill in the search form:",
-        "  - Trip type: One-way",
-        f"  - From: {origin}",
-        f"  - To: {dest}",
-        f"  - Date: {depart_date.isoformat()}",
-        f"  - Travelers: {travelers} adult(s)",
-        f"  - Cabin: {cabin}",
-        "Click Search / Find flights.",
+        "STEP 2 - NAVIGATE TO SEARCH RESULTS (ALWAYS DO THIS):",
+        f"Your VERY NEXT ACTION must be: navigate to {search_url}",
+        "This URL goes DIRECTLY to the search results page with cash prices.",
         "",
-        "STEP 3 - READ RESULTS:",
-        "Wait for results to load (may take 5-10 seconds).",
-        "If a 'Sign in' dialog pops up on the results page, close it and retry.",
-        f"Sort by miles if possible. Look for {cabin} cabin fares.",
+        "STEP 3 - WAIT FOR RESULTS:",
+        "Your VERY NEXT ACTION must be: wait 8",
+        "The results page needs time to load flight options.",
         "",
-        "Report the first several flight options in this format:",
-        "  Flight 1: departure HH:MM - arrival HH:MM, XX,XXX miles, carrier, stops",
-        "  Flight 2: ...",
-        f"Note which flights are under {max_miles:,} miles total ({max_miles // travelers:,} per person).",
-        "If no flights are under the limit, say so clearly.",
-        "When done reading results, use the done action with your findings.",
+        "STEP 4 - SWITCH TO MILES VIEW:",
+        "At the top of the page, find the 'Show price in:' dropdown (currently shows 'Money').",
+        "Click this dropdown and select 'Miles'.",
         "",
-        "IMPORTANT: Before calling done, note the current page URL from your browser.",
-        "Include it in your response so we can generate a direct booking link.",
+        "STEP 5 - RE-ENTER DATE AND UPDATE:",
+        f"After switching to Miles, the date field may have been cleared.",
+        f"If the date field is empty, click on it, navigate to {depart_date.strftime('%B %Y')} in the calendar,",
+        f"and click on day {depart_date.day}.",
+        "Then click the blue 'Update' button to re-run the search in miles mode.",
+        "",
+        "STEP 6 - WAIT FOR MILES RESULTS:",
+        "Your VERY NEXT ACTION must be: wait 10",
+        "Wait for the page to reload with miles pricing.",
+        "",
+        "STEP 7 - TAKE SCREENSHOT:",
+        "Your VERY NEXT ACTION must be: screenshot",
+        "This will show the flight results with pure miles prices.",
+        "",
+        "STEP 8 - REPORT AND DONE:",
+        "Your VERY NEXT ACTION must be: done",
+        "From the screenshot and page content, report ALL visible flights.",
+        "Format each flight as:",
+        f"FLIGHT: HH:MM-HH:MM | XX,XXX miles | Nonstop/1 stop | carrier | {cabin}",
+        "",
+        f"Focus on flights under {max_miles:,} miles.",
+        "If the page shows 'Sign in' instead of results, note that.",
+        "If miles prices aren't showing, report what IS visible.",
+        "",
+        "=== CRITICAL WARNINGS ===",
+        "- STEP 2 is MANDATORY. Always navigate to the direct URL.",
+        "- After STEP 4 (switching to Miles), the date may clear — you MUST re-enter it.",
+        "- Click 'Update' after re-entering the date to re-run the search.",
+        "- Do NOT fill in the booking form from scratch. Use the direct URL first.",
+        "- If a 'Sign in' popup appears, close it and continue.",
+        "- Follow steps 1-8 EXACTLY in order.",
     ]
     return "\n".join(lines)
+
+
+def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Parse agent free-text result into structured match dicts."""
+    if not result_text:
+        return []
+
+    origin = inputs["from"]
+    dest = inputs["to"][0]
+    cabin = inputs.get("cabin", "economy")
+    travelers = int(inputs.get("travelers", 1))
+    max_miles = int(inputs.get("max_miles", 999999))
+    depart_date = date.today() + timedelta(days=int(inputs["days_ahead"]))
+
+    matches = []
+    seen = set()
+
+    # Pattern 1: "FLIGHT: HH:MM-HH:MM | XX,XXX miles | ..."
+    flight_pattern = re.compile(
+        r'(?:FLIGHT:?\s*)?(\d{1,2}:\d{2}(?:\s*[AP]M)?)\s*[-–]\s*(\d{1,2}:\d{2}(?:\s*[AP]M)?)'
+        r'.*?([\d,]+)\s*(?:miles|mi)\b',
+        re.IGNORECASE,
+    )
+
+    # Pattern 2: "UA123 ... XX,XXX miles"
+    ua_pattern = re.compile(
+        r'(?:UA|United)\s*#?\s*(\d{1,5}).*?([\d,]+)\s*(?:miles|mi)\b',
+        re.IGNORECASE,
+    )
+
+    for line in result_text.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        # Skip lines that look like combo pricing ($ + miles)
+        if re.search(r'\$[\d,]+\s*\+\s*[\d,]+\s*miles', line, re.IGNORECASE):
+            continue
+
+        match_data = None
+
+        fm = flight_pattern.search(line)
+        if fm:
+            miles = int(fm.group(3).replace(",", ""))
+            if 1000 <= miles <= max_miles:
+                match_data = {
+                    "depart_time": fm.group(1).strip(),
+                    "arrive_time": fm.group(2).strip(),
+                    "miles": miles,
+                }
+
+        if not match_data:
+            um = ua_pattern.search(line)
+            if um:
+                miles = int(um.group(2).replace(",", ""))
+                if 1000 <= miles <= max_miles:
+                    match_data = {
+                        "flight": f"UA{um.group(1)}",
+                        "depart_time": "",
+                        "arrive_time": "",
+                        "miles": miles,
+                    }
+
+        if match_data:
+            key = f"{match_data.get('depart_time', '')}-{match_data.get('arrive_time', '')}-{match_data['miles']}"
+            if key not in seen:
+                seen.add(key)
+                stops = ""
+                if re.search(r'\bnonstop\b', line, re.IGNORECASE):
+                    stops = "Nonstop"
+                elif re.search(r'(\d)\s*stop', line, re.IGNORECASE):
+                    sm = re.search(r'(\d)\s*stop', line, re.IGNORECASE)
+                    stops = f"{sm.group(1)} stop(s)"
+
+                matches.append({
+                    "route": f"{origin}-{dest}",
+                    "date": depart_date.isoformat(),
+                    "miles": match_data["miles"],
+                    "travelers": travelers,
+                    "cabin": cabin,
+                    "mixed_cabin": False,
+                    "flight": match_data.get("flight", ""),
+                    "depart_time": match_data.get("depart_time", ""),
+                    "arrive_time": match_data.get("arrive_time", ""),
+                    "stops": stops,
+                    "notes": line[:150],
+                })
+
+    # Fallback: raw miles extraction (skip combo pricing)
+    if not matches:
+        miles_pat = re.compile(r'([\d,]+)\s*(?:miles|mi)\b', re.IGNORECASE)
+        for line in result_text.split("\n"):
+            if re.search(r'\$[\d,]+\s*\+', line):
+                continue
+            mm = miles_pat.search(line)
+            if mm:
+                miles = int(mm.group(1).replace(",", ""))
+                if 1000 <= miles <= max_miles:
+                    matches.append({
+                        "route": f"{origin}-{dest}",
+                        "date": depart_date.isoformat(),
+                        "miles": miles,
+                        "travelers": travelers,
+                        "cabin": cabin,
+                        "mixed_cabin": False,
+                        "notes": f"Raw: {line.strip()[:150]}",
+                    })
+                    break
+
+    return matches
 
 
 def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
@@ -122,32 +250,43 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
         agent_run = run_browser_agent_goal(
             goal=_goal(inputs),
             url=UNITED_URL,
-            max_steps=60,
+            max_steps=30,
             trace=True,
             use_vision=True,
         )
         if agent_run["ok"]:
             run_result = agent_run.get("result") or {}
+            result_text = run_result.get("result", "") if isinstance(run_result, dict) else str(run_result)
             observations.extend(
                 [
                     "BrowserAgent run executed.",
-                    f"BrowserAgent status: {run_result.get('status', 'unknown')}",
-                    f"BrowserAgent steps: {run_result.get('steps', 'n/a')}",
-                    f"BrowserAgent trace_dir: {run_result.get('trace_dir', 'n/a')}",
+                    f"BrowserAgent status: {run_result.get('status', 'unknown') if isinstance(run_result, dict) else 'unknown'}",
+                    f"BrowserAgent steps: {run_result.get('steps', 'n/a') if isinstance(run_result, dict) else 'n/a'}",
+                    f"BrowserAgent trace_dir: {run_result.get('trace_dir', 'n/a') if isinstance(run_result, dict) else 'n/a'}",
                 ]
             )
-            live_matches = run_result.get("matches", [])
+
+            live_matches = _parse_matches(result_text, inputs)
+
+            # Also check agent-extracted matches
+            agent_matches = run_result.get("matches", []) if isinstance(run_result, dict) else []
+            if agent_matches and not live_matches:
+                live_matches = agent_matches
+
             for m in live_matches:
                 if "booking_url" not in m:
                     m["booking_url"] = book_url
+
             return {
                 "mode": "live",
                 "real_data": True,
                 "matches": live_matches,
                 "booking_url": book_url,
                 "summary": (
-                    "BrowserAgent run completed for United award search. "
-                    "If matches is empty, extraction mapping is still in progress."
+                    f"United award search: {len(live_matches)} flight(s) found "
+                    f"under {max_miles:,} miles. "
+                    + (f"Cheapest: {min(m['miles'] for m in live_matches):,} miles. "
+                       if live_matches else "No matching flights. ")
                 ),
                 "raw_observations": observations,
                 "errors": [],
