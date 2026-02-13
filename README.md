@@ -214,10 +214,10 @@ See:
 ## Contribution
 
 Read:
-- `CONTRIBUTING.md`
-- `docs/SCRIPT_CONTRACT.md`
-- `docs/API_DESIGN.md`
-- `docs/CONFIGURATION.md`
+- [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- [`docs/SCRIPT_CONTRACT.md`](docs/SCRIPT_CONTRACT.md)
+- [`docs/API_DESIGN.md`](docs/API_DESIGN.md)
+- [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md)
 
 All PRs must include schema-valid manifests and runnable tests.  
 Provider/integration PRs must include at least one deterministic test case we can run in CI.
