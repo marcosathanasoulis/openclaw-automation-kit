@@ -9,12 +9,20 @@ from openclaw_automation.browser_agent_adapter import browser_agent_enabled, run
 AEROMEXICO_URL = "https://www.aeromexico.com/en-us"
 
 
+CABIN_MAP_AM = {
+    "business": "Clase Premier",
+    "economy": "Economy",
+    "first": "Clase Premier",
+}
+
+
 def _goal(inputs: Dict[str, Any]) -> str:
     origin = inputs["from"]
     destinations = inputs["to"]
     dest = destinations[0]
     travelers = int(inputs["travelers"])
     cabin = str(inputs.get("cabin", "economy"))
+    cabin_display = CABIN_MAP_AM.get(cabin, cabin.title())
     days_ahead = int(inputs["days_ahead"])
     max_miles = int(inputs["max_miles"])
     depart_date = date.today() + timedelta(days=days_ahead)
@@ -23,30 +31,59 @@ def _goal(inputs: Dict[str, Any]) -> str:
         f"Search for AeroMexico Club Premier award flights {origin} to {dest}, {cabin} class.",
         "",
         "STEP 1 - LOGIN:",
-        "Go to aeromexico.com/en-us. Click 'Log in' or the user icon.",
-        "Get credentials from keychain for www.aeromexico.com (account: 00667826747).",
-        "IMPORTANT: AeroMexico has reCAPTCHA. Type credentials char-by-char using press action,",
-        "NOT js_eval or fill. Human-like input avoids CAPTCHA triggers.",
-        "After login, look for Club Premier balance display.",
+        "Go to aeromexico.com/en-us. Click 'Log in' or the user/profile icon in the top nav.",
+        "IMPORTANT: AeroMexico has reCAPTCHA protection. You MUST type ALL text char-by-char",
+        "using the press action for each character. Do NOT use js_eval or fill — those trigger CAPTCHA.",
         "",
-        "STEP 2 - NAVIGATE TO AWARD SEARCH:",
-        "Click 'Book' or 'Flights'. Enable 'Use Club Premier points' toggle.",
-        "Fill in:",
-        "  - One-way",
-        f"  - From: {origin}",
-        f"  - To: {dest}",
-        f"  - Date: {depart_date.isoformat()}",
-        f"  - Travelers: {travelers} adult(s)",
-        f"  - Cabin: {cabin}",
-        "Click Search.",
+        "Club Premier number: 00667826747",
+        "Get password from keychain for www.aeromexico.com.",
+        "Type the Club Premier number digit by digit using press action.",
+        "Type the password char by char using press action.",
+        "Click the login/submit button.",
+        "Wait 3 seconds for login to complete.",
         "",
-        "STEP 3 - READ RESULTS:",
-        "After results load, read the available flights.",
-        "Report flight options with their miles cost.",
-        f"Note which flights are under {max_miles:,} miles total ({max_miles // travelers:,} per person).",
-        "If no flights are under the limit, say so clearly.",
-        "When done reading results, use the done action with your findings.",
+        "STEP 2 - NAVIGATE TO BOOKING FORM:",
+        "After login, click 'Book' or 'Flights' in the top navigation.",
+        "You should see the booking/search form at aeromexico.com/en-us/book.",
+        "",
+        "STEP 3 - FILL THE BOOKING FORM:",
+        "Do these in order:",
+        "",
+        "  a) TRIP TYPE: Select 'One Way' (click the One Way radio/tab).",
+        "",
+        "  b) POINTS TOGGLE: Enable 'Use Club Premier points' or 'Redeem points'.",
+        "     This is usually a toggle switch or checkbox near the top of the form.",
+        "",
+        f"  c) FROM: Click the origin field and type '{origin}'. Select from dropdown.",
+        "",
+        f"  d) TO: Click the destination field and type '{dest}'. Select from dropdown.",
+        "",
+        f"  e) DATE: Click the date field. Navigate the calendar to find {depart_date.isoformat()}.",
+        f"     Select the date and confirm.",
+        "",
     ]
+
+    if travelers == 1:
+        lines.append("  f) PASSENGERS: Leave at default (1 Adult). Do NOT change it.")
+    else:
+        lines.extend([
+            f"  f) PASSENGERS: Click the passenger field. Use the + button to set {travelers} adults.",
+            "     Close the passenger selector when done.",
+        ])
+
+    lines.extend([
+        "",
+        f"  g) CABIN: If there is a cabin/class selector, choose '{cabin_display}'.",
+        "     If no cabin selector is visible, skip this — cabin selection may appear in results.",
+        "",
+        "  h) Click the SEARCH button (usually a large blue button at the bottom of the form).",
+        "",
+        "STEP 4 - READ RESULTS:",
+        "Wait for results to load. Read available flights.",
+        f"Report flights with their miles cost per person.",
+        f"Note which flights are under {max_miles:,} miles total ({max_miles // travelers:,} per person).",
+        "When done reading results, use the done action with your findings.",
+    ])
     return "\n".join(lines)
 
 
