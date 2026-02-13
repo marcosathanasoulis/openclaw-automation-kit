@@ -35,6 +35,19 @@ If a required lock is held:
 - keep run queued
 - retry based on backoff policy
 
+## BrowserAgent CDP file lock (implemented)
+
+For BrowserAgent-based runs, this repo now uses a file lock to serialize access
+to shared Chrome CDP sessions:
+- default lock file: `/tmp/browser_cdp.lock`
+- stale PID detection and cleanup
+- bounded wait with timeout/retry controls
+
+Config:
+- `OPENCLAW_CDP_LOCK_FILE`
+- `OPENCLAW_CDP_LOCK_TIMEOUT`
+- `OPENCLAW_CDP_LOCK_RETRY_SECONDS`
+
 ## Queue behavior
 
 - FIFO with optional priority classes
@@ -56,4 +69,3 @@ Without queue + lock policy, concurrent runs can:
 - cross-wire login/session state
 - send wrong challenge prompts to users
 - produce incorrect extraction output
-

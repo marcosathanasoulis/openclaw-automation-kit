@@ -44,6 +44,18 @@ Use these when integrating an external `BrowserAgent` implementation (for exampl
 - Chrome DevTools endpoint used by BrowserAgent.
 - Default: `http://127.0.0.1:9222`
 
+### `OPENCLAW_CDP_LOCK_FILE`
+- File lock path used to serialize CDP BrowserAgent runs.
+- Default: `/tmp/browser_cdp.lock`
+
+### `OPENCLAW_CDP_LOCK_TIMEOUT`
+- Max seconds to wait for CDP lock before failing.
+- Default: `600`
+
+### `OPENCLAW_CDP_LOCK_RETRY_SECONDS`
+- Retry interval while waiting for lock.
+- Default: `5`
+
 ## Optional messaging connector keys
 
 ### BlueBubbles (iMessage bridge)
