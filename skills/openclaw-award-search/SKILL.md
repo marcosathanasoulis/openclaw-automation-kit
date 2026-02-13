@@ -39,7 +39,7 @@ Optional iMessage notification via BlueBubbles (dry run by default):
 python skills/openclaw-award-search/scripts/run_query.py \
   --query "<user request>" \
   --credential-refs '{"airline_username":"openclaw/united/username","airline_password":"openclaw/united/password"}' \
-  --notify-imessage "+14152268266"
+  --notify-imessage "+1XXXXXXXXXX"
 ```
 
 Actually send:
@@ -48,7 +48,7 @@ Actually send:
 python skills/openclaw-award-search/scripts/run_query.py \
   --query "<user request>" \
   --credential-refs '{"airline_username":"openclaw/united/username","airline_password":"openclaw/united/password"}' \
-  --notify-imessage "+14152268266" \
+  --notify-imessage "+1XXXXXXXXXX" \
   --send-notification
 ```
 

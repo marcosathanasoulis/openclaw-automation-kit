@@ -17,7 +17,15 @@ AIRLINE_TO_SCRIPT = {
     "united": "library/united_award",
     "singapore": "library/singapore_award",
     "singapore air": "library/singapore_award",
+    "singapore airlines": "library/singapore_award",
+    "sq": "library/singapore_award",
     "ana": "library/ana_award",
+    "bank of america": "library/bofa_alert",
+    "bofa": "library/bofa_alert",
+    "boa": "library/bofa_alert",
+    "github": "library/github_signin_check",
+    "github login": "library/github_signin_check",
+    "github signin": "library/github_signin_check",
 }
 
 
@@ -65,7 +73,13 @@ def _extract_keyword(query: str, default: str = "news") -> str:
 
 def _extract_airport_codes(query: str) -> List[str]:
     codes = re.findall(r"\b[A-Z]{3}\b", query)
-    excluded = {"ANA"}
+    excluded = {
+        "ANA", "THE", "AND", "FOR", "ONE", "TWO", "ALL", "ANY", "NOT",
+        "BUT", "HAS", "HAD", "HER", "HIS", "HOW", "ITS", "LET", "MAY",
+        "NEW", "NOW", "OLD", "OUR", "OUT", "OWN", "SAY", "SHE", "TOO",
+        "USE", "WAY", "WHO", "BOY", "DID", "GET", "HIM", "MAN", "RUN",
+        "DAY", "FLY", "MAX", "VIA",
+    }
     return [code for code in codes if code not in excluded]
 
 

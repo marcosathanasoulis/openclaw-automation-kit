@@ -26,3 +26,8 @@ def validate_manifest(script_dir: Path, manifest_schema_path: Path) -> Dict[str,
 def validate_inputs(inputs: Dict[str, Any], inputs_schema_path: Path) -> None:
     schema = _load_json(inputs_schema_path)
     jsonschema.validate(inputs, schema)
+
+
+def validate_output(result: Dict[str, Any], output_schema_path: Path) -> None:
+    schema = _load_json(output_schema_path)
+    jsonschema.validate(result, schema)

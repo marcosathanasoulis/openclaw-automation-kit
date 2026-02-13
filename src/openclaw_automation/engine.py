@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
-from .contract import validate_inputs, validate_manifest
+from .contract import validate_inputs, validate_manifest, validate_output
 from .credentials import redacted_keys, resolve_credential_refs
 
 
@@ -57,11 +57,37 @@ class AutomationEngine:
             "unresolved_credential_refs": resolution.unresolved,
         }
 
-        result = module.run(context, inputs)
-        if not isinstance(result, dict):
-            raise TypeError("runner result must be a dict")
+        try:
+            result = module.run(context, inputs)
+        except Exception as exc:
+            return {
+                "ok": False,
+                "script_id": manifest["id"],
+                "script_version": manifest["version"],
+                "error": str(exc),
+                "error_type": type(exc).__name__,
+            }
 
-        return {
+        if not isinstance(result, dict):
+            return {
+                "ok": False,
+                "script_id": manifest["id"],
+                "script_version": manifest["version"],
+                "error": f"runner result must be a dict, got {type(result).__name__}",
+                "error_type": "TypeError",
+            }
+
+        # Validate output against schema (warn but don't fail)
+        output_schema_path = script_dir / manifest["outputs_schema"]
+        try:
+            validate_output(result, output_schema_path)
+        except Exception as exc:
+            import sys
+            print(f"WARNING: runner output does not match schema: {exc}", file=sys.stderr)
+
+        is_placeholder = result.get("mode") == "placeholder"
+
+        envelope = {
             "ok": True,
             "script_id": manifest["id"],
             "script_version": manifest["version"],
@@ -73,6 +99,9 @@ class AutomationEngine:
             },
             "result": result,
         }
+        if is_placeholder:
+            envelope["placeholder"] = True
+        return envelope
 
 
 def pretty_json(data: Dict[str, Any]) -> str:
