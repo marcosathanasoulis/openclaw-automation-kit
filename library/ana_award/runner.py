@@ -9,6 +9,11 @@ from openclaw_automation.browser_agent_adapter import browser_agent_enabled, run
 ANA_URL = "https://aswbe-i.ana.co.jp/international_asw/pages/award/search/roundtrip/award_search_roundtrip_input.xhtml?CONNECTION_KIND=JPN&LANG=en"
 
 
+def _booking_url() -> str:
+    """ANA's award search form URL (deep-linking params not supported)."""
+    return ANA_URL
+
+
 def _goal(inputs: Dict[str, Any]) -> str:
     origin = inputs["from"]
     destinations = inputs["to"]
@@ -45,6 +50,9 @@ def _goal(inputs: Dict[str, Any]) -> str:
         f"Note which flights are under {max_miles:,} miles total ({max_miles // travelers:,} per person).",
         "If CAPTCHA appears, report stuck.",
         "When done reading results, use the done action with your findings.",
+        "",
+        "IMPORTANT: Before calling done, note the current page URL from your browser.",
+        "Include it in your response so we can generate a direct booking link.",
     ]
     return "\n".join(lines)
 
@@ -56,6 +64,8 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
     max_miles = int(inputs["max_miles"])
     cabin = str(inputs.get("cabin", "economy"))
 
+    travelers = int(inputs["travelers"])
+    book_url = _booking_url()
     dest_str = ", ".join(destinations)
     observations: List[str] = [
         "OpenClaw session expected",
@@ -84,10 +94,15 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
                     f"BrowserAgent trace_dir: {run_result.get('trace_dir', 'n/a')}",
                 ]
             )
+            live_matches = run_result.get("matches", [])
+            for m in live_matches:
+                if "booking_url" not in m:
+                    m["booking_url"] = book_url
             return {
                 "mode": "live",
                 "real_data": True,
-                "matches": run_result.get("matches", []),
+                "matches": live_matches,
+                "booking_url": book_url,
                 "summary": (
                     "BrowserAgent run completed for ANA award search. "
                     "If matches is empty, extraction mapping is still in progress."
@@ -106,9 +121,10 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
             "route": f"{inputs['from']}-{destinations[0]}",
             "date": today.isoformat(),
             "miles": min(65000, max_miles),
-            "travelers": int(inputs["travelers"]),
+            "travelers": travelers,
             "cabin": cabin,
             "mixed_cabin": False,
+            "booking_url": book_url,
             "notes": "placeholder result",
         }
     ]
@@ -117,6 +133,7 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
         "mode": "placeholder",
         "real_data": False,
         "matches": matches,
+        "booking_url": book_url,
         "summary": f"PLACEHOLDER: Found {len(matches)} synthetic ANA match(es) <= {max_miles} miles",
         "raw_observations": observations,
         "errors": [],

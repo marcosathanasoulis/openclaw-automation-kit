@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from datetime import date, timedelta
 from typing import Any, Dict, List
+from urllib.parse import urlencode
 
 from openclaw_automation.browser_agent_adapter import browser_agent_enabled, run_browser_agent_goal
 
@@ -14,6 +15,27 @@ CABIN_MAP = {
     "business": "Delta One",
     "first": "First Class",
 }
+
+DELTA_FARE_CLASS = {
+    "economy": "COACH",
+    "premium_economy": "PREMIUM_ECONOMY",
+    "business": "DELTA_ONE",
+    "first": "FIRST",
+}
+
+
+def _booking_url(origin: str, dest: str, depart_date: date, cabin: str, travelers: int) -> str:
+    """Construct a Delta.com deep-link for the award search."""
+    params = {
+        "tripType": "ONE_WAY",
+        "originCity": origin,
+        "destinationCity": dest,
+        "departureDate": depart_date.strftime("%m/%d/%Y"),
+        "paxCount": str(travelers),
+        "fareClass": DELTA_FARE_CLASS.get(cabin, "COACH"),
+        "shopWithMiles": "true",
+    }
+    return f"https://www.delta.com/flight-search/book-a-flight?{urlencode(params)}"
 
 
 def _goal(inputs: Dict[str, Any]) -> str:
@@ -84,6 +106,9 @@ def _goal(inputs: Dict[str, Any]) -> str:
         "Include: flight number, departure time, arrival time, miles cost, stops.",
         "If no flights are under the limit, report the cheapest option you see.",
         "When done reading results, use the done action with your findings.",
+        "",
+        "IMPORTANT: Before calling done, note the current page URL from your browser.",
+        "Include it in your response so we can generate a direct booking link.",
     ])
     return "\n".join(lines)
 
@@ -95,7 +120,11 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
     max_miles = int(inputs["max_miles"])
     cabin = str(inputs.get("cabin", "economy"))
 
+    travelers = int(inputs["travelers"])
+    depart_date = today + timedelta(days=int(inputs["days_ahead"]))
     dest_str = ", ".join(destinations)
+    book_url = _booking_url(inputs["from"], destinations[0], depart_date, cabin, travelers)
+
     observations: List[str] = [
         "OpenClaw session expected",
         f"Range: {today.isoformat()}..{end.isoformat()}",
@@ -123,10 +152,15 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
                     f"BrowserAgent trace_dir: {run_result.get('trace_dir', 'n/a')}",
                 ]
             )
+            live_matches = run_result.get("matches", [])
+            for m in live_matches:
+                if "booking_url" not in m:
+                    m["booking_url"] = book_url
             return {
                 "mode": "live",
                 "real_data": True,
-                "matches": run_result.get("matches", []),
+                "matches": live_matches,
+                "booking_url": book_url,
                 "summary": (
                     "BrowserAgent run completed for Delta award search. "
                     "Check raw_observations for flight details."
@@ -145,9 +179,10 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
             "route": f"{inputs['from']}-{destinations[0]}",
             "date": today.isoformat(),
             "miles": min(25000, max_miles),
-            "travelers": int(inputs["travelers"]),
+            "travelers": travelers,
             "cabin": cabin,
             "mixed_cabin": False,
+            "booking_url": book_url,
             "notes": "placeholder result",
         }
     ]
@@ -156,6 +191,7 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
         "mode": "placeholder",
         "real_data": False,
         "matches": matches,
+        "booking_url": book_url,
         "summary": f"PLACEHOLDER: Found {len(matches)} synthetic Delta match(es) <= {max_miles} miles",
         "raw_observations": observations,
         "errors": [],

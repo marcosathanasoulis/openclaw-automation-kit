@@ -3,10 +3,36 @@ from __future__ import annotations
 import sys
 from datetime import date, timedelta
 from typing import Any, Dict, List
+from urllib.parse import urlencode
 
 from openclaw_automation.browser_agent_adapter import browser_agent_enabled, run_browser_agent_goal
 
 UNITED_URL = "https://www.united.com/en/us"
+
+UNITED_CABIN_CODES = {
+    "economy": "7",
+    "premium_economy": "2",
+    "business": "5",
+    "first": "3",
+}
+
+
+def _booking_url(origin: str, dest: str, depart_date: date, cabin: str, travelers: int) -> str:
+    """Construct a United.com deep-link that opens the award search results page."""
+    params = {
+        "f": origin,
+        "t": dest,
+        "d": depart_date.isoformat(),
+        "tt": "1",          # one-way
+        "clm": "7",         # award / miles mode
+        "taxng": "1",
+        "newp": "1",
+        "sc": UNITED_CABIN_CODES.get(cabin, "7"),
+        "px": str(travelers),
+        "idx": "1",
+        "st": "bestmatches",
+    }
+    return f"https://www.united.com/en/us/fsr/choose-flights?{urlencode(params)}"
 
 
 def _goal(inputs: Dict[str, Any]) -> str:
@@ -46,6 +72,9 @@ def _goal(inputs: Dict[str, Any]) -> str:
         f"Note which flights are under {max_miles:,} miles total ({max_miles // travelers:,} per person).",
         "If no flights are under the limit, say so clearly.",
         "When done reading results, use the done action with your findings.",
+        "",
+        "IMPORTANT: Before calling done, note the current page URL from your browser.",
+        "Include it in your response so we can generate a direct booking link.",
     ]
     return "\n".join(lines)
 
@@ -68,6 +97,10 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
     if context.get("unresolved_credential_refs"):
         observations.append("Credential refs unresolved; run would require manual auth flow.")
 
+    depart_date = today + timedelta(days=int(inputs["days_ahead"]))
+    travelers = int(inputs["travelers"])
+    book_url = _booking_url(inputs["from"], destinations[0], depart_date, cabin, travelers)
+
     if browser_agent_enabled():
         agent_run = run_browser_agent_goal(
             goal=_goal(inputs),
@@ -86,10 +119,15 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
                     f"BrowserAgent trace_dir: {run_result.get('trace_dir', 'n/a')}",
                 ]
             )
+            live_matches = run_result.get("matches", [])
+            for m in live_matches:
+                if "booking_url" not in m:
+                    m["booking_url"] = book_url
             return {
                 "mode": "live",
                 "real_data": True,
-                "matches": run_result.get("matches", []),
+                "matches": live_matches,
+                "booking_url": book_url,
                 "summary": (
                     "BrowserAgent run completed for United award search. "
                     "If matches is empty, extraction mapping is still in progress."
@@ -108,9 +146,10 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
             "route": f"{inputs['from']}-{destinations[0]}",
             "date": today.isoformat(),
             "miles": min(80000, max_miles),
-            "travelers": int(inputs["travelers"]),
+            "travelers": travelers,
             "cabin": cabin,
             "mixed_cabin": False,
+            "booking_url": book_url,
             "notes": "placeholder result",
         }
     ]
@@ -119,6 +158,7 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
         "mode": "placeholder",
         "real_data": False,
         "matches": matches,
+        "booking_url": book_url,
         "summary": f"PLACEHOLDER: Found {len(matches)} synthetic match(es) <= {max_miles} miles",
         "raw_observations": observations,
         "errors": [],

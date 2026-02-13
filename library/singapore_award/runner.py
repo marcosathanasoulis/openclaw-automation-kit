@@ -6,6 +6,7 @@ import sys
 import time
 from datetime import date, timedelta
 from typing import Any, Dict, List
+from urllib.parse import urlencode
 
 from openclaw_automation.browser_agent_adapter import browser_agent_enabled, run_browser_agent_goal
 
@@ -30,6 +31,12 @@ CITY_NAMES = {
     "LAX": "Los Angeles",
     "JFK": "New York",
 }
+
+
+def _booking_url(origin: str, dest: str, depart_date: date) -> str:
+    """Construct a Singapore Airlines KrisFlyer redemption link."""
+    # SIA SPA doesn't support deep search params, link to the redeem page
+    return SIA_REDEEM_URL
 
 
 def _login_goal() -> str:
@@ -349,6 +356,7 @@ def _run_hybrid(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, An
                 raw_results = _scrape_results(page, depart_date.month, depart_date.year)
                 observations.append(f"Scraped {len(raw_results)} date entries")
 
+                book_url = _booking_url(origin, dest, depart_date)
                 per_person_max = max_miles // travelers
                 for r in raw_results:
                     if r["miles"] > 0 and r["miles"] <= per_person_max:
@@ -359,6 +367,7 @@ def _run_hybrid(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, An
                             "travelers": travelers,
                             "cabin": cabin,
                             "mixed_cabin": False,
+                            "booking_url": book_url,
                             "notes": f"raw: {r['raw']}",
                         })
 
@@ -370,10 +379,12 @@ def _run_hybrid(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, An
         errors.append(f"Playwright phase error: {exc}")
         observations.append(f"Playwright error: {exc}")
 
+    book_url_final = _booking_url(origin, dest, depart_date)
     return {
         "mode": "live",
         "real_data": True,
         "matches": matches,
+        "booking_url": book_url_final,
         "summary": (
             f"SIA hybrid search completed. "
             f"Found {len(matches)} flights under {max_miles:,} miles for {origin}-{dest}."
@@ -451,6 +462,7 @@ def _goal(inputs: Dict[str, Any]) -> str:
         "",
         "STEP 4 - READ RESULTS:",
         f"Report available flights under {max_miles:,} miles ({max_miles // travelers:,} per person).",
+        "Before calling done, note the current page URL from your browser.",
         "Use the done action with your findings.",
     ]
     return "\n".join(lines)
@@ -473,6 +485,10 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
     if context.get("unresolved_credential_refs"):
         observations.append("Credential refs unresolved; run would require manual auth flow.")
 
+    depart_date = today + timedelta(days=int(inputs["days_ahead"]))
+    travelers = int(inputs["travelers"])
+    book_url = _booking_url(inputs["from"], destinations[0], depart_date)
+
     if browser_agent_enabled():
         # Use hybrid approach: BrowserAgent login + Playwright form fill
         return _run_hybrid(inputs, observations)
@@ -486,9 +502,10 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
             "route": f"{inputs['from']}-{destinations[0]}",
             "date": today.isoformat(),
             "miles": min(70000, max_miles),
-            "travelers": int(inputs["travelers"]),
+            "travelers": travelers,
             "cabin": cabin,
             "mixed_cabin": False,
+            "booking_url": book_url,
             "notes": "placeholder result",
         }
     ]
@@ -497,6 +514,7 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
         "mode": "placeholder",
         "real_data": False,
         "matches": matches,
+        "booking_url": book_url,
         "summary": f"PLACEHOLDER: Found {len(matches)} synthetic Singapore match(es) <= {max_miles} miles",
         "raw_observations": observations,
         "errors": [],

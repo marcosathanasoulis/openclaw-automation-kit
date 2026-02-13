@@ -7,6 +7,12 @@ from typing import Any, Dict, List
 from openclaw_automation.browser_agent_adapter import browser_agent_enabled, run_browser_agent_goal
 
 AEROMEXICO_URL = "https://www.aeromexico.com/en-us"
+AEROMEXICO_BOOK_URL = "https://www.aeromexico.com/en-us"
+
+
+def _booking_url() -> str:
+    """AeroMexico booking page URL (deep-linking not supported due to reCAPTCHA)."""
+    return AEROMEXICO_BOOK_URL
 
 
 CABIN_MAP_AM = {
@@ -83,6 +89,9 @@ def _goal(inputs: Dict[str, Any]) -> str:
         f"Report flights with their miles cost per person.",
         f"Note which flights are under {max_miles:,} miles total ({max_miles // travelers:,} per person).",
         "When done reading results, use the done action with your findings.",
+        "",
+        "IMPORTANT: Before calling done, note the current page URL from your browser.",
+        "Include it in your response so we can generate a direct booking link.",
     ])
     return "\n".join(lines)
 
@@ -94,6 +103,8 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
     max_miles = int(inputs["max_miles"])
     cabin = str(inputs.get("cabin", "economy"))
 
+    travelers = int(inputs["travelers"])
+    book_url = _booking_url()
     dest_str = ", ".join(destinations)
     observations: List[str] = [
         "OpenClaw session expected",
@@ -122,10 +133,15 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
                     f"BrowserAgent trace_dir: {run_result.get('trace_dir', 'n/a')}",
                 ]
             )
+            live_matches = run_result.get("matches", [])
+            for m in live_matches:
+                if "booking_url" not in m:
+                    m["booking_url"] = book_url
             return {
                 "mode": "live",
                 "real_data": True,
-                "matches": run_result.get("matches", []),
+                "matches": live_matches,
+                "booking_url": book_url,
                 "summary": (
                     "BrowserAgent run completed for AeroMexico award search. "
                     "If matches is empty, extraction mapping is still in progress."
@@ -144,9 +160,10 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
             "route": f"{inputs['from']}-{destinations[0]}",
             "date": today.isoformat(),
             "miles": min(50000, max_miles),
-            "travelers": int(inputs["travelers"]),
+            "travelers": travelers,
             "cabin": cabin,
             "mixed_cabin": False,
+            "booking_url": book_url,
             "notes": "placeholder result",
         }
     ]
@@ -155,6 +172,7 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
         "mode": "placeholder",
         "real_data": False,
         "matches": matches,
+        "booking_url": book_url,
         "summary": f"PLACEHOLDER: Found {len(matches)} synthetic AeroMexico match(es) <= {max_miles} miles",
         "raw_observations": observations,
         "errors": [],

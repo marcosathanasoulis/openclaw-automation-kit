@@ -16,10 +16,12 @@
           "travelers": {"type": "integer"},
           "cabin": {"type": "string"},
           "mixed_cabin": {"type": "boolean"},
+          "booking_url": {"type": "string", "format": "uri"},
           "notes": {"type": "string"}
         }
       }
     },
+    "booking_url": {"type": "string", "format": "uri"},
     "summary": {"type": "string"},
     "raw_observations": {"type": "array", "items": {"type": "string"}},
     "errors": {"type": "array", "items": {"type": "string"}}
