@@ -7,7 +7,7 @@ def test_united_runner_smoke() -> None:
     root = Path(__file__).resolve().parents[1]
     engine = AutomationEngine(root)
     result = engine.run(
-        root / "examples" / "united_award",
+        root / "library" / "united_award",
         {
             "from": "SFO",
             "to": ["AMS", "LIS", "FCO"],

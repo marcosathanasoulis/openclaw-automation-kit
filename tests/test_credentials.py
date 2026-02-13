@@ -10,7 +10,7 @@ def test_credential_refs_resolution_from_env(monkeypatch) -> None:
     root = Path(__file__).resolve().parents[1]
     engine = AutomationEngine(root)
     result = engine.run(
-        root / "examples" / "united_award",
+        root / "library" / "united_award",
         {
             "from": "SFO",
             "to": ["AMS"],
@@ -27,4 +27,3 @@ def test_credential_refs_resolution_from_env(monkeypatch) -> None:
     status = result["credential_status"]
     assert status["resolved_keys"] == ["airline_password", "airline_username"]
     assert status["unresolved_refs"] == {}
-

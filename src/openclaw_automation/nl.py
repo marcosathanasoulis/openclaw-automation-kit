@@ -14,10 +14,10 @@ class ParsedQuery:
 
 
 AIRLINE_TO_SCRIPT = {
-    "united": "examples/united_award",
-    "singapore": "examples/singapore_award",
-    "singapore air": "examples/singapore_award",
-    "ana": "examples/ana_award",
+    "united": "library/united_award",
+    "singapore": "library/singapore_award",
+    "singapore air": "library/singapore_award",
+    "ana": "library/ana_award",
 }
 
 

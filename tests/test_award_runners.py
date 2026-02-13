@@ -18,7 +18,7 @@ def _inputs() -> dict:
 def test_singapore_runner_smoke() -> None:
     root = Path(__file__).resolve().parents[1]
     engine = AutomationEngine(root)
-    result = engine.run(root / "examples" / "singapore_award", _inputs())
+    result = engine.run(root / "library" / "singapore_award", _inputs())
     assert result["ok"] is True
     assert result["script_id"] == "singapore.award_search"
     assert result["result"]["matches"]
@@ -27,7 +27,7 @@ def test_singapore_runner_smoke() -> None:
 def test_ana_runner_smoke() -> None:
     root = Path(__file__).resolve().parents[1]
     engine = AutomationEngine(root)
-    result = engine.run(root / "examples" / "ana_award", _inputs())
+    result = engine.run(root / "library" / "ana_award", _inputs())
     assert result["ok"] is True
     assert result["script_id"] == "ana.award_search"
     assert result["result"]["matches"]
@@ -37,7 +37,6 @@ def test_plain_english_query_parsing() -> None:
     parsed = parse_query_to_run(
         "Search ANA award travel economy from SFO to HND for 2 travelers in next 30 days under 120k miles"
     )
-    assert parsed.script_dir == "examples/ana_award"
+    assert parsed.script_dir == "library/ana_award"
     assert parsed.inputs["cabin"] == "economy"
     assert parsed.inputs["travelers"] == 2
-

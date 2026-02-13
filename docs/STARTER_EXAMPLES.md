@@ -4,6 +4,9 @@ These examples are meant to get a new user running quickly, even with manual cre
 
 ## Example set
 
+Approved scripts live under `library/`.  
+Onboarding scripts live under `examples/`.
+
 1. `web.public_page_check`
 - No credentials required
 - Public URL smoke test (title + keyword count)

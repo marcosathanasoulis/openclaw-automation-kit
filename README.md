@@ -33,7 +33,8 @@ flowchart LR
 ## Repository layout
 
 - `src/openclaw_automation/`: core engine and schema validator
-- `examples/`: automation script examples (United, Singapore, ANA, BofA)
+- `library/`: PR-approved automation scripts
+- `examples/`: onboarding/tutorial automations
 - `schemas/`: JSON schemas for manifests and run payloads
 - `scripts/`: utility CLI wrappers
 - `tests/`: schema + engine tests
@@ -76,18 +77,18 @@ python -m openclaw_automation.cli run \
 
 ```bash
 python -m openclaw_automation.cli validate --script-dir examples/public_page_check
-python -m openclaw_automation.cli validate --script-dir examples/united_award
-python -m openclaw_automation.cli validate --script-dir examples/singapore_award
-python -m openclaw_automation.cli validate --script-dir examples/ana_award
-python -m openclaw_automation.cli validate --script-dir examples/bofa_alert
-python -m openclaw_automation.cli validate --script-dir examples/github_signin_check
+python -m openclaw_automation.cli validate --script-dir library/united_award
+python -m openclaw_automation.cli validate --script-dir library/singapore_award
+python -m openclaw_automation.cli validate --script-dir library/ana_award
+python -m openclaw_automation.cli validate --script-dir library/bofa_alert
+python -m openclaw_automation.cli validate --script-dir library/github_signin_check
 ```
 
 ### 4. Run an award example
 
 ```bash
 python -m openclaw_automation.cli run \
-  --script-dir examples/united_award \
+  --script-dir library/united_award \
   --input '{"from":"SFO","to":["AMS","LIS","FCO"],"max_miles":120000,"days_ahead":30,"travelers":2,"cabin":"economy","credential_refs":{"airline_username":"openclaw/united/username","airline_password":"openclaw/united/password"}}'
 ```
 
@@ -147,7 +148,7 @@ Recommended pattern:
 2. Script emits normalized results (`matches`, `raw_observations`, `errors`)
 3. API layer handles delivery and retries
 
-See `examples/united_award/runner.py` for the starter structure.
+See `library/united_award/runner.py` for the starter structure.
 
 ## Human-in-the-loop CAPTCHA
 

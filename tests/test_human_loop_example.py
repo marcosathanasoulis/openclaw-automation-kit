@@ -7,7 +7,7 @@ def test_github_signin_check_emits_2fa_event() -> None:
     root = Path(__file__).resolve().parents[1]
     engine = AutomationEngine(root)
     result = engine.run(
-        root / "examples" / "github_signin_check",
+        root / "library" / "github_signin_check",
         {
             "username": "demo-user",
             "credential_refs": {"password": "openclaw/github/password"},
@@ -18,4 +18,3 @@ def test_github_signin_check_emits_2fa_event() -> None:
     assert payload["status"] == "needs_human_input"
     assert payload["events"]
     assert payload["events"][0]["event"] == "SECOND_FACTOR_REQUIRED"
-
