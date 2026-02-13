@@ -4,6 +4,11 @@
   "required": ["query"],
   "additionalProperties": true,
   "properties": {
-    "query": {"type": "string"}
+    "query": {"type": "string"},
+    "credential_refs": {
+      "type": "object",
+      "additionalProperties": {"type": "string"},
+      "description": "Logical references to OS/cloud secrets (not raw credentials)"
+    }
   }
 }

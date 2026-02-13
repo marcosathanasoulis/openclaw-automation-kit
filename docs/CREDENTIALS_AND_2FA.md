@@ -10,6 +10,11 @@ This framework can automate high-impact actions. Treat credentials and second fa
 - Prefer read-only tokens where possible.
 - Rotate credentials regularly.
 
+## BYO secret-store policy
+- This project does **not** provide credential import/export from Dashlane, 1Password, Chrome, or any vault.
+- Users/admins provision secrets directly in their secure store.
+- Scripts receive only logical references (e.g., `openclaw/united/password`) and resolve at runtime.
+
 ## Recommended credential storage by OS
 
 ### macOS (Apple Keychain)

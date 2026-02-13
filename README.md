@@ -88,6 +88,11 @@ It documents:
 - webhook-based second-factor flow
 - iMessage/WhatsApp connector scaffolding
 
+Credential policy for this repo:
+- Bring your own secrets store (OS keychain or cloud secret manager).
+- Pass only `credential_refs` in script inputs.
+- This project does **not** import/export credentials from password managers.
+
 
 This repo intentionally keeps delivery adapters separate.
 
