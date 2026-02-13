@@ -19,10 +19,10 @@ def test_plain_english_url_maps_to_public_page_script() -> None:
 
 
 def test_plain_english_url_maps_with_quoted_keyword() -> None:
-    parsed = parse_query_to_run('Load https://crediblemind.com and check if "mental health" appears on it')
+    parsed = parse_query_to_run('Load https://www.wikipedia.org and check if "encyclopedia" appears on it')
     assert parsed.script_dir == "examples/public_page_check"
-    assert parsed.inputs["url"] == "https://crediblemind.com"
-    assert parsed.inputs["keyword"] == "mental health"
+    assert parsed.inputs["url"] == "https://www.wikipedia.org"
+    assert parsed.inputs["keyword"] == "encyclopedia"
 
 
 def test_fallback_without_airline_uses_public_page_check() -> None:

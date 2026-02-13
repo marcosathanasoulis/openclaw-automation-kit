@@ -112,7 +112,7 @@ More English task examples:
 
 ```bash
 python -m openclaw_automation.cli run-query \
-  --query "Load https://crediblemind.com and check if \"mental health\" appears on it"
+  --query "Load https://www.wikipedia.org and check if \"encyclopedia\" appears on it"
 
 python -m openclaw_automation.cli run-query \
   --query "Search United award travel business from SFO to AMS,LIS,FCO for 2 travelers in next 30 days under 120k miles"
@@ -134,7 +134,7 @@ See `examples/united_award/runner.py` for the starter structure.
 
 ## Human-in-the-loop CAPTCHA
 
-Read `/Users/Marcos/code-projects/openclaw-automation-kit/docs/CAPTCHA_HUMAN_LOOP.md`.
+Read [`docs/CAPTCHA_HUMAN_LOOP.md`](docs/CAPTCHA_HUMAN_LOOP.md).
 
 Recommended pattern:
 1. Script detects challenge and captures screenshot + metadata.
@@ -143,12 +143,12 @@ Recommended pattern:
 4. Script resumes with short-lived `resume_token`.
 
 Also see:
-- `/Users/Marcos/code-projects/openclaw-automation-kit/docs/MESSAGING_HUMAN_LOOP_SETUP.md`
-- `/Users/Marcos/code-projects/openclaw-automation-kit/docs/STARTER_EXAMPLES.md`
+- [`docs/MESSAGING_HUMAN_LOOP_SETUP.md`](docs/MESSAGING_HUMAN_LOOP_SETUP.md)
+- [`docs/STARTER_EXAMPLES.md`](docs/STARTER_EXAMPLES.md)
 
 ## Security and credentials
 
-Read `/Users/Marcos/code-projects/openclaw-automation-kit/docs/CREDENTIALS_AND_2FA.md` before deploying.
+Read [`docs/CREDENTIALS_AND_2FA.md`](docs/CREDENTIALS_AND_2FA.md) before deploying.
 
 ### Shared-responsibility warning
 
@@ -174,8 +174,8 @@ Credential policy for this repo:
 - This project does **not** import/export credentials from password managers.
 
 See also:
-- `/Users/Marcos/code-projects/openclaw-automation-kit/docs/CONFIGURATION.md`
-- `/Users/Marcos/code-projects/openclaw-automation-kit/DISCLAIMER.md`
+- [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md)
+- [`DISCLAIMER.md`](DISCLAIMER.md)
 
 ## Acceptable use
 
@@ -199,7 +199,7 @@ Use the webhook output from the runner to integrate with:
 
 ## Building new automations
 
-Read `/Users/Marcos/code-projects/openclaw-automation-kit/docs/NEW_AUTOMATION_PLAYBOOK.md` for the recommended workflow to create production-grade new site automations.
+Read [`docs/NEW_AUTOMATION_PLAYBOOK.md`](docs/NEW_AUTOMATION_PLAYBOOK.md) for the recommended workflow to create production-grade new site automations.
 
 ## Concurrency and queueing
 
@@ -209,7 +209,7 @@ To keep automations from stepping on each other, use:
 - explicit execution modes per script (`exclusive`, `profile_isolated`, `stateless`)
 
 See:
-- `/Users/Marcos/code-projects/openclaw-automation-kit/docs/QUEUE_AND_LOCKING.md`
+- [`docs/QUEUE_AND_LOCKING.md`](docs/QUEUE_AND_LOCKING.md)
 
 ## Contribution
 
