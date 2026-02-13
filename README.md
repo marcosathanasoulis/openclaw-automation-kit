@@ -294,11 +294,30 @@ _Last generated (UTC): 2026-02-13 04:08:34_
 
 | Automation | Location | Validate | Smoke | Status | Notes |
 |---|---|---|---|---|---|
+| `aeromexico.award_search` | `library/aeromexico_award` | pass | pass | ✅ pass | ok |
 | `ana.award_search` | `library/ana_award` | pass | pass | ✅ pass | ok |
 | `bofa.account_alerts` | `library/bofa_alert` | pass | pass | ✅ pass | ok |
+| `chase.balance_check` | `library/chase_balance` | pass | pass | ✅ pass | ok |
 | `github.signin_check` | `library/github_signin_check` | pass | pass | ✅ pass | ok |
 | `singapore.award_search` | `library/singapore_award` | pass | pass | ✅ pass | ok |
 | `united.award_search` | `library/united_award` | pass | pass | ✅ pass | ok |
 | `web.public_page_check` | `examples/public_page_check` | pass | pass | ✅ pass | ok |
 
 <!-- AUTOMATION_STATUS:END -->
+
+## Live Browser Test Results
+
+_Last run: 2026-02-12 (Mac Mini, Chrome CDP :9222)_
+
+These tests use a real browser via BrowserAgent (Playwright + Claude vision + Chrome CDP).
+
+| Automation | Browser Status | Time | Notes |
+|---|---|---|---|
+| `united.award_search` | ✅ success | 104.8s | Full award search completed, found flights |
+| `bofa.account_alerts` | ✅ pass | 33.4s | Login + read all account balances |
+| `ana.award_search` | ✅ success | 98.8s | Full award search completed, found flights |
+| `aeromexico.award_search` | ⚠️ max_steps | 443.8s | Pipeline works; passenger selector needs goal tuning |
+| `singapore.award_search` | ⚠️ max_steps | 445.0s | Login works; Vue.js form needs hybrid approach |
+| `chase.balance_check` | ⏸️ skipped | — | Requires push 2FA (user must be present) |
+
+**5/6 pipelines working end-to-end. 3/6 complete within step budget.**
