@@ -85,6 +85,13 @@ Use this file for short-lived cross-agent coordination so parallel work does not
   - User reply format: `solve <challenge_id> n,n,n`
   - Endpoints: `/api/chat`, `/demo/challenge/<id>.png`
 
+## Release coordination note (Codex)
+
+- PR `#5` had failing `E2E No-Login Smoke` due missing demo test dependencies in the smoke script environment.
+- Fixed by switching smoke setup from `requirements.txt` to `requirements-dev.txt` in:
+  - `scripts/e2e_no_login_smoke.sh`
+- Local re-run passed end-to-end.
+
 ## Example Entry
 
 - owner: `codex`

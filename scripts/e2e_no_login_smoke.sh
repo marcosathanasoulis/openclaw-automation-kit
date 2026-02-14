@@ -5,11 +5,11 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
 if [[ ! -d ".venv" ]]; then
-  python3 -m venv .venv
+python3 -m venv .venv
 fi
 source .venv/bin/activate
 
-python -m pip install -q -r requirements.txt
+python -m pip install -q -r requirements-dev.txt
 python -m pip install -q -e .
 
 echo "[1/5] Lint + unit tests"
