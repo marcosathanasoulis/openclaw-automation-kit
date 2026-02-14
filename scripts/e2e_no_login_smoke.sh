@@ -14,7 +14,7 @@ python -m pip install -q --no-cache-dir -e .
 
 run_pytest_with_repair() {
   local out_file
-  out_file="$(mktemp /tmp/openclaw_pytest_XXXXXX.log)"
+  out_file="/tmp/openclaw_pytest_${$}_${RANDOM}.log"
   if python -m pytest -q 2>&1 | tee "$out_file"; then
     rm -f "$out_file"
     return 0

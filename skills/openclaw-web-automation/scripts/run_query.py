@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -15,7 +16,17 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--credential-refs",
         default="{}",
-        help="JSON object mapping logical credential fields to refs",
+        help="JSON object mapping logical credential fields to refs (less safe; prefer --credential-refs-file or --credential-refs-env)",
+    )
+    parser.add_argument(
+        "--credential-refs-file",
+        default="",
+        help="Path to JSON file with credential refs (safer than inline args)",
+    )
+    parser.add_argument(
+        "--credential-refs-env",
+        default="",
+        help="Env var containing JSON credential refs (safer than inline args)",
     )
     parser.add_argument(
         "--notify-imessage",
@@ -49,7 +60,7 @@ def _find_repo_root() -> Path | None:
     return None
 
 
-def _run_query(root: Path, query: str, credential_refs: str) -> dict:
+def _run_query(root: Path, query: str, args: argparse.Namespace) -> dict:
     cmd = [
         sys.executable,
         "-m",
@@ -57,10 +68,28 @@ def _run_query(root: Path, query: str, credential_refs: str) -> dict:
         "run-query",
         "--query",
         query,
-        "--credential-refs",
-        credential_refs,
     ]
-    proc = subprocess.run(cmd, cwd=root, capture_output=True, text=True)
+    temp_path: str | None = None
+    if args.credential_refs_file:
+        cmd.extend(["--credential-refs-file", args.credential_refs_file])
+    elif args.credential_refs_env:
+        cmd.extend(["--credential-refs-env", args.credential_refs_env])
+    elif args.credential_refs and args.credential_refs.strip() not in {"", "{}"}:
+        # Avoid placing raw credential ref JSON in subprocess command line.
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as tf:
+            tf.write(args.credential_refs)
+            temp_path = tf.name
+        cmd.extend(["--credential-refs-file", temp_path])
+    else:
+        cmd.extend(["--credential-refs", "{}"])
+    try:
+        proc = subprocess.run(cmd, cwd=root, capture_output=True, text=True)
+    finally:
+        if temp_path:
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "run-query failed")
     return json.loads(proc.stdout)
@@ -105,7 +134,7 @@ def main() -> int:
         return 2
 
     try:
-        result = _run_query(root, args.query, args.credential_refs)
+        result = _run_query(root, args.query, args)
     except Exception as exc:  # noqa: BLE001
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
         return 1
