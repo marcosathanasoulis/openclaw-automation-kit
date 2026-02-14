@@ -34,6 +34,14 @@ def _run_query(query: str) -> dict:
     return json.loads(proc.stdout)
 
 
+def _assistant_text(result: dict) -> str:
+    payload = result.get("result", {}) if isinstance(result, dict) else {}
+    summary = payload.get("summary")
+    if isinstance(summary, str) and summary.strip():
+        return summary.strip()
+    return "Run completed. Open raw JSON details to inspect parsed fields."
+
+
 @app.get("/healthz")
 def healthz():
     return jsonify({"ok": True})
@@ -56,7 +64,13 @@ def chat():
     except Exception as exc:  # noqa: BLE001
         return jsonify({"ok": False, "error": str(exc)}), 500
 
-    return jsonify({"ok": True, "result": result})
+    return jsonify(
+        {
+            "ok": True,
+            "assistant_text": _assistant_text(result),
+            "result": result,
+        }
+    )
 
 
 if __name__ == "__main__":

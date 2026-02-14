@@ -3,40 +3,77 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>OpenClaw Demo Chat</title>
+    <title>OpenClaw Automation Demo</title>
     <style>
-      body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; background: #f5f7fb; }
-      .wrap { max-width: 900px; margin: 32px auto; background: #fff; border: 1px solid #d9e1ef; border-radius: 10px; }
-      .head { padding: 16px 20px; border-bottom: 1px solid #e4ebf7; font-weight: 700; }
-      .messages { height: 55vh; overflow: auto; padding: 16px 20px; white-space: pre-wrap; }
-      .msg { margin: 0 0 12px 0; }
-      .user { color: #143c8f; }
-      .bot { color: #1f2937; }
-      .controls { display: flex; gap: 8px; padding: 14px; border-top: 1px solid #e4ebf7; }
-      input { flex: 1; padding: 12px; border: 1px solid #c6d2e8; border-radius: 8px; }
+      body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; background: #f2f5fb; color: #1a2333; }
+      .app { max-width: 1080px; margin: 20px auto; display: grid; grid-template-columns: 280px 1fr; gap: 16px; }
+      .card { background: #fff; border: 1px solid #dce6f8; border-radius: 12px; }
+      .sidebar { padding: 16px; }
+      .sidebar h2 { margin: 0 0 12px 0; font-size: 18px; }
+      .sidebar p { margin: 0 0 10px 0; font-size: 14px; line-height: 1.4; }
+      .ex { margin: 6px 0; padding: 8px; border-radius: 8px; background: #f6f9ff; border: 1px solid #e2ebfd; font-size: 13px; cursor: pointer; }
+      .chat { display: flex; flex-direction: column; min-height: 72vh; }
+      .head { padding: 14px 18px; border-bottom: 1px solid #e3ebfa; font-weight: 700; }
+      .messages { flex: 1; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+      .bubble { max-width: 88%; padding: 10px 12px; border-radius: 10px; white-space: pre-wrap; line-height: 1.4; }
+      .user { align-self: flex-end; background: #0b5fff; color: #fff; }
+      .bot { align-self: flex-start; background: #f4f7fe; border: 1px solid #dbe5fa; }
+      .controls { display: flex; gap: 8px; padding: 12px; border-top: 1px solid #e3ebfa; }
+      input { flex: 1; padding: 12px; border: 1px solid #c5d5f3; border-radius: 8px; font-size: 14px; }
       button { padding: 12px 16px; border: 0; border-radius: 8px; background: #0b5fff; color: #fff; cursor: pointer; }
       button:disabled { background: #8aaef8; cursor: not-allowed; }
+      details { margin-top: 8px; font-size: 12px; }
+      pre { max-height: 220px; overflow: auto; background: #0d1526; color: #dbe7ff; border-radius: 8px; padding: 10px; }
+      @media (max-width: 900px) { .app { grid-template-columns: 1fr; } }
     </style>
   </head>
   <body>
-    <div class="wrap">
-      <div class="head">OpenClaw Automation Demo</div>
-      <div id="messages" class="messages"></div>
-      <div class="controls">
-        <input id="query" placeholder='Try: Open https://www.yahoo.com and count mentions of news' />
-        <button id="send">Send</button>
-      </div>
+    <div class="app">
+      <aside class="card sidebar">
+        <h2>Browser Automation Chat</h2>
+        <p>Tell me a browser automation to run. I will route to OpenClaw Automation Kit and return parsed results.</p>
+        <p><strong>Try examples:</strong></p>
+        <div class="ex" data-q="Check yahoo.com and tell me the top headlines">Check yahoo.com and tell me the top headlines</div>
+        <div class="ex" data-q="Open https://www.wikipedia.org and count mentions of encyclopedia">Open wikipedia and count 'encyclopedia'</div>
+        <div class="ex" data-q="Check https://status.openai.com and summarize the page">Summarize status.openai.com</div>
+      </aside>
+      <section class="card chat">
+        <div class="head">OpenClaw Demo Chat</div>
+        <div id="messages" class="messages"></div>
+        <div class="controls">
+          <input id="query" placeholder="Tell me a browser automation to run..." />
+          <button id="send">Run</button>
+        </div>
+      </section>
     </div>
     <script>
       const messages = document.getElementById("messages");
       const query = document.getElementById("query");
       const send = document.getElementById("send");
 
-      function add(cls, text) {
-        const p = document.createElement("div");
-        p.className = `msg ${cls}`;
-        p.textContent = text;
-        messages.appendChild(p);
+      function addUser(text) {
+        const div = document.createElement("div");
+        div.className = "bubble user";
+        div.textContent = text;
+        messages.appendChild(div);
+        messages.scrollTop = messages.scrollHeight;
+      }
+
+      function addBot(text, raw) {
+        const div = document.createElement("div");
+        div.className = "bubble bot";
+        div.textContent = text;
+        if (raw) {
+          const d = document.createElement("details");
+          const s = document.createElement("summary");
+          s.textContent = "Raw JSON";
+          const p = document.createElement("pre");
+          p.textContent = JSON.stringify(raw, null, 2);
+          d.appendChild(s);
+          d.appendChild(p);
+          div.appendChild(d);
+        }
+        messages.appendChild(div);
         messages.scrollTop = messages.scrollHeight;
       }
 
@@ -45,7 +82,7 @@
         if (!text) return;
         query.value = "";
         send.disabled = true;
-        add("user", `You: ${text}`);
+        addUser(text);
         try {
           const res = await fetch("/api/chat", {
             method: "POST",
@@ -54,12 +91,12 @@
           });
           const data = await res.json();
           if (!res.ok || !data.ok) {
-            add("bot", `Error: ${data.error || "request failed"}`);
+            addBot(`Error: ${data.error || "request failed"}`);
           } else {
-            add("bot", `Bot:\n${JSON.stringify(data.result, null, 2)}`);
+            addBot(data.assistant_text || "Done", data.result || data);
           }
         } catch (err) {
-          add("bot", `Error: ${err.message}`);
+          addBot(`Error: ${err.message}`);
         } finally {
           send.disabled = false;
           query.focus();
@@ -68,6 +105,13 @@
 
       send.addEventListener("click", runQuery);
       query.addEventListener("keydown", (e) => { if (e.key === "Enter") runQuery(); });
+      document.querySelectorAll(".ex").forEach((el) => {
+        el.addEventListener("click", () => {
+          query.value = el.dataset.q;
+          query.focus();
+        });
+      });
+      addBot("Ready. Try one of the example prompts on the left, or type your own browser automation request.");
     </script>
   </body>
 </html>

@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY requirements.txt /app/demo/chat-demo/requirements.txt
+COPY demo/chat-demo/requirements.txt /app/demo/chat-demo/requirements.txt
 RUN pip install --no-cache-dir -r /app/demo/chat-demo/requirements.txt
 
 COPY . /app

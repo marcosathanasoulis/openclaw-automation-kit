@@ -131,18 +131,25 @@ python -m openclaw_automation.cli run \
   --input '{"url":"https://www.yahoo.com","keyword":"news"}'
 ```
 
-### 2b. Demo Chat UI (Cloud Run ready)
+### 2b. Demo Chat UI (container-first, Cloud Run ready)
 
-Run locally:
+Run locally (Docker, recommended):
+
+```bash
+./demo/chat-demo/run_local_docker.sh
+```
+
+Then open `http://127.0.0.1:8090` and try:
+- `Check yahoo.com and tell me the top headlines`
+- `Open https://www.wikipedia.org and count mentions of encyclopedia`
+- `Check https://status.openai.com and summarize the page`
+
+Manual Python run (no Docker):
 
 ```bash
 cd demo/chat-demo
 python app.py
 ```
-
-Then open `http://localhost:8080` and try:
-- `Open https://www.yahoo.com and count mentions of news`
-- `Load https://www.wikipedia.org and check if encyclopedia appears`
 
 Deploy to Cloud Run (low-cost defaults):
 

@@ -75,6 +75,10 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 - Local smoke test passed on port `8090`:
   - health: `/healthz` -> `ok=true`
   - query: Yahoo "news" check -> `keyword_count=6`
+- Container startup fix completed:
+  - `demo/chat-demo/Dockerfile` now copies `demo/chat-demo/requirements.txt` (previously copied repo root `requirements.txt` by mistake).
+  - Added `demo/chat-demo/run_local_docker.sh` for one-command local startup + health check.
+  - Updated chat UI to return assistant summary text + expandable raw JSON payload.
 
 ## Example Entry
 
