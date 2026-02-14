@@ -11,6 +11,11 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 
 ## Current Work
 
+- `codex/fix-ci-lint-feb14`
+  - Task: diagnose and fix current CI failure on `feat/skill-manifests-and-tests`.
+  - Files: `tests/test_adaptive.py`
+  - Status: complete (AeroMexico validation tests now match cash-pricing validator logic)
+
 - `codex/fix-award-extraction-gap`
   - Added structured `MATCH|...` extraction path and fallback parsing.
   - Added no-login library automations:
