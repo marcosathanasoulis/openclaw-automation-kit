@@ -461,6 +461,10 @@ To keep automations from stepping on each other, use:
 See:
 - [`docs/QUEUE_AND_LOCKING.md`](docs/QUEUE_AND_LOCKING.md)
 
+## Getting Help
+
+If you have questions, find a bug, or have a feature request, please [open an issue](https://github.com/marcosathanasoulis/openclaw-automation-kit/issues/new/choose) on GitHub.
+
 ## Contribution
 
 Read:
