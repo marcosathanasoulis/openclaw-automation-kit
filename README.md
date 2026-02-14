@@ -26,6 +26,12 @@ Optional routing:
 - WhatsApp Cloud API connector
 - Email connector
 
+### Model usage policy
+
+- For public, no-credential checks (for example Yahoo/Wikipedia keyword/headline tasks), the kit uses deterministic extractors and does not require a separate LLM API key.
+- For advanced browser-agent workflows (login flows, dynamic sites, hard UI reasoning), the BrowserAgent path currently depends on Claude vision-capable runs and requires `ANTHROPIC_API_KEY`.
+- Goal: keep defaults simple for OpenClaw users and only require extra model keys when advanced automation is requested.
+
 ## What makes this useful
 
 You can give plain-English instructions and have the automation execute real browser tasks, including authenticated flows:

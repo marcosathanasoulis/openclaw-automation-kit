@@ -11,6 +11,11 @@
     "keyword": {
       "type": "string",
       "default": "mental"
+    },
+    "task": {
+      "type": "string",
+      "enum": ["keyword_count", "headlines", "summary"],
+      "default": "keyword_count"
     }
   }
 }

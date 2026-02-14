@@ -16,6 +16,7 @@ def test_plain_english_url_maps_to_public_page_script() -> None:
     assert parsed.script_dir == "examples/public_page_check"
     assert parsed.inputs["url"] == "https://www.yahoo.com"
     assert parsed.inputs["keyword"] == "news"
+    assert parsed.inputs["task"] == "keyword_count"
 
 
 def test_plain_english_url_maps_with_quoted_keyword() -> None:
@@ -23,6 +24,13 @@ def test_plain_english_url_maps_with_quoted_keyword() -> None:
     assert parsed.script_dir == "examples/public_page_check"
     assert parsed.inputs["url"] == "https://www.wikipedia.org"
     assert parsed.inputs["keyword"] == "encyclopedia"
+    assert parsed.inputs["task"] == "keyword_count"
+
+
+def test_headline_query_maps_to_headlines_task() -> None:
+    parsed = parse_query_to_run("Check yahoo.com and tell me the top headlines")
+    assert parsed.script_dir == "examples/public_page_check"
+    assert parsed.inputs["task"] == "headlines"
 
 
 def test_fallback_without_airline_uses_public_page_check() -> None:
