@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "source": {
+      "type": "string",
+      "description": "The news source to get headlines from (e.g., bbc-news, cnn)."
+    }
+  },
+  "required": ["source"]
+}

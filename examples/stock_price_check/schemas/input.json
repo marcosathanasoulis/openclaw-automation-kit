@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "ticker": {
+      "type": "string",
+      "description": "The stock ticker symbol to check."
+    }
+  },
+  "required": ["ticker"]
+}

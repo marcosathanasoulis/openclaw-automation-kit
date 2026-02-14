@@ -1,0 +1,14 @@
+{
+  "id": "examples.news_headlines",
+  "version": "0.1.0",
+  "description": "Get the top headlines from a news source using News API.",
+  "entrypoint": "runner.py",
+  "inputs_schema": "schemas/input.json",
+  "outputs_schema": "schemas/output.json",
+  "permissions": {
+    "browser": false,
+    "network_domains": [
+      "newsapi.org"
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "ticker": {
+      "type": "string"
+    },
+    "price": {
+      "type": "number"
+    },
+    "change": {
+        "type": "string"
+    },
+    "change_percent": {
+        "type": "string"
+    }
+  }
+}
