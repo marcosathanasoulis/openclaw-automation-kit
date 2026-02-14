@@ -47,6 +47,14 @@ _PROMPT_SUFFIX = (
 
 TESTS = [
     {
+        "airline": "delta",
+        "text": (
+            f"use the search_award_flights tool to search delta business SFO to JFK "
+            f"next 30 days. {_PROMPT_SUFFIX}"
+        ),
+        "route": "SFO→JFK",
+    },
+    {
         "airline": "united",
         "text": (
             f"use the search_award_flights tool to search united business SFO to BKK "
