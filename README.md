@@ -48,6 +48,21 @@ For a chat UI demo:
 
 Open `http://127.0.0.1:8090`.
 
+## What works out of the box vs. what needs a custom script
+
+Many automations work immediately with no login:
+- public page headlines/summaries/text checks
+- website watch checks (required/forbidden phrase checks)
+- chat-driven demo flows
+
+Use a custom script when a site has:
+- login/session requirements
+- dynamic UI with multi-step forms/filters
+- recurring challenge/2FA checkpoints
+- domain-specific extraction needs (for example fare grids, account tables)
+
+Short rule: **simple public checks = generic flow; complex authenticated workflows = custom script.**
+
 ### Model usage policy
 
 - For public, no-credential checks (for example Yahoo/Wikipedia keyword/headline tasks), the kit uses deterministic extractors and does not require a separate LLM API key.
@@ -405,6 +420,15 @@ The intended workflow is iterative:
 6. Promote to `library/` only after promotion checks pass.
 
 In short: this toolkit gives structure, contracts, and debugging hooks so AI-assisted automation development can converge quickly instead of staying ad-hoc.
+
+### Community contribution path (for complex sites)
+
+1. Build first version in `examples/<automation_name>`.
+2. Run validation + tests + smoke checks.
+3. Include run evidence in PR (command + output excerpt).
+4. Promote to `library/` only after passing [`docs/AUTOMATION_PROMOTION.md`](docs/AUTOMATION_PROMOTION.md).
+
+This keeps shared automations trustworthy while still allowing fast community iteration.
 
 ## Marketplace skills
 
