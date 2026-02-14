@@ -43,20 +43,21 @@ print("public_query_ok")
 PY
 
 echo "[4/5] Skill script smoke (public)"
-python skills/openclaw-web-automation-basic/scripts/run_query.py \
+python skills/openclaw-web-automation/scripts/run_query.py \
   --query "Open https://www.wikipedia.org and count mentions of encyclopedia" >/tmp/openclaw_skill_web.json
 python - <<'PY'
 import json
 from pathlib import Path
 
 payload = json.loads(Path("/tmp/openclaw_skill_web.json").read_text())
-assert payload["ok"] is True
-assert payload["script_id"] == "web.public_page_check"
+assert payload["status"]["ok"] is True
+assert payload["result"]["ok"] is True
+assert payload["result"]["script_id"] == "web.public_page_check"
 print("skill_web_ok")
 PY
 
-echo "[5/5] Skill script smoke (award placeholder path)"
-python skills/openclaw-award-search/scripts/run_query.py \
+echo "[5/5] Skill script smoke (award-style query through unified skill)"
+python skills/openclaw-web-automation/scripts/run_query.py \
   --query "Search United award travel economy from SFO to AMS in next 30 days under 120k miles" >/tmp/openclaw_skill_award.json
 python - <<'PY'
 import json
@@ -64,6 +65,7 @@ from pathlib import Path
 
 payload = json.loads(Path("/tmp/openclaw_skill_award.json").read_text())
 assert payload["status"]["ok"] is True
+assert payload["result"]["script_id"] == "united.award_search"
 assert payload["result"]["mode"] in {"placeholder", "live"}
 print("skill_award_ok")
 PY

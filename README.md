@@ -447,8 +447,7 @@ This keeps shared automations trustworthy while still allowing fast community it
 ## Marketplace skills
 
 This repository ships publishable OpenClaw skill folders:
-- `skills/openclaw-web-automation-basic` (public sites, no credentials)
-- `skills/openclaw-award-search` (airline award queries, credentials + 2FA)
+- `skills/openclaw-web-automation` (unified skill: basic + advanced)
 
 Publishing and release steps are documented in:
 - [`docs/OPENCLAW_MARKETPLACE.md`](docs/OPENCLAW_MARKETPLACE.md)
