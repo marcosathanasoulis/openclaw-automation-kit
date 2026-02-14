@@ -1,10 +1,10 @@
 {
   "type": "object",
   "properties": {
-    "source": {
+    "url": {
       "type": "string",
-      "description": "The news source to get headlines from (e.g., bbc-news, cnn)."
+      "description": "The URL of the news website to scrape."
     }
   },
-  "required": ["source"]
+  "required": ["url"]
 }

@@ -1,32 +1,57 @@
 
-import requests
+from openclaw_automation.browser_agent_adapter import run_browser_agent_goal, browser_agent_enabled
+from bs4 import BeautifulSoup
 
 def run(context, inputs):
     """
     This is the entrypoint for the automation.
     """
+    if not browser_agent_enabled():
+        return {"error": "Browser agent is not enabled. Please set OPENCLAW_USE_BROWSER_AGENT=true."}
+
     try:
-        source = inputs['source']
-        api_key = inputs.get('apiKey')
+        url = inputs['url']
+        
+        # Use the browser agent to get the rendered page content
+        agent_result = run_browser_agent_goal(
+            goal="Get the HTML content of the page after it has fully loaded.",
+            url=url,
+            max_steps=5,
+            trace=False,
+            use_vision=False
+        )
 
-        if not api_key:
-            return {"error": "News API key is required. Please provide it in the input as 'apiKey'."}
+        if not agent_result.get("ok"):
+            return {"error": f"Browser agent failed: {agent_result.get('error')}"}
 
-        url = f"https://newsapi.org/v2/top-headlines?sources={source}&apiKey={api_key}"
-        
-        response = requests.get(url)
-        response.raise_for_status()
-        
-        data = response.json()
-        
+        page_content = agent_result.get("result", {}).get("content")
+
+        if not page_content:
+            return {"error": "Browser agent did not return any page content."}
+
+        soup = BeautifulSoup(page_content, 'html.parser')
+
         headlines = []
-        for article in data.get('articles', []):
-            headlines.append({
-                'title': article.get('title'),
-                'link': article.get('url')
-            })
+        for h3 in soup.find_all('h3'):
+            title = h3.get_text(strip=True)
+            if len(title) > 15: # Filter out short text
+                link_tag = h3.find_parent('a')
+                if link_tag:
+                    link = link_tag.get('href')
+                    if link and not link.startswith('http'):
+                        link = f"https://www.bbc.com{link}"
+                    if title and link:
+                        headlines.append({'title': title, 'link': link})
 
-        return {'headlines': headlines}
+        # Remove duplicates
+        unique_headlines = []
+        seen_links = set()
+        for headline in headlines:
+            if headline['link'] not in seen_links:
+                unique_headlines.append(headline)
+                seen_links.add(headline['link'])
+
+        return {'headlines': unique_headlines}
 
     except Exception as e:
         return {"error": str(e)}

@@ -1,13 +1,10 @@
 # News Headlines
 
-This automation gets the top headlines from a news source using the News API.
-
-**This automation requires an API key from [News API](https://newsapi.org/). You will need to sign up for a free developer account to get one.**
+This automation scrapes the top headlines from a news website.
 
 ## Input
 
-- `source`: The news source to get headlines from (e.g., `bbc-news`, `cnn`). You can find a list of sources [here](https://newsapi.org/sources).
-- `apiKey`: Your News API key.
+- `url`: The URL of the news website to scrape.
 
 ## Output
 
@@ -15,10 +12,8 @@ This automation gets the top headlines from a news source using the News API.
 
 ## How to run
 
-You need to provide your News API key in the input.
-
 ```bash
 python -m openclaw_automation.cli run \
   --script-dir examples/news_headlines \
-  --input '{"source":"bbc-news", "apiKey": "YOUR_NEWS_API_KEY"}'
+  --input '{"url":"https://www.bbc.com/news"}'
 ```
