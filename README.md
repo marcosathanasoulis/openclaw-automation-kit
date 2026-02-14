@@ -316,15 +316,17 @@ See `library/united_award/runner.py` for the starter structure.
 
 ## How this kit extends the OpenClaw Browser Tool
 
-The `openclaw-automation-kit` builds upon the foundational [`openclaw browser` tool](https://docs.openclaw.ai/tools/browser). While the `openclaw browser` provides the low-level API for programmatic browser control, this kit offers a structured framework for organizing, executing, and extending higher-level browser automations.
+The `openclaw-automation-kit` builds upon and significantly extends the foundational [`openclaw browser` tool](https://docs.openclaw.ai/tools/browser). While the `openclaw browser` provides the low-level primitives for programmatic browser control, this kit transforms those primitives into a robust framework for building, organizing, and executing advanced browser automations.
 
-Specifically, this kit adds:
+Here’s how this kit leverages and adds to the native functionality:
 
-*   **Structured Automation Development:** It provides a standardized way to define automations using manifests (`manifest.json`) and input/output schemas, which are not directly provided by the low-level `openclaw browser` tool.
-*   **Execution Engine:** It offers an execution engine that runs these structured automations, abstracting away some of the direct calls to the `openclaw browser` CLI.
-*   **Human-in-the-Loop Capabilities:** It integrates human interaction for challenges like 2FA and CAPTCHA, making automations more robust for real-world scenarios.
-*   **Extensibility with AI Agents:** It supports integration with external `BrowserAgent` implementations (which can leverage AI models like Claude Vision), providing an AI-driven layer of interaction with the browser that goes beyond simple programmatic commands.
-*   **Reusability and Sharing:** It promotes the creation of reusable "skills" that can be shared and published, transforming raw browser actions into shareable, high-level functionalities.
+*   **Standardized Automation Specification:** Provides a declarative way (via `manifest.json` and input/output schemas) to define complex automation workflows, enabling consistent structure and easier understanding compared to raw browser commands.
+*   **Intelligent Execution Engine:** Offers an execution layer that orchestrates the browser actions, handles data flow, validates inputs/outputs against schemas, and abstracts away the direct interaction with the low-level `openclaw browser` CLI.
+*   **Human-in-the-Loop Orchestration:** Integrates sophisticated mechanisms for handling real-world challenges like 2FA checkpoints and CAPTCHA solving by allowing automations to pause, collect human input (e.g., via chat), and resume, a capability not inherent in the basic browser tool.
+*   **Extensible AI-Driven Control:** Supports integration with external `BrowserAgent` implementations (which can leverage advanced AI models like Claude Vision or other agents) to perform complex UI reasoning and navigation that goes beyond deterministic scripting. This enables the automation of highly dynamic and challenging web interfaces.
+*   **Reusable "Skills" and Marketplace Readiness:** Transforms individual automations into packaged, shareable "skills" with defined contracts, ready for publication and discovery, fostering a community of reusable browser automations.
+*   **Simplified Credential Management:** Provides a structured approach for referencing user-owned credentials securely, integrating with OS-level secret stores (like macOS Keychain), rather than requiring credentials to be hardcoded or passed insecurely.
+*   **Comprehensive Testing and Validation Framework:** Includes built-in tools for validating automation manifests and schemas, alongside smoke tests, ensuring the reliability and correctness of developed automations.
 
 ## Human-in-the-loop CAPTCHA
 
