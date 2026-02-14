@@ -1,14 +1,14 @@
 {
-  "id": "examples.weather_check",
+  "id": "examples.website_status",
   "version": "0.1.0",
-  "description": "Get current weather conditions for a specified location from a public weather website.",
+  "description": "Check if a given website is online and responding with a 200 OK status.",
   "entrypoint": "runner.py",
   "inputs_schema": "schemas/input.json",
   "outputs_schema": "schemas/output.json",
   "permissions": {
-    "browser": true,
+    "browser": false,
     "network_domains": [
-      "www.weather.com"
+      "*"
     ]
   }
 }

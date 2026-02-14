@@ -1,32 +1,18 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
-  "required": [
-    "location",
-    "resolved_location",
-    "latitude",
-    "longitude",
-    "temperature",
-    "temperature_unit",
-    "condition",
-    "wind_speed_kmh",
-    "summary",
-    "errors"
-  ],
-  "additionalProperties": false,
   "properties": {
-    "location": { "type": "string" },
-    "resolved_location": { "type": "string" },
-    "latitude": { "type": "number" },
-    "longitude": { "type": "number" },
-    "temperature": { "type": "number" },
-    "temperature_unit": { "type": "string" },
-    "condition": { "type": "string" },
-    "wind_speed_kmh": { "type": "number" },
-    "summary": { "type": "string" },
-    "errors": {
-      "type": "array",
-      "items": { "type": "string" }
+    "location": {
+      "type": "string"
+    },
+    "temperature": {
+      "type": "string"
+    },
+    "conditions": {
+      "type": "string"
+    },
+    "feels_like": {
+      "type": "string"
     }
-  }
+  },
+  "required": ["location", "temperature", "conditions"]
 }
