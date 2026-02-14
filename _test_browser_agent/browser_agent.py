@@ -18,8 +18,6 @@ class BrowserAgent:
         """
         Simulates running a browser agent task.
         """
-        print(f"Mock BrowserAgent running for goal: '{self.goal}' on URL: '{self.url}'", flush=True)
-        print(f"  CDP URL: {self.cdp_url}, Use Vision: {self.use_vision}", flush=True)
 
         # Simulate returning some content
         mock_content = f"""
