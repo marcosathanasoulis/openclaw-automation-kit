@@ -14,7 +14,7 @@ python -m pip install -q -e .
 
 echo "[1/5] Lint + unit tests"
 ruff check .
-pytest -q
+python -m pytest -q
 
 echo "[2/5] Manifest validation"
 python -m openclaw_automation.cli validate --script-dir examples/public_page_check >/dev/null
