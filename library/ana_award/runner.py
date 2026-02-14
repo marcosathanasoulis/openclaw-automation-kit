@@ -22,7 +22,6 @@ def _goal(inputs: Dict[str, Any]) -> str:
     max_miles = int(inputs["max_miles"])
     mid_days = max(14, days_ahead // 2)
     depart_date = date.today() + timedelta(days=mid_days)
-    range_end = date.today() + timedelta(days=days_ahead)
 
     lines = [
         f"Search for ANA Mileage Club AWARD flights from {origin} to {dest}, "
@@ -60,7 +59,7 @@ def _goal(inputs: Dict[str, Any]) -> str:
         "wait 5",
         "",
         "=== STEP 4 — FILL SEARCH FORM ===",
-        f"  - Trip type: One Way (if available)",
+        "  - Trip type: One Way (if available)",
         f"  - From/Departure: {origin} (type SFO, select from dropdown)",
         f"  - To/Arrival: {dest} (type {dest}, select from dropdown)",
         f"  - Date: around {depart_date.strftime('%B %-d')} (any nearby date is fine)",
@@ -100,7 +99,6 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
     dest = inputs["to"][0]
     cabin = inputs.get("cabin", "business")
     travelers = int(inputs.get("travelers", 1))
-    max_miles = int(inputs.get("max_miles", 999999))
 
     matches = []
     seen = set()

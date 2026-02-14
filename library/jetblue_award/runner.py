@@ -29,7 +29,6 @@ def _goal(inputs: Dict[str, Any]) -> str:
     destinations = inputs["to"]
     dest = destinations[0]
     travelers = int(inputs["travelers"])
-    cabin = str(inputs.get("cabin", "economy"))
     days_ahead = int(inputs["days_ahead"])
     max_miles = int(inputs["max_miles"])
     mid_days = max(7, days_ahead // 2)
@@ -126,7 +125,6 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
     dest = inputs["to"][0]
     cabin = inputs.get("cabin", "economy")
     travelers = int(inputs.get("travelers", 1))
-    max_miles = int(inputs.get("max_miles", 999999))
     depart_date = date.today() + timedelta(days=int(inputs["days_ahead"]))
 
     def _parse_pts(s: str) -> int:

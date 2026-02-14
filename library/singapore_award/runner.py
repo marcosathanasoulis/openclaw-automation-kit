@@ -216,7 +216,7 @@ def _fill_form_and_search(
                 time.sleep(1)
                 errors.append(f"Day cell for {date_str} not found, clicked alternate date")
             else:
-                errors.append(f"No available day cells found in calendar")
+                errors.append("No available day cells found in calendar")
 
         # Click Done in calendar
         done_btn = page.locator(".calendar-root .btn-primary:not([disabled])")
