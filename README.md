@@ -380,6 +380,32 @@ Promotion policy for community submissions:
 - start in `examples/`
 - promote to `library/` only after passing [`docs/AUTOMATION_PROMOTION.md`](docs/AUTOMATION_PROMOTION.md)
 
+### When do you need a custom script?
+
+Use built-in generic flows when the task is simple:
+- open a public page
+- extract text/headlines
+- check for required/forbidden phrases
+
+Create a custom script when any of these are true:
+- login/session state is required
+- site has dynamic multi-step UI behavior
+- filtering/sorting rules are specific to one site
+- 2FA/CAPTCHA checkpoints appear regularly
+- output needs domain-specific normalization (for example award fare rows)
+
+### How AI is used to get a script working
+
+The intended workflow is iterative:
+1. Ask an AI coding agent (Codex/Claude Code) to scaffold `examples/<name>`.
+2. Run the script with real prompts and inspect output/traces/screenshots.
+3. Ask the AI to patch selectors/steps/parsing based on those artifacts.
+4. Repeat until output is stable and schema-valid.
+5. Add tests + docs, then submit PR.
+6. Promote to `library/` only after promotion checks pass.
+
+In short: this toolkit gives structure, contracts, and debugging hooks so AI-assisted automation development can converge quickly instead of staying ad-hoc.
+
 ## Marketplace skills
 
 This repository ships publishable OpenClaw skill folders:
