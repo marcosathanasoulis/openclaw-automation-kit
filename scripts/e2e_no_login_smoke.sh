@@ -9,12 +9,34 @@ python3 -m venv .venv
 fi
 source .venv/bin/activate
 
-python -m pip install -q -r requirements-dev.txt
-python -m pip install -q -e .
+python -m pip install -q --no-cache-dir -r requirements-dev.txt
+python -m pip install -q --no-cache-dir -e .
+
+run_pytest_with_repair() {
+  local out_file
+  out_file="$(mktemp /tmp/openclaw_pytest_XXXXXX.log)"
+  if python -m pytest -q 2>&1 | tee "$out_file"; then
+    rm -f "$out_file"
+    return 0
+  fi
+
+  # Rare macOS mixed-arch wheel issue: rpds binary architecture mismatch.
+  if grep -qiE "rpds|incompatible architecture" "$out_file"; then
+    echo "Detected Python wheel architecture mismatch. Repairing rpds-py and retrying once..."
+    python -m pip install -q --no-cache-dir --force-reinstall --no-binary=:all: rpds-py
+    python -m pytest -q
+    rm -f "$out_file"
+    return 0
+  fi
+
+  cat "$out_file" >&2
+  rm -f "$out_file"
+  return 1
+}
 
 echo "[1/5] Lint + unit tests"
 ruff check .
-python -m pytest -q
+run_pytest_with_repair
 
 echo "[2/5] Manifest validation"
 python -m openclaw_automation.cli validate --script-dir examples/public_page_check >/dev/null
