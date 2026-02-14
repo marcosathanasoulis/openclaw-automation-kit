@@ -48,7 +48,6 @@ def _goal(inputs: Dict[str, Any]) -> str:
     depart_date = date.today() + timedelta(days=days_ahead)
 
     search_url = _booking_url(origin, dest, depart_date, cabin, travelers)
-    date_str = depart_date.strftime("%b %-d")  # e.g. "Apr 14"
 
     lines = [
         f"Search for United award flights {origin} to {dest} "

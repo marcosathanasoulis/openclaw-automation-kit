@@ -6,7 +6,6 @@ import sys
 import time
 from datetime import date, timedelta
 from typing import Any, Dict, List
-from urllib.parse import urlencode
 
 from openclaw_automation.browser_agent_adapter import browser_agent_enabled, run_browser_agent_goal
 from openclaw_automation.adaptive import adaptive_run
