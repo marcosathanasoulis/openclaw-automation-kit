@@ -9,7 +9,7 @@
     "openclawAutomationPackage": {
       "required": true,
       "installed": false,
-      "description": "openclaw-automation-kit installed locally (`pip install -e .`)"
+      "description": "openclaw-automation-kit installed locally from official repo/tag (`pip install -e .`)"
     },
     "repoRoot": {
       "required": true,
@@ -28,11 +28,12 @@
     }
   },
   "setupInstructions": [
-    "1. Clone openclaw-automation-kit locally.",
+    "1. Clone openclaw-automation-kit from the official repository and check out a tagged release.",
     "2. Create venv and install deps: pip install -r requirements-dev.txt && pip install -e .",
     "3. Optionally set OPENCLAW_AUTOMATION_ROOT to the repo path.",
     "4. Run preflight: python -m openclaw_automation.cli doctor --json",
-    "5. Test skill: python skills/openclaw-web-automation/scripts/run_query.py --query \"Check yahoo.com and tell me the top headlines\""
+    "5. Configure OpenClaw to require confirmation for credentialed/state-changing runs.",
+    "6. Test skill: python skills/openclaw-web-automation/scripts/run_query.py --query \"Check yahoo.com and tell me the top headlines\""
   ],
   "verifySetup": "python -m openclaw_automation.cli doctor --json"
 }

@@ -18,6 +18,22 @@ This skill is a launcher. It delegates execution to your local
 `openclaw_automation.cli run-query` implementation from `openclaw-automation-kit`.
 Optional iMessage notifications delegate to a local BlueBubbles connector module if installed.
 
+This skill itself does **not**:
+- store passwords,
+- resolve secret refs,
+- implement browser automation logic,
+- bypass CAPTCHA/anti-bot systems.
+
+## Trusted source and version pinning
+
+Install `openclaw-automation-kit` from the official repository:
+- `https://github.com/marcosathanasoulis/openclaw-automation-kit`
+
+Recommended:
+- install from a tagged release (for example `v2026.9` or newer),
+- pin to an explicit commit/tag in your internal setup docs,
+- run local preflight before first use.
+
 ## Examples
 
 Basic:
@@ -76,6 +92,14 @@ python skills/openclaw-web-automation/scripts/run_query.py \
 - If inline refs are used, this launcher passes them to the backend via stdin (not argv).
 - Keep human-in-the-loop for 2FA/CAPTCHA steps.
 - Do not use on sites/accounts you are not authorized to access.
+- Configure OpenClaw to require user confirmation for credentialed or state-changing automations.
+
+## Data flow
+
+- Local launcher executes local Python module: `openclaw_automation.cli`.
+- Credential refs are forwarded to the local backend for resolution.
+- If advanced browser flows are enabled, backend may call external model APIs (for example Anthropic) depending on your local configuration.
+- iMessage notification sends only when `--send-notification` is explicitly provided.
 
 ## Dependency note
 
@@ -89,3 +113,10 @@ Optional environment variable:
 ## Reliability notes
 
 - The launcher applies short retry/backoff for transient runtime errors (for example temporary rate limits/timeouts).
+
+## Verification checklist
+
+```bash
+python -m openclaw_automation.cli doctor --json
+python -c "import openclaw_automation,sys; print('openclaw_automation import OK')"
+```

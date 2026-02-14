@@ -11,6 +11,11 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 
 ## Current Work
 
+- `codex/skill-confidence-v106`
+  - Task: harden marketplace-facing skill docs for trust boundaries and safe defaults.
+  - Files: `skills/openclaw-web-automation/SKILL.md`, `skills/openclaw-web-automation/setup.json`
+  - Status: complete (docs hardened, tests/smoke passed)
+
 - `codex/update-skill-description`
   - Task: update marketplace skill description text and publish patch release.
   - Files: `skills/openclaw-web-automation/SKILL.md`

@@ -115,6 +115,22 @@ Both agents can now run browser tests in parallel on different machines. CDPLock
 - Validation:
   - local tests: `22 passed`
 
+## Codex update (2026-02-14): skill trust-boundary hardening
+
+- Branch: `codex/skill-confidence-v106`
+- Updated:
+  - `skills/openclaw-web-automation/SKILL.md`
+  - `skills/openclaw-web-automation/setup.json`
+- Changes:
+  - clearer launcher-only trust boundary
+  - explicit trusted-source + version pinning guidance
+  - added safe-defaults language (require confirmation for credentialed/state-changing runs)
+  - added data-flow section and verification checklist
+- Validation:
+  - `ruff check .` passed
+  - `pytest -q` passed
+  - `./scripts/e2e_no_login_smoke.sh` passed
+
 ## Parallel CDP endpoint on home-mind.local
 
 - Chromium headless CDP endpoint is now runnable on Ubuntu host as a second automation target.
