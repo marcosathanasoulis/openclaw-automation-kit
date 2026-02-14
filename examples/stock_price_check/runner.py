@@ -1,5 +1,3 @@
-
-import json
 import yfinance as yf
 
 def run(context, inputs):
