@@ -43,6 +43,8 @@ def _goal(inputs: Dict[str, Any]) -> str:
     origin = inputs["from"]
     destinations = inputs["to"]
     dest = destinations[0]
+    travelers = int(inputs["travelers"])
+    cabin = str(inputs.get("cabin", "economy"))
     days_ahead = int(inputs["days_ahead"])
     max_miles = int(inputs["max_miles"])
     # Use midpoint of range so the date strip shows more of the window
