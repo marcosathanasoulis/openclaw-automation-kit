@@ -4,10 +4,13 @@ This repo includes publishable skill folders under `skills/`.
 
 Current skill packages:
 - `skills/openclaw-web-automation` (unified: no-login + credentialed/2FA flows)
+- `skills/openclaw-universal-memory` (connector-agnostic Postgres + pgvector memory ingestion)
 
 Local skill entrypoints:
 - `python skills/openclaw-web-automation/scripts/run_query.py --query "..."`
 - `python skills/openclaw-web-automation/scripts/run_query.py --query "..." --credential-refs '{...}'`
+- `python skills/openclaw-universal-memory/scripts/run_memory.py --action init-schema --dsn "$DATABASE_DSN"`
+- `python skills/openclaw-universal-memory/scripts/run_memory.py --action ingest-json --dsn "$DATABASE_DSN" --source gmail --account user@example.com --entity-type email --input /path/data.ndjson`
 
 ## 1. Install CLI and authenticate
 

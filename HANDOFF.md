@@ -111,9 +111,36 @@ Both agents can now run browser tests in parallel on different machines. CDPLock
 - Change details:
   - runners now instruct BrowserAgent to return strict `MATCH|...` lines
   - parser now prioritizes `MATCH|...` format, then falls back to legacy patterns
-  - additional fallback parses standalone `130,000 miles` style mentions
+- additional fallback parses standalone `130,000 miles` style mentions
 - Validation:
   - local tests: `22 passed`
+
+## Codex update (2026-02-14): Universal memory skill scaffold
+
+- Branch: `codex/universal-memory-skill`
+- Added connector-agnostic memory skill scaffold:
+  - `skills/openclaw-universal-memory/SKILL.md`
+  - `skills/openclaw-universal-memory/setup.json`
+  - `skills/openclaw-universal-memory/scripts/run_memory.py`
+- Added implementation package:
+  - `src/openclaw_memory/models.py`
+  - `src/openclaw_memory/chunking.py`
+  - `src/openclaw_memory/store.py`
+  - `src/openclaw_memory/cli.py`
+  - `src/openclaw_memory/connectors/base.py`
+  - `src/openclaw_memory/connectors/json_file.py`
+- Added universal schema:
+  - `schemas/universal_memory.sql`
+  - tables: `um_entities`, `um_chunks`, `um_relations`, `um_sync_state`, `um_ingest_events`
+- Added tests:
+  - `tests/test_universal_memory.py`
+- Docs updates:
+  - `docs/UNIVERSAL_MEMORY_SKILL.md`
+  - README + marketplace doc include new skill
+- Validation:
+  - `ruff check .` passed
+  - `pytest -q` passed
+  - `./scripts/e2e_no_login_smoke.sh` passed
 
 ## Parallel CDP endpoint on home-mind.local
 

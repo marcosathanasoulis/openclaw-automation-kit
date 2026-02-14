@@ -11,6 +11,11 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 
 ## Current Work
 
+- `codex/universal-memory-skill`
+  - Task: scaffold universal memory skill (generic schema + connector contract + CLI launcher).
+  - Files: `skills/openclaw-universal-memory/*`, `src/openclaw_memory/*`, `schemas/universal_memory.sql`, docs/tests/README updates.
+  - Status: complete (scaffold + tests + smoke passed locally)
+
 - `codex/update-skill-description`
   - Task: update marketplace skill description text and publish patch release.
   - Files: `skills/openclaw-web-automation/SKILL.md`
