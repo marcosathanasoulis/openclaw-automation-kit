@@ -312,6 +312,18 @@ Recommended pattern:
 
 See `library/united_award/runner.py` for the starter structure.
 
+## How this kit extends the OpenClaw Browser Tool
+
+The `openclaw-automation-kit` builds upon the foundational [`openclaw browser` tool](https://docs.openclaw.ai/tools/browser). While the `openclaw browser` provides the low-level API for programmatic browser control, this kit offers a structured framework for organizing, executing, and extending higher-level browser automations.
+
+Specifically, this kit adds:
+
+*   **Structured Automation Development:** It provides a standardized way to define automations using manifests (`manifest.json`) and input/output schemas, which are not directly provided by the low-level `openclaw browser` tool.
+*   **Execution Engine:** It offers an execution engine that runs these structured automations, abstracting away some of the direct calls to the `openclaw browser` CLI.
+*   **Human-in-the-Loop Capabilities:** It integrates human interaction for challenges like 2FA and CAPTCHA, making automations more robust for real-world scenarios.
+*   **Extensibility with AI Agents:** It supports integration with external `BrowserAgent` implementations (which can leverage AI models like Claude Vision), providing an AI-driven layer of interaction with the browser that goes beyond simple programmatic commands.
+*   **Reusability and Sharing:** It promotes the creation of reusable "skills" that can be shared and published, transforming raw browser actions into shareable, high-level functionalities.
+
 ## Human-in-the-loop CAPTCHA
 
 Read [`docs/CAPTCHA_HUMAN_LOOP.md`](docs/CAPTCHA_HUMAN_LOOP.md).
