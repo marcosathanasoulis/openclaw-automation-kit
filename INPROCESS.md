@@ -41,3 +41,8 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 - Keep entries concise: `owner`, `task`, `resource`, `status`.
 - Move durable info to `HANDOFF.md`; keep this file operational.
 - Commit and push frequently so parallel agents can see latest state.
+
+- `codex/fix-lint-united-runner`
+  - Task: fix CI lint failure on `library/united_award/runner.py` in `cc/fix-health-check-direct-mode` lineage.
+  - Files: `library/united_award/runner.py`
+  - Status: in progress
