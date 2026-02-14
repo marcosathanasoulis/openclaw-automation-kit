@@ -372,6 +372,18 @@ This repository ships publishable OpenClaw skill folders:
 Publishing and release steps are documented in:
 - [`docs/OPENCLAW_MARKETPLACE.md`](docs/OPENCLAW_MARKETPLACE.md)
 
+## Release smoke tests (no login required)
+
+Manual:
+
+```bash
+./scripts/e2e_no_login_smoke.sh
+```
+
+CI:
+- GitHub Actions workflow: `E2E No-Login Smoke`
+- Runs lint/tests, manifest validation, public query path, and skill script smoke checks.
+
 ## Concurrency and queueing
 
 To keep automations from stepping on each other, use:

@@ -1,0 +1,31 @@
+name: E2E No-Login Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - codex/**
+    paths:
+      - "src/**"
+      - "examples/**"
+      - "library/**"
+      - "skills/**"
+      - "scripts/e2e_no_login_smoke.sh"
+      - "tests/**"
+      - "pyproject.toml"
+      - "requirements*.txt"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run no-login smoke
+        run: |
+          chmod +x scripts/e2e_no_login_smoke.sh
+          scripts/e2e_no_login_smoke.sh
