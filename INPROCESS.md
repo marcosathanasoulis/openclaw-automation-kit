@@ -69,6 +69,13 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 - Skill runner hardening added:
   - both skill `run_query.py` scripts now auto-detect repo root or emit clear guidance to set `OPENCLAW_AUTOMATION_ROOT`.
 
+## Demo chat progress
+
+- Added `demo/chat-demo` (Flask chat UI + `/api/chat` endpoint + Cloud Run deploy script).
+- Local smoke test passed on port `8090`:
+  - health: `/healthz` -> `ok=true`
+  - query: Yahoo "news" check -> `keyword_count=6`
+
 ## Example Entry
 
 - owner: `codex`
