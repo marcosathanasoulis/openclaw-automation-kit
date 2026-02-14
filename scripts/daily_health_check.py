@@ -88,11 +88,13 @@ TESTS = [
     },
     {
         "airline": "jetblue",
+        "cabin": "economy",
         "text": (
-            f"use the search_award_flights tool to search jetblue economy NRT to SFO "
-            f"next 30 days. {_PROMPT_SUFFIX}"
+            f"You MUST call the search_award_flights tool right now to search jetblue economy NRT to SFO "
+            f"next 30 days. JetBlue has a JAL codeshare for Tokyo to SFO. Do NOT skip this search. {_PROMPT_SUFFIX}"
         ),
         "route": "NRT→SFO",
+        "direct": True,  # Agent refuses to search - thinks JetBlue doesn't fly to Japan
     },
 ]
 
@@ -377,7 +379,8 @@ def run_airline_test_via_agent(test: dict) -> dict:
 def run_airline_test_direct(test: dict) -> dict:
     """Run a single airline award search directly via OpenClaw CLI (no agent)."""
     airline = test["airline"]
-    query = f"search {airline} business " + test["route"].replace("→", " to ") + " next 60 days"
+    cabin = test.get("cabin", "business")
+    query = f"search {airline} {cabin} " + test["route"].replace("→", " to ") + " next 60 days"
 
     log(f"Testing {airline} via OpenClaw CLI...")
     start = time.time()
@@ -413,15 +416,31 @@ def run_airline_test_direct(test: dict) -> dict:
 
         is_placeholder = result.get("placeholder", False)
         is_real = result.get("real_data", False)
-        matches = result.get("result", {}).get("matches", [])
+        inner = result.get("result", {})
+        matches = inner.get("matches", [])
 
         if is_placeholder or not is_real:
             return {
                 "status": "fail", "matches": 0, "elapsed_s": elapsed,
                 "error": "placeholder data",
+                "reply_snippet": inner.get("summary", "")[:500],
             }
 
-        return {"status": "pass", "matches": len(matches), "elapsed_s": elapsed, "error": None}
+        # Build fare summary from matches
+        fare_parts = []
+        if matches:
+            miles_vals = [m["miles"] for m in matches if m.get("miles")]
+            cash_vals = [m["cash_price"] for m in matches if m.get("cash_price")]
+            if miles_vals:
+                fare_parts.append(f"From {min(miles_vals):,} mi")
+            if cash_vals:
+                fare_parts.append(f"From ${min(cash_vals):,.0f}")
+        fare_summary = " | ".join(fare_parts) if fare_parts else "No fares extracted"
+
+        return {
+            "status": "pass", "matches": len(matches), "elapsed_s": elapsed,
+            "error": None, "fare_summary": fare_summary,
+        }
 
     except subprocess.TimeoutExpired:
         return {"status": "timeout", "matches": 0, "elapsed_s": round(time.time() - start),
@@ -555,10 +574,12 @@ def main():
     parser.add_argument("--no-report", action="store_true", help="Skip iMessage report")
     parser.add_argument("--no-readme", action="store_true", help="Skip README update")
     parser.add_argument("--direct", action="store_true",
-                        help="Test OpenClaw CLI directly instead of through the AI assistant")
+                        help="Test OpenClaw CLI directly (default)")
+    parser.add_argument("--agent", action="store_true",
+                        help="Test through the AI assistant pipeline instead of direct CLI")
     args = parser.parse_args()
 
-    mode = "direct" if args.direct else "agent"
+    mode = "agent" if args.agent else "direct"
     skip_set = set(args.skip.split(",")) if args.skip else set()
     only_set = set(args.only.split(",")) if args.only else None
 
@@ -604,7 +625,7 @@ def main():
             results[airline] = {"status": "skip", "matches": 0, "elapsed_s": 0, "error": "skipped"}
             continue
 
-        if mode == "agent":
+        if mode == "agent" and not test.get("direct"):
             result = run_airline_test_via_agent(test)
         else:
             result = run_airline_test_direct(test)
