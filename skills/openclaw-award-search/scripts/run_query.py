@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -58,7 +59,42 @@ def _notify_imessage(target: str, summary: str) -> None:
 
 def main() -> int:
     args = _parse_args()
-    root = Path(__file__).resolve().parents[3]
+    schema_rel = Path("schemas/manifest.schema.json")
+
+    def _find_repo_root() -> Path | None:
+        env_root = os.getenv("OPENCLAW_AUTOMATION_ROOT", "").strip()
+        if env_root:
+            p = Path(env_root).expanduser().resolve()
+            if (p / schema_rel).exists():
+                return p
+
+        in_repo = Path(__file__).resolve().parents[3]
+        if (in_repo / schema_rel).exists():
+            return in_repo
+
+        cur = Path.cwd().resolve()
+        candidates = [cur, *cur.parents]
+        for c in candidates:
+            if (c / schema_rel).exists():
+                return c
+        return None
+
+    root = _find_repo_root()
+    if root is None:
+        print(
+            json.dumps(
+                {
+                    "ok": False,
+                    "error": (
+                        "Could not locate OpenClaw Automation Kit root. "
+                        "Set OPENCLAW_AUTOMATION_ROOT to your repo path and ensure "
+                        "`pip install -e .` has been run there."
+                    ),
+                },
+                indent=2,
+            )
+        )
+        return 2
 
     try:
         result = _run_query(root, args.query, args.credential_refs)

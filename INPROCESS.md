@@ -59,6 +59,16 @@ Use this file for short-lived cross-agent coordination so parallel work does not
   - real Google Chrome CDP endpoint now active at `127.0.0.1:9225`
   - cooldown-enforced United live run queued via `/tmp/codex_hm_united_cooldown.sh` (75s delay before run)
 
+## New-user smoke check (Codex)
+
+- Fresh clone + fresh venv in `/tmp/openclaw-newuser/openclaw-automation-kit`:
+  - `python -m openclaw_automation.cli run-query --query "Open https://www.yahoo.com and count mentions of news"` ✅
+  - `python skills/openclaw-web-automation-basic/scripts/run_query.py --query ...` ✅
+- Marketplace install check:
+  - `clawhub install openclaw-web-automation-basic` currently returns "Skill not found" (not published yet).
+- Skill runner hardening added:
+  - both skill `run_query.py` scripts now auto-detect repo root or emit clear guidance to set `OPENCLAW_AUTOMATION_ROOT`.
+
 ## Example Entry
 
 - owner: `codex`

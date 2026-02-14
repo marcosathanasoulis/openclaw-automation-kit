@@ -135,3 +135,14 @@ export ANTHROPIC_API_KEY=<key>
 - Practical implication:
   - keep award-search live runs on mac-mini Chrome for now.
   - home-mind CDP is still useful for generic/public-page automations and non-HTTP2-problem sites.
+
+## New-user installability check
+
+- Fresh-user smoke test passed for no-credential query flow:
+  - fresh clone + venv + `pip install -e .`
+  - `run-query` against Yahoo returns live result.
+- `clawhub install openclaw-web-automation-basic` currently fails with `Skill not found` (publish step still pending).
+- Added guardrails in both skill scripts:
+  - `skills/openclaw-web-automation-basic/scripts/run_query.py`
+  - `skills/openclaw-award-search/scripts/run_query.py`
+  - behavior: detect repo root automatically; if missing, return clear setup message (`OPENCLAW_AUTOMATION_ROOT`, `pip install -e .`).
