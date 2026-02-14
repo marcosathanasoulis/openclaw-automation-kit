@@ -16,6 +16,11 @@ Use this file for short-lived cross-agent coordination so parallel work does not
   - Files: `tests/test_adaptive.py`
   - Status: complete (AeroMexico validation tests now match cash-pricing validator logic)
 
+- `codex/fix-lint-united-runner`
+  - Task: fix CI lint failure on `library/united_award/runner.py` in `cc/fix-health-check-direct-mode` lineage.
+  - Files: `library/united_award/runner.py`
+  - Status: complete (removed two unused local assignments flagged by Ruff F841)
+
 - `codex/fix-award-extraction-gap`
   - Added structured `MATCH|...` extraction path and fallback parsing.
   - Added no-login library automations:

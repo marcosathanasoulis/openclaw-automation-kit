@@ -50,7 +50,6 @@ def _goal(inputs: Dict[str, Any]) -> str:
     # Use midpoint of range so the date strip shows more of the window
     mid_days = max(7, days_ahead // 2)
     depart_date = date.today() + timedelta(days=mid_days)
-    range_end = date.today() + timedelta(days=days_ahead)
 
     award_url = _booking_url(origin, dest, depart_date, cabin, travelers, award=True)
     cash_url = _booking_url(origin, dest, depart_date, cabin, travelers, award=False)
@@ -136,7 +135,6 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
     dest = inputs["to"][0]
     cabin = inputs.get("cabin", "economy")
     travelers = int(inputs.get("travelers", 1))
-    max_miles = int(inputs.get("max_miles", 999999))
     depart_date = date.today() + timedelta(days=int(inputs["days_ahead"]))
 
     matches = []
