@@ -506,7 +506,7 @@ See [`DISCLAIMER.md`](DISCLAIMER.md) and [`SECURITY.md`](SECURITY.md).
 <!-- AUTOMATION_STATUS:START -->
 ## Daily Automation Health
 
-_Last generated (UTC): 2026-02-13 15:21:32_
+_Last generated (UTC): 2026-02-14 15:32:43_
 
 | Automation | Location | Validate | Smoke | Status | Notes |
 |---|---|---|---|---|---|
@@ -514,7 +514,13 @@ _Last generated (UTC): 2026-02-13 15:21:32_
 | `bofa.account_alerts` | `library/bofa_alert` | pass | pass | ✅ pass | ok |
 | `github.signin_check` | `library/github_signin_check` | pass | pass | ✅ pass | ok |
 | `singapore.award_search` | `library/singapore_award` | pass | pass | ✅ pass | ok |
+| `web.site_headlines` | `library/site_headlines` | pass | fail | ⚪ skip | no smoke input configured |
+| `web.site_text_watch` | `library/site_text_watch` | pass | fail | ⚪ skip | no smoke input configured |
 | `united.award_search` | `library/united_award` | pass | pass | ✅ pass | ok |
+| `examples.calculator` | `examples/calculator` | pass | fail | ⚪ skip | no smoke input configured |
 | `web.public_page_check` | `examples/public_page_check` | pass | pass | ✅ pass | ok |
+| `examples.stock_price_check` | `examples/stock_price_check` | pass | fail | ⚪ skip | no smoke input configured |
+| `examples.weather_check` | `examples/weather_check` | pass | fail | ❌ fail | run failed |
+| `examples.website_status` | `examples/website_status` | pass | fail | ⚪ skip | no smoke input configured |
 
 <!-- AUTOMATION_STATUS:END -->

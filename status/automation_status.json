@@ -1,9 +1,9 @@
 {
-  "generated_at_utc": "2026-02-13 15:21:32",
-  "total": 6,
+  "generated_at_utc": "2026-02-14 15:32:43",
+  "total": 12,
   "pass": 6,
-  "fail": 0,
-  "skip": 0,
+  "fail": 1,
+  "skip": 5,
   "results": [
     {
       "script_id": "ana.award_search",
@@ -38,6 +38,22 @@
       "notes": "ok"
     },
     {
+      "script_id": "web.site_headlines",
+      "location": "library/site_headlines",
+      "validate_ok": true,
+      "smoke_ok": false,
+      "status": "SKIP",
+      "notes": "no smoke input configured"
+    },
+    {
+      "script_id": "web.site_text_watch",
+      "location": "library/site_text_watch",
+      "validate_ok": true,
+      "smoke_ok": false,
+      "status": "SKIP",
+      "notes": "no smoke input configured"
+    },
+    {
       "script_id": "united.award_search",
       "location": "library/united_award",
       "validate_ok": true,
@@ -46,12 +62,44 @@
       "notes": "ok"
     },
     {
+      "script_id": "examples.calculator",
+      "location": "examples/calculator",
+      "validate_ok": true,
+      "smoke_ok": false,
+      "status": "SKIP",
+      "notes": "no smoke input configured"
+    },
+    {
       "script_id": "web.public_page_check",
       "location": "examples/public_page_check",
       "validate_ok": true,
       "smoke_ok": true,
       "status": "PASS",
       "notes": "ok"
+    },
+    {
+      "script_id": "examples.stock_price_check",
+      "location": "examples/stock_price_check",
+      "validate_ok": true,
+      "smoke_ok": false,
+      "status": "SKIP",
+      "notes": "no smoke input configured"
+    },
+    {
+      "script_id": "examples.weather_check",
+      "location": "examples/weather_check",
+      "validate_ok": true,
+      "smoke_ok": false,
+      "status": "FAIL",
+      "notes": "run failed"
+    },
+    {
+      "script_id": "examples.website_status",
+      "location": "examples/website_status",
+      "validate_ok": true,
+      "smoke_ok": false,
+      "status": "SKIP",
+      "notes": "no smoke input configured"
     }
   ]
 }
