@@ -8,6 +8,11 @@ Local browser-automation demo UI for the OpenClaw Automation Kit.
 - Accepts plain-English automation prompts
 - Calls `python -m openclaw_automation.cli run-query --query "..."`
 - Shows a human-friendly summary plus raw JSON output
+- Includes canned no-login demos:
+  - `Run headlines demo`
+  - `Run text watch demo`
+  - `Run captcha demo`
+  - `Run 2FA demo`
 
 ## Run with Docker
 

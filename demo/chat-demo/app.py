@@ -41,6 +41,24 @@ def _run_query(query: str) -> dict:
     return json.loads(proc.stdout)
 
 
+def _run_script(script_dir: str, inputs: dict) -> dict:
+    root = _repo_root()
+    cmd = [
+        sys.executable,
+        "-m",
+        "openclaw_automation.cli",
+        "run",
+        "--script-dir",
+        script_dir,
+        "--input",
+        json.dumps(inputs),
+    ]
+    proc = subprocess.run(cmd, cwd=root, capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "run failed")
+    return json.loads(proc.stdout)
+
+
 def _assistant_text(result: dict) -> str:
     payload = result.get("result", {}) if isinstance(result, dict) else {}
     summary = payload.get("summary")
@@ -218,6 +236,36 @@ def chat():
                 }
             )
         return jsonify({"ok": False, "error": verdict["error"]}), 400
+
+    if "headlines demo" in lower:
+        result = _run_script("library/site_headlines", {"url": "https://www.yahoo.com", "max_items": 8})
+        payload = result.get("result", {})
+        return jsonify(
+            {
+                "ok": True,
+                "assistant_text": payload.get("summary", "Headlines demo completed."),
+                "result": result,
+            }
+        )
+
+    if "text watch demo" in lower or "website watch demo" in lower:
+        result = _run_script(
+            "library/site_text_watch",
+            {
+                "url": "https://status.openai.com",
+                "must_include": ["status"],
+                "must_not_include": ["maintenance window"],
+                "case_sensitive": False,
+            },
+        )
+        payload = result.get("result", {})
+        return jsonify(
+            {
+                "ok": True,
+                "assistant_text": payload.get("summary", "Text watch demo completed."),
+                "result": result,
+            }
+        )
 
     if lower.startswith("solve "):
         parts = query.split(maxsplit=2)
