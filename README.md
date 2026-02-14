@@ -2,6 +2,17 @@
 
 A production-focused framework for personal browser automations with a clear automation spec, API-first execution model, and optional messaging hooks.
 
+## Install (quick)
+
+```bash
+git clone https://github.com/marcosathanasoulis/openclaw-automation-kit.git
+cd openclaw-automation-kit
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+pip install -e .
+```
+
 This project is designed for people who want to:
 - Run reliable browser automations using OpenClaw
 - Share and version automations as scripts
