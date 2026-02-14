@@ -114,6 +114,29 @@ cp .env.example .env
 ```
 Then fill values per `docs/CONFIGURATION.md`.
 
+### 2. Run the local chat demo (fastest path)
+
+From repo root:
+
+```bash
+./demo/chat-demo/run_local_docker.sh
+```
+
+Open:
+
+`http://127.0.0.1:8090`
+
+Try:
+- `Check yahoo.com and tell me the top headlines`
+- `Run captcha demo`
+- `Run 2FA demo`
+
+Stop it:
+
+```bash
+docker rm -f openclaw-chat-demo
+```
+
 ## Platform support
 
 The framework is intended to be cross-platform. Current practical testing has been on:
