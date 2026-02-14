@@ -9,6 +9,7 @@
 
 ## Work Model (MANDATORY for all agents)
 
+0. **Read `AGENTS.md` first** — repository-wide branch + coordination + quality gate policy.
 1. **Separate feature branches** — keep feature changes on your own branch. Pull from main before starting new work.
 2. **HANDOFF.md on main** — coordination doc. Update immediately when completing significant work or changing shared state.
 3. **INPROCESS.md on feature branches** — per-branch status tracker. Update as you work.
