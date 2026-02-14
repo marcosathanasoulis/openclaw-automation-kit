@@ -1,0 +1,38 @@
+{
+  "setupComplete": false,
+  "prerequisites": {
+    "python": {
+      "required": true,
+      "installed": false,
+      "description": "Python 3.11+"
+    },
+    "openclawAutomationPackage": {
+      "required": true,
+      "installed": false,
+      "description": "openclaw-automation-kit installed locally (`pip install -e .`)"
+    },
+    "repoRoot": {
+      "required": true,
+      "configured": false,
+      "description": "OPENCLAW_AUTOMATION_ROOT points to a trusted repo checkout (optional if running from repo root)"
+    },
+    "anthropicApiKey": {
+      "required": false,
+      "configured": false,
+      "description": "ANTHROPIC_API_KEY for BrowserAgent/vision-based advanced flows"
+    },
+    "blueBubblesConnector": {
+      "required": false,
+      "installed": false,
+      "description": "connectors.imessage_bluebubbles module for --send-notification"
+    }
+  },
+  "setupInstructions": [
+    "1. Clone openclaw-automation-kit locally.",
+    "2. Create venv and install deps: pip install -r requirements-dev.txt && pip install -e .",
+    "3. Optionally set OPENCLAW_AUTOMATION_ROOT to the repo path.",
+    "4. Run preflight: python -m openclaw_automation.cli doctor --json",
+    "5. Test skill: python skills/openclaw-web-automation/scripts/run_query.py --query \"Check yahoo.com and tell me the top headlines\""
+  ],
+  "verifySetup": "python -m openclaw_automation.cli doctor --json"
+}

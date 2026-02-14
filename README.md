@@ -224,6 +224,7 @@ PROJECT_ID=your-gcp-project REGION=us-central1 SERVICE=openclaw-demo-chat ./depl
 ### 3. Validate example automation specs
 
 ```bash
+python -m openclaw_automation.cli doctor --json
 python -m openclaw_automation.cli validate --script-dir examples/public_page_check
 python -m openclaw_automation.cli validate --script-dir library/united_award
 python -m openclaw_automation.cli validate --script-dir library/singapore_award

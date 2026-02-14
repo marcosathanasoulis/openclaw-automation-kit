@@ -9,6 +9,9 @@ This skill supports both:
 - Basic mode: public-site checks with no credentials
 - Advanced mode: authenticated flows with `credential_refs` and optional iMessage notifications
 
+Setup metadata:
+- `setup.json` in this folder lists prerequisites and verification steps.
+
 ## Trust boundary
 
 This skill is a launcher. It delegates execution to your local
@@ -22,6 +25,12 @@ Basic:
 ```bash
 python skills/openclaw-web-automation/scripts/run_query.py \
   --query "Check yahoo.com and tell me the top headlines"
+```
+
+Preflight:
+
+```bash
+python -m openclaw_automation.cli doctor --json
 ```
 
 Advanced (credentialed):
@@ -76,3 +85,7 @@ Optional iMessage notifications require the BlueBubbles connector module to be i
 
 Optional environment variable:
 - `OPENCLAW_AUTOMATION_ROOT`: path to trusted local `openclaw-automation-kit` checkout.
+
+## Reliability notes
+
+- The launcher applies short retry/backoff for transient runtime errors (for example temporary rate limits/timeouts).

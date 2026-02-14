@@ -39,6 +39,7 @@ ruff check .
 run_pytest_with_repair
 
 echo "[2/5] Manifest validation"
+python -m openclaw_automation.cli doctor --json >/tmp/openclaw_doctor.json
 python -m openclaw_automation.cli validate --script-dir examples/public_page_check >/dev/null
 python -m openclaw_automation.cli validate --script-dir library/united_award >/dev/null
 python -m openclaw_automation.cli validate --script-dir library/singapore_award >/dev/null

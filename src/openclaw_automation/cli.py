@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any, Dict
@@ -43,6 +44,13 @@ def _parse_args() -> argparse.Namespace:
         help="Read JSON credential refs from stdin",
     )
 
+    p_doctor = sub.add_parser("doctor", help="Run local environment preflight checks")
+    p_doctor.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit machine-readable JSON output",
+    )
+
     return parser.parse_args()
 
 
@@ -67,6 +75,30 @@ def _load_credential_refs(args: argparse.Namespace) -> Dict[str, Any]:
         raw = os.getenv(key, "{}")
         return _load_input(raw)
     return _load_input(getattr(args, "credential_refs", "{}"))
+
+
+def _doctor(root: Path) -> Dict[str, Any]:
+    checks: Dict[str, Dict[str, Any]] = {}
+    schema = root / "schemas" / "manifest.schema.json"
+    checks["repo_schema"] = {
+        "ok": schema.exists(),
+        "details": str(schema),
+    }
+    checks["anthropic_api_key"] = {
+        "ok": bool(os.getenv("ANTHROPIC_API_KEY")),
+        "details": "Set for BrowserAgent/vision flows",
+    }
+    checks["bluebubbles_webhook"] = {
+        "ok": bool(os.getenv("BLUEBUBBLES_WEBHOOK_URL")),
+        "details": "Optional for iMessage notifications",
+    }
+    checks["openclaw_root_env"] = {
+        "ok": bool(os.getenv("OPENCLAW_AUTOMATION_ROOT")),
+        "details": os.getenv("OPENCLAW_AUTOMATION_ROOT", ""),
+    }
+
+    overall_ok = all(item["ok"] for key, item in checks.items() if key == "repo_schema")
+    return {"ok": overall_ok, "root": str(root), "checks": checks}
 
 
 def _detect_repo_root(script_dir: Path) -> Path:
@@ -116,6 +148,14 @@ def main() -> None:
                 file=sys.stderr,
             )
         print(pretty_json({"parsed_notes": parsed.notes, **result}))
+        return
+
+    if args.command == "doctor":
+        result = _doctor(root)
+        if args.json:
+            print(pretty_json(result))
+            return
+        print(pretty_json(result))
         return
 
 

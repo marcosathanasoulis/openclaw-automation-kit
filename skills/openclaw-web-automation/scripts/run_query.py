@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 
@@ -77,10 +78,24 @@ def _run_query(root: Path, query: str, args: argparse.Namespace) -> dict:
         # Avoid placing credential refs in subprocess argv; pass via stdin.
         cmd.append("--credential-refs-stdin")
         stdin_payload = args.credential_refs
-    proc = subprocess.run(cmd, cwd=root, capture_output=True, text=True, input=stdin_payload)
-    if proc.returncode != 0:
-        raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "run-query failed")
-    return json.loads(proc.stdout)
+    retryable_markers = (
+        "rate limit",
+        "temporarily unavailable",
+        "timeout",
+        "connection reset",
+    )
+    last_error: str | None = None
+    for attempt in range(1, 4):
+        proc = subprocess.run(cmd, cwd=root, capture_output=True, text=True, input=stdin_payload)
+        if proc.returncode == 0:
+            return json.loads(proc.stdout)
+        message = proc.stderr.strip() or proc.stdout.strip() or "run-query failed"
+        last_error = message
+        if attempt < 3 and any(marker in message.lower() for marker in retryable_markers):
+            time.sleep(2**attempt)
+            continue
+        break
+    raise RuntimeError(last_error or "run-query failed")
 
 
 def _notify_imessage(target: str, summary: str) -> None:
