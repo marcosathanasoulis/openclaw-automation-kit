@@ -451,9 +451,13 @@ This keeps shared automations trustworthy while still allowing fast community it
 
 This repository ships publishable OpenClaw skill folders:
 - `skills/openclaw-web-automation` (unified skill: basic + advanced)
+- `skills/openclaw-universal-memory` (connector-agnostic ingestion for Postgres + pgvector)
 
 Publishing and release steps are documented in:
 - [`docs/OPENCLAW_MARKETPLACE.md`](docs/OPENCLAW_MARKETPLACE.md)
+
+Universal memory schema and migration notes:
+- [`docs/UNIVERSAL_MEMORY_SKILL.md`](docs/UNIVERSAL_MEMORY_SKILL.md)
 
 ## Release smoke tests (no login required)
 
