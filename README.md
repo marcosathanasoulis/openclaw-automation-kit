@@ -522,12 +522,13 @@ These tests use a real browser via BrowserAgent (Playwright + Claude vision + Ch
 
 _Tested via: AI Assistant (full pipeline)_
 
-| Airline | Route | Status | Matches | Time | Last Run |
-|---------|-------|--------|---------|------|----------|
-| United | SFO→NRT | ✅ pass | 0 | 263s | 2026-02-13 20:16 |
-| Delta | SFO→BOS | ✅ pass | 2 | 140s | 2026-02-13 20:16 |
-| Singapore | SFO→BKK | ✅ pass | 0 | 128s | 2026-02-13 20:16 |
-| Aeromexico | SFO→MEX | ✅ pass | 1 | 160s | 2026-02-13 20:16 |
-| Ana | SFO→TYO | ✅ pass | 0 | 169s | 2026-02-13 20:16 |
+| Airline | Route | Status | Matches | Fares | Time | Last Run |
+|---------|-------|--------|---------|-------|------|----------|
+| United | SFO→BKK | ⏸️ skip | skipped | - | 0s | 2026-02-14 00:53 |
+| United-Sao | SFO→GRU | ⏸️ skip | skipped | - | 0s | 2026-02-14 00:53 |
+| Singapore | SFO→SIN | ✅ pass | 3 | - | 204s | 2026-02-14 00:53 |
+| Ana | SFO→HND | ⏸️ skip | skipped | - | 0s | 2026-02-14 00:53 |
+| Aeromexico | SFO→MEX | ⏸️ skip | skipped | - | 0s | 2026-02-14 00:53 |
+| Jetblue | NRT→SFO | ⏸️ skip | skipped | - | 0s | 2026-02-14 00:53 |
 
-**Summary**: 5/5 passing | Last run: 2026-02-13 20:16 PST
+**Summary**: 1/1 passing | Last run: 2026-02-14 00:53 PST

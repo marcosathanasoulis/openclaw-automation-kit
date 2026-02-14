@@ -8,8 +8,20 @@ from typing import Any, Dict, List
 from openclaw_automation.browser_agent_adapter import browser_agent_enabled
 from openclaw_automation.adaptive import adaptive_run
 
-# English/US homepage — do NOT use /amc/mileage-reservation/ (redirects to 404)
-ANA_URL = "https://www.ana.co.jp/en/us/"
+JETBLUE_URL = "https://www.jetblue.com"
+
+
+def _booking_url(origin: str, dest: str, depart_date: date, travelers: int) -> str:
+    """Construct a JetBlue deep-link for award search."""
+    return (
+        f"https://www.jetblue.com/booking/flights"
+        f"?from={origin}&to={dest}"
+        f"&depart={depart_date.isoformat()}"
+        f"&isMultiCity=false&noOfRoute=1"
+        f"&lang=en&adults={travelers}&children=0&infants=0"
+        f"&sharedMarket=false&roundTrip=false"
+        f"&usePoints=true"
+    )
 
 
 def _goal(inputs: Dict[str, Any]) -> str:
@@ -17,76 +29,90 @@ def _goal(inputs: Dict[str, Any]) -> str:
     destinations = inputs["to"]
     dest = destinations[0]
     travelers = int(inputs["travelers"])
-    cabin = str(inputs.get("cabin", "business"))
+    cabin = str(inputs.get("cabin", "economy"))
     days_ahead = int(inputs["days_ahead"])
     max_miles = int(inputs["max_miles"])
-    mid_days = max(14, days_ahead // 2)
+    mid_days = max(7, days_ahead // 2)
     depart_date = date.today() + timedelta(days=mid_days)
+    # Advance to next Tuesday/Wednesday (JAL codeshare has sparse availability)
+    weekday = depart_date.weekday()  # 0=Mon, 1=Tue, 2=Wed...
+    if weekday not in (1, 2, 3):  # Not Tue/Wed/Thu
+        days_to_tue = (1 - weekday) % 7
+        if days_to_tue == 0:
+            days_to_tue = 7
+        depart_date = depart_date + timedelta(days=days_to_tue)
     range_end = date.today() + timedelta(days=days_ahead)
 
+    # Build direct booking URL with usePoints=true
+    book_url = _booking_url(origin, dest, depart_date, travelers)
+    # Fallback date: 3 days later
+    fallback_date = depart_date + timedelta(days=3)
+    fallback_url = _booking_url(origin, dest, fallback_date, travelers)
+
     lines = [
-        f"Search for ANA Mileage Club AWARD flights from {origin} to {dest}, "
-        f"{cabin} class, around {depart_date.strftime('%B %-d, %Y')}.",
+        f"Search for JetBlue TrueBlue award flights {origin} to {dest}. "
+        f"Check availability from now through {range_end.strftime('%B %-d, %Y')} "
+        f"(starting around {depart_date.strftime('%B %-d')}).",
         "",
-        "=== IMPORTANT RULES ===",
-        "- NEVER navigate to aswbe-i.ana.co.jp or aswbe.ana.co.jp directly.",
-        "- The award search REQUIRES login. You MUST login first.",
-        "- If CAPTCHA appears, report stuck immediately.",
+        "=== ACTION SEQUENCE ===",
         "",
-        "=== STEP 1 — DISMISS COOKIE DIALOG ===",
-        "If a 'Cookie Settings' dialog is covering the page:",
-        "  Try: js_eval: document.querySelector('#onetrust-accept-btn-handler, .onetrust-close-btn-handler, button[class*=accept], .ot-sdk-btn')?.click()",
-        "  If still showing, scroll down inside the dialog and look for an Accept button.",
-        "  If nothing works, try: js_eval: document.querySelector('.onetrust-pc-dark-filter')?.remove(); document.querySelector('#onetrust-consent-sdk')?.remove()",
+        "STEP 1 - LOGIN:",
+        "Look at the page. If you see a name or 'TrueBlue' member greeting, skip to STEP 2.",
+        "If NOT logged in:",
+        "  1a. Click 'Log in' or 'Sign in'.",
+        "  1b. credentials for www.jetblue.com",
+        "  1c. Enter email (marcos@athanasoulis.net) in email field.",
+        "  1d. Enter password.",
+        "  1e. Click 'Log in'.",
+        "  1f. wait 5",
+        "  1g. If email verification code is requested:",
+        "      Use: read_email_code",
+        "      This reads the latest verification code from Gmail.",
+        "      Enter the code and submit.",
+        "  1h. wait 5",
+        "  1i. Close any popups or dialogs.",
         "",
-        "=== STEP 2 — LOGIN FIRST (MANDATORY) ===",
-        "You MUST login before searching. The award search will block you without login.",
-        "Look for 'Log In' or 'AMC Member' or 'ANA Mileage Club' in the header/menu.",
-        "Click it.",
-        "  - credentials for aswbe-i.ana.co.jp",
-        "  - ANA Mileage Club number: 4135234365",
-        "  - Enter the 10-digit member number and password",
-        "  - Click Log In / Sign In",
-        "  - wait 8",
-        "If already logged in (you see a welcome message or member name), continue.",
+        "STEP 2 - NAVIGATE TO AWARD SEARCH:",
+        f"Your VERY NEXT ACTION must be: navigate {book_url}",
+        "Do NOT touch the search form. Do NOT type in any fields. Do NOT use js_eval.",
+        "The URL has usePoints=true so results will show in TrueBlue points.",
         "",
-        "=== STEP 3 — NAVIGATE TO AWARD SEARCH ===",
-        "After login, find the award booking section.",
-        "Look for:",
-        "  a) 'Use Miles' tab in the booking widget on the homepage",
-        "  b) 'Award Reservation' link",
-        "  c) 'Book Flights with Miles' or 'ANA Mileage Club' in the menu",
-        "Click it. A login session is required — the page will work now that you are logged in.",
-        "wait 5",
+        "STEP 3 - WAIT FOR RESULTS:",
+        "Your VERY NEXT ACTION must be: wait 15",
+        "The results page needs time to load flight options with points prices.",
         "",
-        "=== STEP 4 — FILL SEARCH FORM ===",
-        f"  - Trip type: One Way (if available)",
-        f"  - From/Departure: {origin} (type SFO, select from dropdown)",
-        f"  - To/Arrival: {dest} (type {dest}, select from dropdown)",
-        f"  - Date: around {depart_date.strftime('%B %-d')} (any nearby date is fine)",
-        f"  - Cabin class: {cabin}",
-        f"  - Passengers: {travelers}",
-        "  - Click Search",
+        "STEP 3b - IF NO FLIGHTS FOUND:",
+        "If the page says 'No flights have been found' or 'No flights found':",
+        f"  Your VERY NEXT ACTION must be: navigate {fallback_url}",
+        "  wait 15",
+        "  This tries a different date.",
         "",
-        "=== STEP 5 — WAIT FOR RESULTS ===",
-        "wait 12",
+        "STEP 4 - SCREENSHOT:",
+        "Your VERY NEXT ACTION must be: screenshot",
+        "Do NOT try to click anything first. Just take the screenshot.",
         "",
-        "=== STEP 6 — SCREENSHOT ===",
-        "screenshot",
+        "STEP 5 - REPORT AND DONE:",
+        "Your VERY NEXT ACTION must be: done",
+        "Report:",
         "",
-        "=== STEP 7 — REPORT AND DONE ===",
-        "done",
+        "A) DATE/CALENDAR PRICES:",
+        "DATE: Mar 10 | XX,XXX points",
+        "DATE: Mar 12 | XX,XXX points",
         "",
-        "Report what you see:",
-        "A) CALENDAR: list dates with mileage prices",
-        "   DATE: Mar 10 | XX,XXX miles",
-        "B) FLIGHTS: list individual flights",
-        "   FLIGHT: HH:MM-HH:MM | XX,XXX miles | stops | cabin",
+        "B) FLIGHT LIST for selected date:",
+        "FLIGHT: HH:MM-HH:MM | XX,XXX points | Nonstop/1 stop | cabin",
+        "Report BOTH economy (Blue Basic/Blue) and business (Mint) fares if visible.",
+        "",
         "C) SUMMARY:",
-        f"   Cheapest {cabin}: [miles] on [date]",
+        "- Cheapest economy: [points] on [date]",
+        "- Cheapest Mint/business: [points] on [date]",
         "",
-        f"Budget: {max_miles:,} miles total ({max_miles // travelers:,} per person).",
-        "If no results or CAPTCHA, report what you see on the page.",
+        f"Report all fares, even if above {max_miles:,} points.",
+        "",
+        "=== WARNINGS ===",
+        "- Navigate to the URL in STEP 2 — do NOT fill the homepage search form.",
+        "- For email 2FA, use the read_email_code action to get the code.",
+        "- After screenshot, IMMEDIATELY do done.",
     ]
     return "\n".join(lines)
 
@@ -98,25 +124,40 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
 
     origin = inputs["from"]
     dest = inputs["to"][0]
-    cabin = inputs.get("cabin", "business")
+    cabin = inputs.get("cabin", "economy")
     travelers = int(inputs.get("travelers", 1))
     max_miles = int(inputs.get("max_miles", 999999))
+    depart_date = date.today() + timedelta(days=int(inputs["days_ahead"]))
+
+    def _parse_pts(s: str) -> int:
+        """Parse points from '55,000', '55k', '43.2k' formats."""
+        s = s.strip().replace(",", "")
+        if s.lower().endswith("k"):
+            try:
+                return int(float(s[:-1]) * 1000)
+            except ValueError:
+                return 0
+        try:
+            return int(s)
+        except ValueError:
+            return 0
 
     matches = []
     seen = set()
 
-    # Pattern: "FLIGHT: HH:MM-HH:MM | XX,XXX miles"
+    # Pattern 1: "FLIGHT: HH:MM-HH:MM | XX,XXX points"
     flight_pattern = re.compile(
         r'(?:FLIGHT:?\s*)?(\d{1,2}:\d{2}(?:\s*[AP]M)?)\s*[-–]\s*(\d{1,2}:\d{2}(?:\s*[AP]M)?)'
-        r'.*?([\d,]+)\s*(?:miles?|pts?|points?)',
+        r'.*?([\d,.]+k?)\s*(?:points?|pts?)',
         re.IGNORECASE,
     )
+
     for line in result_text.split("\n"):
         fm = flight_pattern.search(line)
         if fm:
-            miles = int(fm.group(3).replace(",", ""))
-            if miles >= 1000:
-                key = f"{fm.group(1)}-{fm.group(2)}-{miles}"
+            points = _parse_pts(fm.group(3))
+            if points >= 1000:
+                key = f"{fm.group(1)}-{fm.group(2)}-{points}"
                 if key not in seen:
                     seen.add(key)
                     stops = ""
@@ -127,7 +168,8 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
                         stops = f"{sm.group(1)} stop(s)"
                     matches.append({
                         "route": f"{origin}-{dest}",
-                        "miles": miles,
+                        "date": depart_date.isoformat(),
+                        "miles": points,
                         "travelers": travelers,
                         "cabin": cabin,
                         "mixed_cabin": False,
@@ -137,25 +179,27 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
                         "notes": line.strip()[:150],
                     })
 
-    # Pattern: "DATE: Mar 10 | XX,XXX miles"
+    # Pattern 2: Calendar "DATE: Mar 10 | XX,XXX points"
     date_pattern = re.compile(
-        r'DATE:.*?((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{1,2})'
-        r'.*?([\d,]+)\s*(?:miles?|pts?|points?)',
+        r'DATE:.*?(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*\s+)?'
+        r'((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{1,2})'
+        r'.*?([\d,]+)\s*(?:points?|pts?)',
         re.IGNORECASE,
     )
     for line in result_text.split("\n"):
         dm = date_pattern.search(line.strip())
         if dm:
             date_label = dm.group(1).strip()
-            miles = int(dm.group(2).replace(",", ""))
-            if miles >= 1000:
-                key = f"cal-{date_label}-{miles}"
+            points = _parse_pts(dm.group(2))
+            if points >= 1000:
+                key = f"cal-{date_label}-{points}"
                 if key not in seen:
                     seen.add(key)
                     matches.append({
                         "route": f"{origin}-{dest}",
+                        "date": depart_date.isoformat(),
                         "date_label": date_label,
-                        "miles": miles,
+                        "miles": points,
                         "travelers": travelers,
                         "cabin": cabin,
                         "mixed_cabin": False,
@@ -163,17 +207,18 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
                         "notes": line.strip()[:150],
                     })
 
-    # Fallback: raw miles extraction
+    # Fallback: raw points extraction
     if not matches:
-        pts_pat = re.compile(r'([\d,]+)\s*(?:miles?|pts?|points?)\b', re.IGNORECASE)
+        pts_pat = re.compile(r'([\d,]+)\s*(?:points?|pts?)\b', re.IGNORECASE)
         for line in result_text.split("\n"):
             pm = pts_pat.search(line)
             if pm:
-                miles = int(pm.group(1).replace(",", ""))
-                if miles >= 1000:
+                points = _parse_pts(pm.group(1))
+                if points >= 1000:
                     matches.append({
                         "route": f"{origin}-{dest}",
-                        "miles": miles,
+                        "date": depart_date.isoformat(),
+                        "miles": points,
                         "travelers": travelers,
                         "cabin": cabin,
                         "mixed_cabin": False,
@@ -189,7 +234,7 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
     end = today + timedelta(days=int(inputs["days_ahead"]))
     destinations = inputs["to"]
     max_miles = int(inputs["max_miles"])
-    cabin = str(inputs.get("cabin", "business"))
+    cabin = str(inputs.get("cabin", "economy"))
     travelers = int(inputs["travelers"])
 
     dest_str = ", ".join(destinations)
@@ -200,14 +245,15 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
         f"Cabin: {cabin}",
     ]
 
-    book_url = ANA_URL
+    depart_date = today + timedelta(days=int(inputs["days_ahead"]))
+    book_url = _booking_url(inputs["from"], destinations[0], depart_date, travelers)
 
     if browser_agent_enabled():
         agent_run = adaptive_run(
             goal=_goal(inputs),
-            url=ANA_URL,
-            max_steps=50,
-            airline="ana",
+            url=JETBLUE_URL,
+            max_steps=60,
+            airline="jetblue",
             inputs=inputs,
             max_attempts=1,
             trace=True,
@@ -237,9 +283,9 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
                 "matches": live_matches,
                 "booking_url": book_url,
                 "summary": (
-                    f"ANA award search: {len(live_matches)} flight(s) found "
-                    f"under {max_miles:,} miles. "
-                    + (f"Cheapest: {min(m['miles'] for m in live_matches):,} miles. "
+                    f"JetBlue award search: {len(live_matches)} flight(s) found "
+                    f"under {max_miles:,} points. "
+                    + (f"Cheapest: {min(m['miles'] for m in live_matches):,} points. "
                        if live_matches else "No matching flights. ")
                 ),
                 "raw_observations": observations,
@@ -254,7 +300,7 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
     matches = [{
         "route": f"{inputs['from']}-{destinations[0]}",
         "date": today.isoformat(),
-        "miles": min(65000, max_miles),
+        "miles": min(30000, max_miles),
         "travelers": travelers,
         "cabin": cabin,
         "mixed_cabin": False,
@@ -267,7 +313,7 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
         "real_data": False,
         "matches": matches,
         "booking_url": book_url,
-        "summary": f"PLACEHOLDER: Found {len(matches)} synthetic ANA match(es) <= {max_miles} miles",
+        "summary": f"PLACEHOLDER: Found {len(matches)} synthetic JetBlue match(es) <= {max_miles} points",
         "raw_observations": observations,
         "errors": [],
     }

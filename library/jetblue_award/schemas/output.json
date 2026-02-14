@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["mode", "real_data", "matches", "summary"],
+  "properties": {
+    "mode": {"type": "string", "enum": ["live", "placeholder"]},
+    "real_data": {"type": "boolean"},
+    "matches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "route": {"type": "string"},
+          "date": {"type": "string"},
+          "miles": {"type": "integer"},
+          "travelers": {"type": "integer"},
+          "cabin": {"type": "string"},
+          "mixed_cabin": {"type": "boolean"},
+          "booking_url": {"type": "string", "format": "uri"},
+          "notes": {"type": "string"}
+        }
+      }
+    },
+    "booking_url": {"type": "string", "format": "uri"},
+    "summary": {"type": "string"},
+    "raw_observations": {"type": "array", "items": {"type": "string"}},
+    "errors": {"type": "array", "items": {"type": "string"}}
+  }
+}

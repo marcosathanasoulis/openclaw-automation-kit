@@ -24,9 +24,10 @@ logger = logging.getLogger(__name__)
 
 AIRLINE_HINTS: Dict[str, List[str]] = {
     "united": [
-        "After switching 'Show price in' to Miles, the date field clears. Re-enter the date and click Update.",
+        "Make sure 'Book with miles' toggle is ON before searching.",
         "Do NOT select 'Money + Miles'. Select pure 'Miles'.",
-        "Use the direct URL to navigate — do NOT fill the booking form.",
+        "For SMS 2FA, use read_sms_code (sender 26266).",
+        "Close all popups/dialogs before interacting with the search form.",
     ],
     "delta": [
         "You MUST click 'Shop with Miles' checkbox BEFORE clicking 'Find Flights'.",
@@ -35,14 +36,25 @@ AIRLINE_HINTS: Dict[str, List[str]] = {
         "DO NOT click CONTINUE on results — the individual flights page crashes Chrome.",
     ],
     "aeromexico": [
-        "The page is in SPANISH. The points toggle says 'Usar mis Puntos Aeromexico Rewards'.",
-        "If toggle not in a11y tree, use mouse_click at approximately x=345, y=520.",
+        "Search CASH prices — do NOT enable the points/puntos toggle.",
+        "Make sure FROM and TO airports are correct before searching.",
         "Type characters one-by-one (use press action) to avoid reCAPTCHA detection.",
     ],
     "singapore": [
         "Use slow typing (delay=120ms) for autocomplete fields.",
         "The Vue.js calendar requires clicking suggest-items, not direct input.",
         "Do NOT use form.submit() or fetch() — they trigger Akamai CAPTCHA.",
+    ],
+    "ana": [
+        "Stay on ana.co.jp/en/us/ — do NOT navigate to aswbe-i.ana.co.jp directly.",
+        "Find 'Use Miles' or 'Award Booking' from the homepage or Plan & Book menu.",
+        "If CAPTCHA appears, take a screenshot and report stuck.",
+    ],
+    "jetblue": [
+        "Navigate directly to the booking URL with usePoints=true parameter.",
+        "Do NOT try to toggle the 'Use TrueBlue points' checkbox — use the URL instead.",
+        "For email 2FA, use read_email_code to get the verification code.",
+        "After navigating to the URL, wait 15 seconds for results to load.",
     ],
 }
 
@@ -217,9 +229,9 @@ def validate_result(
 
     # Check for miles/points presence (airline-specific)
     if airline == "aeromexico":
-        if not re.search(r"puntos|points|millas|pts", text_lower):
-            if re.search(r"\$\d|mxn|pesos", text_lower):
-                return False, "Shows peso/dollar prices, not puntos"
+        # Cash search — look for dollar/peso prices
+        if not re.search(r"\$\d|mxn|pesos|usd", text_lower):
+            return False, "No cash price data found"
     elif airline == "united":
         # Reject if combo pricing is present and no standalone miles line exists
         combo_lines = re.findall(r".*\$[\d,]+\s*\+\s*[\d,]+\s*miles.*", text_lower)
@@ -233,6 +245,13 @@ def validate_result(
     elif airline == "singapore":
         if not re.search(r"miles|mi\b", text_lower):
             return False, "No miles data in result"
+    elif airline == "ana":
+        if not re.search(r"miles|mi\b", text_lower):
+            return False, "No miles data in result"
+    elif airline == "jetblue":
+        if not re.search(r"points|pts\b", text_lower):
+            if re.search(r"\$\d", text_lower):
+                return False, "Shows dollar prices, not TrueBlue points"
 
     return True, "ok"
 

@@ -33,6 +33,10 @@ AIRLINE_TO_SCRIPT = {
     "aeroméxico": "library/aeromexico_award",
     "am": "library/aeromexico_award",
     "club premier": "library/aeromexico_award",
+    "jetblue": "library/jetblue_award",
+    "jet blue": "library/jetblue_award",
+    "trueblue": "library/jetblue_award",
+    "b6": "library/jetblue_award",
 }
 
 KNOWN_AIRPORT_CODES = {
@@ -51,6 +55,7 @@ KNOWN_AIRPORT_CODES = {
     "LIS",
     "MEX",
     "NRT",
+    "SAO",
     "SFO",
     "SIN",
     "ATL",

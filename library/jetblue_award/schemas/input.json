@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["from", "to", "days_ahead", "max_miles", "travelers"],
+  "additionalProperties": false,
+  "properties": {
+    "from": {"type": "string"},
+    "to": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "days_ahead": {"type": "integer", "minimum": 1, "maximum": 90},
+    "max_miles": {"type": "integer", "minimum": 1},
+    "travelers": {"type": "integer", "minimum": 1, "maximum": 9},
+    "cabin": {"type": "string", "enum": ["economy", "business", "first"], "default": "economy"},
+    "credential_refs": {
+      "type": "object",
+      "additionalProperties": {"type": "string"},
+      "description": "Logical references to OS/cloud secrets (not raw credentials)"
+    }
+  }
+}

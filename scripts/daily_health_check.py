@@ -32,7 +32,8 @@ BOT_SEND_TOKEN = os.environ.get("BOT_SEND_TOKEN", "8sjFz81Oluqjmv3gMhpjYrL4PqX2L
 AGENT_HOST = "home-mind.local"  # Ubuntu server running the AI agent
 AGENT_URL = "http://127.0.0.1:8800/chat"  # Agent endpoint (localhost on Ubuntu)
 REPORT_PHONE = "+14152268266"
-TIMEOUT_PER_AIRLINE = 900  # 10 minutes (agent + browser agent combined)
+TIMEOUT_PER_AIRLINE = 900  # 15 minutes (agent + browser agent combined)
+COOLDOWN_BETWEEN_TESTS = 10  # seconds between airline tests
 
 KIT_DIR = Path(__file__).resolve().parent.parent
 RESULTS_PATH = KIT_DIR / "status" / "daily_results.json"
@@ -48,43 +49,50 @@ TESTS = [
     {
         "airline": "united",
         "text": (
-            f"use the search_award_flights tool to search united economy SFO to NRT "
-            f"next 30 days. {_PROMPT_SUFFIX}"
+            f"use the search_award_flights tool to search united business SFO to BKK "
+            f"2 adults next 30 days. {_PROMPT_SUFFIX}"
         ),
-        "route": "SFO\u2192NRT",
+        "route": "SFO→BKK",
     },
     {
-        "airline": "delta",
+        "airline": "united-sao",
         "text": (
-            f"use the search_award_flights tool to search delta economy SFO to BOS "
-            f"next 30 days. {_PROMPT_SUFFIX}"
+            f"use the search_award_flights tool to search united business SFO to GRU "
+            f"2 adults next 30 days. {_PROMPT_SUFFIX}"
         ),
-        "route": "SFO\u2192BOS",
+        "route": "SFO→GRU",
     },
     {
         "airline": "singapore",
         "text": (
-            f"use the search_award_flights tool to search singapore economy SFO to SIN "
-            f"next 30 days. {_PROMPT_SUFFIX}"
+            f"use the search_award_flights tool to search singapore business SFO to SIN "
+            f"2 adults next 30 days. {_PROMPT_SUFFIX}"
         ),
-        "route": "SFO\u2192SIN",
-    },
-    {
-        "airline": "aeromexico",
-        "text": (
-            "use the search_award_flights tool to search aeromexico economy SFO to MEX "
-            "next 30 days. Report the cheapest cash prices for economy and business class "
-            "with dates. Do NOT search for points/puntos."
-        ),
-        "route": "SFO\u2192MEX",
+        "route": "SFO→SIN",
     },
     {
         "airline": "ana",
         "text": (
-            f"use the search_award_flights tool to search ana economy SFO to NRT "
+            f"use the search_award_flights tool to search ana business SFO to HND "
+            f"2 adults next 30 days. {_PROMPT_SUFFIX}"
+        ),
+        "route": "SFO→HND",
+    },
+    {
+        "airline": "aeromexico",
+        "text": (
+            f"use the search_award_flights tool to search aeromexico economy SFO to MEX "
             f"next 30 days. {_PROMPT_SUFFIX}"
         ),
-        "route": "SFO\u2192NRT",
+        "route": "SFO→MEX",
+    },
+    {
+        "airline": "jetblue",
+        "text": (
+            f"use the search_award_flights tool to search jetblue economy NRT to SFO "
+            f"next 30 days. {_PROMPT_SUFFIX}"
+        ),
+        "route": "NRT→SFO",
     },
 ]
 
@@ -137,7 +145,6 @@ def call_agent(text: str, sender: str) -> dict | None:
     The agent listens on 127.0.0.1:8800 on Ubuntu, so we SSH there and curl locally.
     Returns the parsed JSON response or None on failure.
     """
-    # Write the request payload to a temp file on Ubuntu to avoid shell escaping issues
     payload = json.dumps({"text": text, "sender": sender, "channel": "health-check"})
     safe_payload = payload.replace("'", "'\\''")
 
@@ -196,7 +203,7 @@ def parse_agent_reply(reply: str) -> tuple[int, str | None]:
 
     # Check if "timed out" appears but only for a secondary search (not primary)
     # If the reply also contains actual fare data, don't mark as timeout
-    has_fares = bool(re.search(r'[\d,]+\s*(?:miles|pts|puntos|points)', reply_lower))
+    has_fares = bool(re.search(r'[\d,.]+k?\s*(?:miles|pts|puntos|points|\$)', reply_lower))
     if "timed out" in reply_lower and not has_fares:
         return 0, "timeout"
 
@@ -204,7 +211,6 @@ def parse_agent_reply(reply: str) -> tuple[int, str | None]:
         return 0, "search error"
 
     # Try to extract match count from reply
-    # Look for patterns like "Found 7 award flights" or "I found 5 options" or "found 7 Delta business..."
     match = re.search(r"found\s+(\d+)\s+\w[\w\s]{0,30}(?:flight|option|result|availab)", reply_lower)
     if match:
         return int(match.group(1)), None
@@ -214,48 +220,45 @@ def parse_agent_reply(reply: str) -> tuple[int, str | None]:
     if len(numbered) >= 1:
         return len(numbered), None
 
-    # Look for date patterns suggesting flight results (e.g., "March 17" or "2026-03-17")
+    # Look for date patterns suggesting flight results
     dates = re.findall(r"(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}", reply)
     if dates:
-        return len(set(dates)), None  # Unique dates as proxy for matches
+        return len(set(dates)), None
 
-    # Look for miles amounts as indicator of results
-    miles = re.findall(r"[\d,]+\s*miles", reply_lower)
+    # Look for miles/points/dollar amounts as indicator of results
+    miles = re.findall(r"[\d,.]+k?\s*(?:miles|points|pts)", reply_lower)
     if miles:
-        return max(1, len(set(miles))), None  # At least 1 match if miles mentioned
+        return max(1, len(set(miles))), None
+
+    # Cash prices (for AeroMexico)
+    prices = re.findall(r"\$[\d,]+", reply)
+    if prices:
+        return max(1, len(set(prices))), None
 
     # If the reply is long and seems positive, assume some results
-    if len(reply) > 200 and ("miles" in reply_lower or "points" in reply_lower):
-        return 1, None  # At least 1
+    if len(reply) > 200 and ("miles" in reply_lower or "points" in reply_lower or "$" in reply):
+        return 1, None
 
-    # Can't determine — mark as unknown
     return 0, "could not parse results"
 
 
 def extract_fare_summary(reply: str) -> str:
-    """Extract a brief fare summary from the agent's reply.
-
-    Looks for patterns like:
-    - "Best Value: 9,500 miles" or "cheapest: 9,500 miles"
-    - "Business: XX,XXX miles" / "Economy: XX,XXX miles"
-    - "Lowest: XX,XXX miles on March 15"
-    """
+    """Extract a brief fare summary from the agent's reply."""
     if not reply:
         return ""
 
     lines = []
     reply_lower = reply.lower()
 
-    # Check for "no availability" first
     if any(p in reply_lower for p in ["no award availability", "no availability found",
                                        "didn't find any", "no award flights"]):
         return "No award availability found"
 
-    # Extract business class info
+    # Business class
     biz_patterns = [
-        re.compile(r'(?:business|biz|first).*?(?:cheapest|lowest|best|from)\s*:?\s*([\d,]+)\s*(?:miles|pts|puntos|points)', re.IGNORECASE),
-        re.compile(r'(?:cheapest|lowest|best)\s+(?:business|biz|first).*?([\d,]+)\s*(?:miles|pts|puntos|points)', re.IGNORECASE),
-        re.compile(r'(?:best\s+value|lowest\s+fare).*?([\d,]+)\s*(?:miles|pts|puntos|points)', re.IGNORECASE),
+        re.compile(r'(?:business|biz|first|mint).*?(?:cheapest|lowest|best|from)\s*:?\s*([\d,.]+k?)\s*(?:miles|pts|puntos|points)', re.IGNORECASE),
+        re.compile(r'(?:cheapest|lowest|best)\s+(?:business|biz|first|mint).*?([\d,.]+k?)\s*(?:miles|pts|puntos|points)', re.IGNORECASE),
+        re.compile(r'(?:best\s+value|lowest\s+fare).*?([\d,.]+k?)\s*(?:miles|pts|puntos|points)', re.IGNORECASE),
     ]
     for pat in biz_patterns:
         m = pat.search(reply)
@@ -263,10 +266,10 @@ def extract_fare_summary(reply: str) -> str:
             lines.append(f"Biz: {m.group(1)} mi")
             break
 
-    # Extract economy info
+    # Economy
     econ_patterns = [
-        re.compile(r'(?:economy|econ|main\s+cabin).*?(?:cheapest|lowest|best|from)\s*:?\s*([\d,]+)\s*(?:miles|pts|puntos|points)', re.IGNORECASE),
-        re.compile(r'(?:cheapest|lowest|best)\s+(?:economy|econ|main).*?([\d,]+)\s*(?:miles|pts|puntos|points)', re.IGNORECASE),
+        re.compile(r'(?:economy|econ|main\s+cabin|blue\s+basic|blue\b).*?(?:cheapest|lowest|best|from)\s*:?\s*([\d,.]+k?)\s*(?:miles|pts|puntos|points)', re.IGNORECASE),
+        re.compile(r'(?:cheapest|lowest|best)\s+(?:economy|econ|main|blue).*?([\d,.]+k?)\s*(?:miles|pts|puntos|points)', re.IGNORECASE),
     ]
     for pat in econ_patterns:
         m = pat.search(reply)
@@ -274,23 +277,39 @@ def extract_fare_summary(reply: str) -> str:
             lines.append(f"Econ: {m.group(1)} mi")
             break
 
-    # If we didn't match specific cabin patterns, try generic "X,XXX miles" with date
+    # Cash prices (for AeroMexico)
+    cash_patterns = [
+        re.compile(r'(?:cheapest|lowest|best)\s+(?:economy|econ).*?\$\s*([\d,]+)', re.IGNORECASE),
+        re.compile(r'(?:economy|econ).*?(?:cheapest|lowest|best|from)\s*:?\s*\$\s*([\d,]+)', re.IGNORECASE),
+    ]
+    for pat in cash_patterns:
+        m = pat.search(reply)
+        if m:
+            lines.append(f"Econ: ${m.group(1)}")
+            break
+
+    # Generic fallback
     if not lines:
-        generic = re.compile(r'([\d,]+)\s*(?:miles|pts|puntos|points).*?(?:on|for)\s+(\w+\s+\d{1,2})', re.IGNORECASE)
+        generic = re.compile(r'([\d,.]+k?)\s*(?:miles|pts|puntos|points).*?(?:on|for)\s+(\w+\s+\d{1,2})', re.IGNORECASE)
         matches = generic.findall(reply)
         if matches:
-            # Take the first (usually cheapest/highlighted)
             miles, date_str = matches[0]
             lines.append(f"From {miles} mi ({date_str})")
 
-    # Also look for date-specific availability mentions
     if not lines:
-        avail = re.compile(r'([\d,]+)\s*(?:miles|pts|puntos|points)', re.IGNORECASE)
+        avail = re.compile(r'([\d,.]+k?)\s*(?:miles|pts|puntos|points)', re.IGNORECASE)
         all_fares = avail.findall(reply)
         if all_fares:
             fare_nums = [int(f.replace(",", "")) for f in all_fares if 1000 <= int(f.replace(",", "")) <= 500000]
             if fare_nums:
                 lines.append(f"From {min(fare_nums):,} mi")
+
+    if not lines:
+        prices = re.findall(r'\$([\d,]+)', reply)
+        if prices:
+            price_nums = [int(p.replace(",", "")) for p in prices if 50 <= int(p.replace(",", "")) <= 10000]
+            if price_nums:
+                lines.append(f"From ${min(price_nums):,}")
 
     return " | ".join(lines) if lines else ""
 
@@ -358,8 +377,7 @@ def run_airline_test_via_agent(test: dict) -> dict:
 def run_airline_test_direct(test: dict) -> dict:
     """Run a single airline award search directly via OpenClaw CLI (no agent)."""
     airline = test["airline"]
-    # Convert agent text to simpler CLI query
-    query = f"search {airline} business " + test["route"].replace("\u2192", " to ") + " next 60 days"
+    query = f"search {airline} business " + test["route"].replace("→", " to ") + " next 60 days"
 
     log(f"Testing {airline} via OpenClaw CLI...")
     start = time.time()
@@ -429,8 +447,8 @@ def update_readme(results: dict, timestamp: str, mode: str):
         "",
         f"_Tested via: {'AI Assistant (full pipeline)' if mode == 'agent' else 'OpenClaw CLI (direct)'}_",
         "",
-        "| Airline | Route | Status | Matches | Time | Last Run |",
-        "|---------|-------|--------|---------|------|----------|",
+        "| Airline | Route | Status | Matches | Fares | Time | Last Run |",
+        "|---------|-------|--------|---------|-------|------|----------|",
     ]
 
     for test in TESTS:
@@ -441,6 +459,7 @@ def update_readme(results: dict, timestamp: str, mode: str):
         matches = r.get("matches", 0)
         elapsed = r.get("elapsed_s", 0)
         error = r.get("error")
+        fare_summary = r.get("fare_summary", "")
 
         if status == "pass":
             status_str = "\u2705 pass"
@@ -450,7 +469,8 @@ def update_readme(results: dict, timestamp: str, mode: str):
             status_str = f"\u274c {status}"
 
         match_str = str(matches) if status == "pass" else (error[:30] if error else "0")
-        lines.append(f"| {airline.title()} | {route} | {status_str} | {match_str} | {elapsed}s | {now_str} |")
+        fare_str = fare_summary[:40] if fare_summary else "-"
+        lines.append(f"| {airline.title()} | {route} | {status_str} | {match_str} | {fare_str} | {elapsed}s | {now_str} |")
 
     passing = sum(1 for r in results.values() if r.get("status") == "pass")
     total = sum(1 for r in results.values() if r.get("status") != "skip")
@@ -479,13 +499,15 @@ def send_imessage_report(results: dict, mode: str):
 
     for test in TESTS:
         airline = test["airline"]
+        route = test["route"]
         r = results.get(airline, {})
         status = r.get("status", "skip")
         matches = r.get("matches", 0)
         elapsed = r.get("elapsed_s", 0)
         error = r.get("error")
-
         fare_info = r.get("fare_summary", "")
+
+        label = f"{airline.title()} {route}"
 
         if status == "pass":
             detail = f"{matches} matches ({elapsed}s)"
@@ -493,15 +515,15 @@ def send_imessage_report(results: dict, mode: str):
                 detail += f"\n   {fare_info}"
             elif matches == 0:
                 detail += "\n   No award availability found"
-            lines.append(f"\u2705 {airline.title()}: {detail}")
+            lines.append(f"\u2705 {label}: {detail}")
         elif status == "skip":
-            lines.append(f"\u23f8\ufe0f {airline.title()}: skipped")
+            lines.append(f"\u23f8\ufe0f {label}: skipped")
         else:
             err_short = error[:40] if error else status
             detail = f"{err_short} ({elapsed}s)"
             if fare_info:
                 detail += f"\n   {fare_info}"
-            lines.append(f"\u274c {airline.title()}: {detail}")
+            lines.append(f"\u274c {label}: {detail}")
 
     passing = sum(1 for r in results.values() if r.get("status") == "pass")
     total = sum(1 for r in results.values() if r.get("status") != "skip")
@@ -593,10 +615,12 @@ def main():
         log(f"  {status_icon} {airline}: {result['status']} | {result['matches']} matches | {result['elapsed_s']}s")
         if result.get("error"):
             log(f"    Error: {result['error'][:100]}")
+        if result.get("fare_summary"):
+            log(f"    Fares: {result['fare_summary']}")
 
-        # Close tabs between tests
+        # Close tabs and cooldown between tests
         close_chrome_tabs()
-        time.sleep(3)
+        time.sleep(COOLDOWN_BETWEEN_TESTS)
 
     total_elapsed = round(time.time() - total_start)
     passing = sum(1 for r in results.values() if r.get("status") == "pass")

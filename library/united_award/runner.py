@@ -19,8 +19,8 @@ UNITED_CABIN_CODES = {
 }
 
 
-def _booking_url(origin: str, dest: str, depart_date: date, cabin: str, travelers: int) -> str:
-    """Construct a United.com deep-link for the award search results page."""
+def _booking_url(origin: str, dest: str, depart_date: date, cabin: str, travelers: int, award: bool = True) -> str:
+    """Construct a United.com deep-link for the search results page."""
     params = {
         "f": origin,
         "t": dest,
@@ -34,6 +34,8 @@ def _booking_url(origin: str, dest: str, depart_date: date, cabin: str, traveler
         "idx": "1",
         "st": "bestmatches",
     }
+    if award:
+        params["at"] = "1"  # award travel mode (miles) — requires login
     return f"https://www.united.com/en/us/fsr/choose-flights?{urlencode(params)}"
 
 
@@ -48,84 +50,77 @@ def _goal(inputs: Dict[str, Any]) -> str:
     depart_date = date.today() + timedelta(days=mid_days)
     range_end = date.today() + timedelta(days=days_ahead)
 
+    award_url = _booking_url(origin, dest, depart_date, cabin, travelers, award=True)
+    cash_url = _booking_url(origin, dest, depart_date, cabin, travelers, award=False)
+
     lines = [
-        f"Search for United award flights {origin} to {dest}. "
-        f"Check availability from now through {range_end.strftime('%B %-d, %Y')} "
-        f"(starting around {depart_date.strftime('%B %-d')}).",
+        f"Search for United award flights {origin} to {dest}, {travelers} adult(s), {cabin} class. "
+        f"Check availability around {depart_date.strftime('%B %-d, %Y')}.",
         "",
-        "=== ACTION SEQUENCE (follow EXACTLY, step by step) ===",
-        "",
-        "STEP 1 - LOGIN:",
-        "Look at the page. If you see 'Hi [name]' or a greeting, you are logged in. Skip to STEP 2.",
-        "If NOT logged in (you see 'Sign in' or person icon):",
-        "  1a. Click the person/profile icon or 'Sign in' link.",
+        "=== STEP 1 — LOGIN ===",
+        "Look at the page. If you see 'Hi [name]' or a greeting, skip to STEP 2.",
+        "If NOT logged in:",
+        "  1a. Click the person/profile icon or 'Sign in'.",
         "  1b. credentials for www.united.com",
-        "  1c. Enter MileagePlus number ka388724 in the username field.",
-        "  1d. Click Continue.",
-        "  1e. wait 3",
-        "  1f. Enter the password in the password field.",
+        "  1c. Type MileagePlus number ka388724.",
+        "  1d. Click 'Continue'.",
+        "  1e. wait 5",
+        "  1f. Type the password.",
         "  1g. Click 'Sign in'.",
         "  1h. wait 8",
-        "  1i. If a dialog or popup appears, close it (click X).",
+        "  1i. If SMS 2FA is requested: read_sms_code (sender 26266).",
+        "      Enter code and click Submit/Verify.",
+        "      wait 5",
+        "  1j. Close any popups (X or 'No thanks').",
         "",
-        "STEP 2 - USE SEARCH FORM ON HOMEPAGE:",
-        "You should be on the United.com homepage with a flight search widget.",
-        "  2a. Look for a toggle or checkbox that says 'Book with miles'. Enable it.",
-        "  2b. If you see a 'One-way' / 'Roundtrip' toggle, select 'One-way'.",
-        f"  2c. Click the 'From' field and type: {origin}",
-        f"       Select '{origin}' from the dropdown.",
-        f"  2d. Click the 'To' field and type: {dest}",
-        "       Select the airport from the dropdown.",
-        f"  2e. Click the date field and select {depart_date.strftime('%B %-d, %Y')}.",
-        "       Navigate forward in the calendar if needed.",
-        "  2f. Click the 'Search' button.",
+        "  IF LOGIN FAILS ('Something went wrong', error message, etc.):",
+        "  - Do NOT retry login. Close the dialog.",
+        "  - Go to STEP 2 anyway (cash prices will show instead of miles).",
         "",
-        "STEP 3 - WAIT FOR RESULTS:",
-        "Your VERY NEXT ACTION must be: wait 10",
-        "The results page needs time to load flight options.",
+        "=== STEP 2 — NAVIGATE TO AWARD SEARCH ===",
+        f"Your VERY NEXT ACTION must be: navigate {award_url}",
+        "This URL includes at=1 for award/miles mode.",
+        "Do NOT fill the homepage search form. Do NOT toggle anything.",
         "",
-        "STEP 4 - CHECK RESULTS:",
-        "Look at the page. You should see flight results with miles prices.",
-        "If you see an error message, try clicking 'Search' or 'Update' again.",
-        "If prices show in dollars ($) instead of miles, look for 'Show price in:' dropdown",
-        "and switch it to 'Miles'. Then: wait 5",
+        "=== STEP 3 — WAIT AND HANDLE RESULTS ===",
+        "wait 15",
+        "If a 'Sign in' dialog appears over the results:",
+        "  - If you already logged in successfully, close it (click X).",
+        "  - If login failed, click 'Show flights with money' or close the dialog.",
         "",
-        "STEP 5 - SCAN DATE STRIP:",
-        "Look at the date strip/bar at the top of the results showing prices for nearby dates.",
-        "Each date shows a miles price underneath. Note the cheapest dates.",
-        "If you see left/right arrows on the date strip, click RIGHT arrow once to see more dates.",
-        "Then: wait 3",
+        "If you see an ERROR PAGE ('unable to complete your request'):",
+        f"  Your VERY NEXT ACTION must be: navigate {cash_url}",
+        "  wait 15",
         "",
-        "STEP 6 - TAKE SCREENSHOT:",
+        "=== STEP 4 — SCREENSHOT ===",
         "Your VERY NEXT ACTION must be: screenshot",
-        "This captures the flight list AND the date strip with prices.",
         "",
-        "STEP 7 - REPORT AND DONE:",
+        "=== STEP 5 — REPORT AND DONE ===",
         "Your VERY NEXT ACTION must be: done",
-        "From the screenshot and page content, report:",
+        "Report what you see. If prices are in miles, report:",
         "",
-        "A) DATE STRIP PRICES (list ALL visible dates from the date bar):",
+        "A) DATE STRIP:",
         "DATE: Mon Mar 10 | XX,XXX miles",
-        "DATE: Tue Mar 11 | XX,XXX miles",
-        "(list every date shown with its miles price)",
         "",
-        "B) FLIGHT LIST for the selected date:",
-        "FLIGHT: HH:MM-HH:MM | XX,XXX miles | Nonstop/1 stop | carrier | cabin",
-        "Report BOTH economy and business class fares if visible.",
+        "B) FLIGHTS:",
+        "FLIGHT: HH:MM-HH:MM | XX,XXX miles | stops | cabin",
         "",
         "C) SUMMARY:",
         "- Cheapest economy: [miles] on [date]",
         "- Cheapest business: [miles] on [date]",
         "",
-        f"Report all fares, even if above {max_miles:,} miles.",
-        "Show dynamic/everyday pricing if no saver awards exist.",
+        "If prices show in dollars instead of miles, still report them:",
+        "FLIGHT: HH:MM-HH:MM | $XXX | stops | cabin",
+        "Note: 'Prices shown in USD, not miles'",
         "",
-        "=== CRITICAL WARNINGS ===",
-        "- Use the homepage SEARCH FORM — do NOT navigate to a deep link URL.",
-        "- Make sure 'Book with miles' is toggled ON before searching.",
-        "- If a 'Sign in' popup appears, close it and continue.",
-        "- After taking your screenshot in STEP 6, IMMEDIATELY do 'done' in STEP 7.",
-        "- Do NOT repeat steps or go back. Follow steps 1-7 in order.",
+        f"Report all fares, even if above {max_miles:,} miles.",
+        "",
+        "=== WARNINGS ===",
+        "- For SMS 2FA, use read_sms_code (sender 26266).",
+        "- After screenshot, IMMEDIATELY do done.",
+        "- Do NOT scroll around looking for toggles or buttons.",
+        "- Do NOT use js_eval.",
+        "- NEVER report stuck. Always take screenshot and report what you see.",
     ]
     return "\n".join(lines)
 
@@ -145,16 +140,29 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
     matches = []
     seen = set()
 
+    def _parse_miles(s: str) -> int:
+        """Parse miles from various formats: '55,000', '55k', '43.2k', '250k'."""
+        s = s.strip().replace(",", "")
+        if s.lower().endswith("k"):
+            try:
+                return int(float(s[:-1]) * 1000)
+            except ValueError:
+                return 0
+        try:
+            return int(s)
+        except ValueError:
+            return 0
+
     # Pattern 1: "FLIGHT: HH:MM-HH:MM | XX,XXX miles | ..."
     flight_pattern = re.compile(
         r'(?:FLIGHT:?\s*)?(\d{1,2}:\d{2}(?:\s*[AP]M)?)\s*[-–]\s*(\d{1,2}:\d{2}(?:\s*[AP]M)?)'
-        r'.*?([\d,]+)\s*(?:miles|mi)\b',
+        r'.*?([\d,.]+k?)\s*(?:miles|mi)\b',
         re.IGNORECASE,
     )
 
     # Pattern 2: "UA123 ... XX,XXX miles"
     ua_pattern = re.compile(
-        r'(?:UA|United)\s*#?\s*(\d{1,5}).*?([\d,]+)\s*(?:miles|mi)\b',
+        r'(?:UA|United)\s*#?\s*(\d{1,5}).*?([\d,.]+k?)\s*(?:miles|mi)\b',
         re.IGNORECASE,
     )
 
@@ -170,8 +178,8 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
 
         fm = flight_pattern.search(line)
         if fm:
-            miles = int(fm.group(3).replace(",", ""))
-            if 1000 <= miles <= max_miles:
+            miles = _parse_miles(fm.group(3))
+            if miles >= 1000:
                 match_data = {
                     "depart_time": fm.group(1).strip(),
                     "arrive_time": fm.group(2).strip(),
@@ -181,8 +189,8 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
         if not match_data:
             um = ua_pattern.search(line)
             if um:
-                miles = int(um.group(2).replace(",", ""))
-                if 1000 <= miles <= max_miles:
+                miles = _parse_miles(um.group(2))
+                if miles >= 1000:
                     match_data = {
                         "flight": f"UA{um.group(1)}",
                         "depart_time": "",
@@ -217,17 +225,17 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
 
     # Pattern 3: "DATE: Mon Mar 10 | XX,XXX miles" (calendar strip entries)
     date_pattern = re.compile(
-        r'DATE:.*?(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*\s+)?'
-        r'((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{1,2})'
-        r'.*?([\d,]+)\s*(?:miles|mi)',
+        r'DATE:\s*(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*\s+)?'
+        r'((?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{1,2})|(?:\d{1,2}/\d{1,2}))'
+        r'.*?([\d,.]+k?)\s*(?:miles|mi)',
         re.IGNORECASE,
     )
     for line in result_text.split("\n"):
         dm = date_pattern.search(line.strip())
         if dm:
             date_label = dm.group(1).strip()
-            miles = int(dm.group(2).replace(",", ""))
-            if 1000 <= miles <= max_miles:
+            miles = _parse_miles(dm.group(2))
+            if miles >= 1000:
                 # Try to parse the date
                 try:
                     from datetime import datetime as dt
@@ -252,14 +260,14 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
 
     # Fallback: raw miles extraction (skip combo pricing)
     if not matches:
-        miles_pat = re.compile(r'([\d,]+)\s*(?:miles|mi)\b', re.IGNORECASE)
+        miles_pat = re.compile(r'([\d,.]+k?)\s*(?:miles|mi)\b', re.IGNORECASE)
         for line in result_text.split("\n"):
             if re.search(r'\$[\d,]+\s*\+', line):
                 continue
             mm = miles_pat.search(line)
             if mm:
-                miles = int(mm.group(1).replace(",", ""))
-                if 1000 <= miles <= max_miles:
+                miles = _parse_miles(mm.group(1))
+                if miles >= 1000:
                     matches.append({
                         "route": f"{origin}-{dest}",
                         "date": depart_date.isoformat(),
@@ -270,6 +278,44 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
                         "notes": f"Raw: {line.strip()[:150]}",
                     })
                     break
+
+    # Cash price fallback: "FLIGHT: HH:MM-HH:MM | $XXX | ..."
+    if not matches:
+        cash_pattern = re.compile(
+            r'(?:FLIGHT:?\s*)?(\d{1,2}:\d{2}(?:\s*[AP]M)?)\s*[-–]\s*(\d{1,2}:\d{2}(?:\s*[AP]M)?)'
+            r'.*?\$\s*([\d,.]+)',
+            re.IGNORECASE,
+        )
+        for line in result_text.split("\n"):
+            cm = cash_pattern.search(line)
+            if cm:
+                try:
+                    price = float(cm.group(3).replace(",", ""))
+                except ValueError:
+                    continue
+                if price > 10:
+                    key = f"cash-{cm.group(1)}-{cm.group(2)}-{price}"
+                    if key not in seen:
+                        seen.add(key)
+                        stops = ""
+                        if re.search(r'\bnonstop\b', line, re.IGNORECASE):
+                            stops = "Nonstop"
+                        elif re.search(r'(\d)\s*stop', line, re.IGNORECASE):
+                            sm = re.search(r'(\d)\s*stop', line, re.IGNORECASE)
+                            stops = f"{sm.group(1)} stop(s)"
+                        matches.append({
+                            "route": f"{origin}-{dest}",
+                            "date": depart_date.isoformat(),
+                            "cash_price": price,
+                            "currency": "USD",
+                            "travelers": travelers,
+                            "cabin": cabin,
+                            "mixed_cabin": False,
+                            "depart_time": cm.group(1).strip(),
+                            "arrive_time": cm.group(2).strip(),
+                            "stops": stops,
+                            "notes": f"Cash: {line.strip()[:150]}",
+                        })
 
     return matches
 
@@ -294,16 +340,16 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
 
     depart_date = today + timedelta(days=int(inputs["days_ahead"]))
     travelers = int(inputs["travelers"])
-    book_url = _booking_url(inputs["from"], destinations[0], depart_date, cabin, travelers)
+    book_url = _booking_url(inputs["from"], destinations[0], depart_date, cabin, travelers, award=False)
 
     if browser_agent_enabled():
         agent_run = adaptive_run(
             goal=_goal(inputs),
             url=UNITED_URL,
-            max_steps=45,
+            max_steps=60,
             airline="united",
             inputs=inputs,
-            max_attempts=3,
+            max_attempts=1,
             trace=True,
             use_vision=True,
         )

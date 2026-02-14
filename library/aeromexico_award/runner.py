@@ -25,6 +25,20 @@ SPANISH_MONTHS = {
 }
 
 
+CITY_NAMES = {
+    "SFO": "San Francisco",
+    "MEX": "Mexico City",
+    "GDL": "Guadalajara",
+    "CUN": "Cancun",
+    "LAX": "Los Angeles",
+    "JFK": "New York",
+    "GRU": "Sao Paulo",
+    "BKK": "Bangkok",
+    "NRT": "Tokyo Narita",
+    "HND": "Tokyo Haneda",
+}
+
+
 def _goal(inputs: Dict[str, Any]) -> str:
     origin = inputs["from"]
     destinations = inputs["to"]
@@ -33,9 +47,11 @@ def _goal(inputs: Dict[str, Any]) -> str:
     mid_days = max(7, days_ahead // 2)
     depart_date = date.today() + timedelta(days=mid_days)
     range_end = date.today() + timedelta(days=days_ahead)
+    origin_city = CITY_NAMES.get(origin, origin)
+    dest_city = CITY_NAMES.get(dest, dest)
 
     lines = [
-        f"Search for AeroMexico CASH flights {origin} to {dest}. "
+        f"Search for AeroMexico CASH flights from {origin_city} ({origin}) to {dest_city} ({dest}). "
         f"Find the best prices from now through {range_end.strftime('%B %-d, %Y')} "
         f"(starting around {depart_date.strftime('%B %-d')}).",
         "",
@@ -48,19 +64,25 @@ def _goal(inputs: Dict[str, Any]) -> str:
         "If you see a cookie banner, click 'Accept' / 'Acepto'.",
         "Close any popups or dialogs.",
         "",
-        "STEP 2 - FILL SEARCH FORM:",
-        "  2a. Select 'One way' / 'Solo ida' trip type.",
-        f"  2b. Enter origin: {origin}. Select from dropdown.",
-        f"  2c. Enter destination: {dest}. Select from dropdown.",
-        f"  2d. Select date: {depart_date.strftime('%B %-d, %Y')}.",
-        "  2e. Click Search / 'Buscar vuelo'.",
+        "STEP 2 - CLEAR LAST SEARCH:",
+        "If you see a 'Last search' / 'Discard' section at the bottom, click 'Discard' to clear it.",
         "",
-        "STEP 3 - WAIT:",
-        "Your VERY NEXT ACTION must be: wait 8",
+        "STEP 3 - FILL SEARCH FORM:",
+        f"  IMPORTANT: FROM = {origin_city} ({origin}), TO = {dest_city} ({dest}).",
+        "  3a. Click 'One-Way' / 'Solo ida' trip type.",
+        f"  3b. Click on the FROM/Origin field. Clear all text (triple-click then delete).",
+        f"      Use press action to type: {origin} (one character at a time: S, F, O).",
+        "      wait 2",
+        f"      A dropdown will appear. Click on '{origin_city}, CA {origin}, United States'.",
+        f"  3c. Click on the TO/Destination field. Clear all text.",
+        f"      Use press action to type: {dest} (one character at a time: M, E, X).",
+        "      wait 2",
+        f"      A dropdown will appear. Click on '{dest_city} {dest}' (the MAIN airport, NOT NLU or AIFA).",
+        f"  3d. Click the date field and select a date around {depart_date.strftime('%B %-d')}.",
+        "  3e. Click 'Find flight' / 'Buscar vuelo' (the pink/magenta button).",
         "",
-        "STEP 4 - CHECK CALENDAR STRIP:",
-        "Look at the date strip at the top of results showing prices for nearby dates.",
-        "Note prices for visible dates.",
+        "STEP 4 - WAIT:",
+        "Your VERY NEXT ACTION must be: wait 10",
         "",
         "STEP 5 - SCREENSHOT:",
         "Your VERY NEXT ACTION must be: screenshot",
@@ -187,7 +209,80 @@ def _parse_result(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, An
                         "notes": line.strip()[:120],
                     })
 
-    # Pattern 3: Generic point extraction (fallback)
+    # Pattern 3: Cash prices "FLIGHT: HH:MM-HH:MM | $XXX" or "DATE: Mar 10 | $XXX"
+    if not matches:
+        cash_flight = re.compile(
+            r'(?:FLIGHT:?\s*)?(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2}).*?'
+            r'\$\s*([\d,]+)',
+            re.IGNORECASE,
+        )
+        cash_date = re.compile(
+            r'DATE:.*?((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{1,2}).*?'
+            r'\$\s*([\d,]+)',
+            re.IGNORECASE,
+        )
+        for line in result_text.split("\n"):
+            fm = cash_flight.search(line)
+            if fm:
+                price = int(fm.group(3).replace(",", ""))
+                if 10 <= price <= 10000:
+                    stops = ""
+                    if re.search(r'\b(nonstop|directo|sin\s*escala)\b', line, re.IGNORECASE):
+                        stops = "Nonstop"
+                    elif re.search(r'1\s*(?:stop|escala)', line, re.IGNORECASE):
+                        stops = "1 stop"
+                    matches.append({
+                        "route": f"{origin}-{dest}",
+                        "date": depart_date.isoformat(),
+                        "miles": price,
+                        "travelers": travelers,
+                        "cabin": cabin,
+                        "mixed_cabin": False,
+                        "depart_time": fm.group(1),
+                        "arrive_time": fm.group(2),
+                        "stops": stops,
+                        "booking_url": AEROMEXICO_BOOK_URL,
+                        "notes": f"Cash ${price} USD | {line.strip()[:100]}",
+                    })
+                continue
+            dm = cash_date.search(line)
+            if dm:
+                price = int(dm.group(2).replace(",", ""))
+                if 10 <= price <= 10000:
+                    matches.append({
+                        "route": f"{origin}-{dest}",
+                        "date": depart_date.isoformat(),
+                        "date_label": dm.group(1).strip(),
+                        "miles": price,
+                        "travelers": travelers,
+                        "cabin": cabin,
+                        "mixed_cabin": False,
+                        "source": "calendar",
+                        "booking_url": AEROMEXICO_BOOK_URL,
+                        "notes": f"Cash ${price} USD | {line.strip()[:100]}",
+                    })
+
+    # Pattern 4: Generic dollar amount fallback
+    if not matches:
+        dollar_pat = re.compile(r'\$\s*([\d,]+)', re.IGNORECASE)
+        for line in result_text.split("\n"):
+            dm = dollar_pat.search(line)
+            if dm:
+                price = int(dm.group(1).replace(",", ""))
+                if 50 <= price <= 10000:
+                    matches.append({
+                        "route": f"{origin}-{dest}",
+                        "date": depart_date.isoformat(),
+                        "miles": price,
+                        "travelers": travelers,
+                        "cabin": cabin,
+                        "mixed_cabin": False,
+                        "booking_url": AEROMEXICO_BOOK_URL,
+                        "notes": f"Cash ${price} USD | {line.strip()[:100]}",
+                    })
+                    break
+
+    # Pattern 5: Generic point extraction (fallback for points mode)
     if not matches:
         point_pattern = re.compile(
             r'([\d,\.]+)\s*(?:points?|puntos?|miles?|millas?|pts)',
@@ -247,10 +342,10 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
         agent_run = adaptive_run(
             goal=_goal(inputs),
             url=AEROMEXICO_BOOK_URL,  # Use English site for cash search
-            max_steps=45,
+            max_steps=60,
             airline="aeromexico",
             inputs=inputs,
-            max_attempts=3,
+            max_attempts=1,
             trace=True,
             use_vision=True,
         )
