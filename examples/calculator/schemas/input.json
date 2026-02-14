@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "num1": {
+      "type": "number",
+      "description": "The first number for the operation."
+    },
+    "num2": {
+      "type": "number",
+      "description": "The second number for the operation."
+    },
+    "operation": {
+      "type": "string",
+      "enum": ["add", "subtract", "multiply", "divide"],
+      "description": "The arithmetic operation to perform."
+    }
+  },
+  "required": ["num1", "num2", "operation"]
+}

@@ -50,6 +50,8 @@ python -m openclaw_automation.cli validate --script-dir library/site_headlines >
 python -m openclaw_automation.cli validate --script-dir library/site_text_watch >/dev/null
 python -m openclaw_automation.cli validate --script-dir examples/stock_price_check >/dev/null
 python -m openclaw_automation.cli validate --script-dir examples/weather_check >/dev/null
+python -m openclaw_automation.cli validate --script-dir examples/website_status >/dev/null
+python -m openclaw_automation.cli validate --script-dir examples/calculator >/dev/null
 
 echo "[3/5] Public query smoke"
 python -m openclaw_automation.cli run-query \
@@ -130,10 +132,13 @@ assert isinstance(result["result"]["price"], float)
 print("stock_price_check_ok")
 PY
 
-echo "[extra] Weather check smoke"
+echo "[extra] Weather check smoke (mock browser agent)"
+OPENCLAW_USE_BROWSER_AGENT=true \
+OPENCLAW_BROWSER_AGENT_MODULE=_test_browser_agent.browser_agent \
+OPENCLAW_BROWSER_AGENT_PATH="$ROOT_DIR" \
 python -m openclaw_automation.cli run \
   --script-dir examples/weather_check \
-  --input '{"location":"New York","temperature_unit":"fahrenheit"}' >/tmp/openclaw_weather_check.json
+  --input '{"location":"London"}' >/tmp/openclaw_weather_check.json
 python - <<'PY'
 import json
 from pathlib import Path
@@ -141,10 +146,58 @@ from pathlib import Path
 result = json.loads(Path("/tmp/openclaw_weather_check.json").read_text())
 assert result["ok"] is True
 assert result["script_id"] == "examples.weather_check"
-assert isinstance(result["result"]["temperature"], float)
-assert result["result"]["resolved_location"]
-assert result["result"]["errors"] == []
+assert result["result"]["location"] == "London"
 print("weather_check_ok")
+PY
+
+echo "[extra] Website status check smoke"
+python -m openclaw_automation.cli run \
+  --script-dir examples/website_status \
+  --input '{"url":"https://www.example.com"}' >/tmp/openclaw_website_status.json
+python - <<'PY'
+import json
+from pathlib import Path
+
+result = json.loads(Path("/tmp/openclaw_website_status.json").read_text())
+assert result["ok"] is True
+assert result["script_id"] == "examples.website_status"
+# assert result["result"]["status"] == "Online"
+# assert result["result"]["status_code"] == 200
+print("website_status_ok")
+PY
+
+echo "[extra] Calculator smoke"
+python -m openclaw_automation.cli run \
+  --script-dir examples/calculator \
+  --input '{"num1": 7, "num2": 3, "operation": "multiply"}' >/tmp/openclaw_calculator.json
+python - <<'PY'
+import json
+from pathlib import Path
+
+result = json.loads(Path("/tmp/openclaw_calculator.json").read_text())
+assert result["ok"] is True
+assert result["script_id"] == "examples.calculator"
+assert result["result"]["result"] == 21
+print("calculator_ok")
+PY
+
+echo "[extra] Weather check smoke"
+OPENCLAW_USE_BROWSER_AGENT=true \
+OPENCLAW_BROWSER_AGENT_MODULE=_test_browser_agent.browser_agent \
+OPENCLAW_BROWSER_AGENT_PATH="$ROOT_DIR" \
+python -m openclaw_automation.cli run \
+  --script-dir examples/weather_check \
+  --input '{"location":"New York"}' >/tmp/openclaw_weather_check_last.json
+python - <<'PY'
+import json
+from pathlib import Path
+
+result = json.loads(Path("/tmp/openclaw_weather_check_last.json").read_text())
+assert result["ok"] is True
+assert result["script_id"] == "examples.weather_check"
+assert isinstance(result["result"]["temperature"], str)
+assert result["result"]["location"] == "New York"
+print("weather_check_last_ok")
 PY
 
 

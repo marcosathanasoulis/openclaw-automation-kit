@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "url": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "status_code": {
+      "type": "number"
+    }
+  },
+  "required": ["url", "status", "status_code"]
+}

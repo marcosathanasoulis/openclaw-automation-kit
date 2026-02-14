@@ -57,6 +57,18 @@ Use these when integrating an external `BrowserAgent` implementation (for exampl
 - Retry interval while waiting for lock.
 - Default: `5`
 
+## Using the Mock BrowserAgent for Testing
+
+For development and testing purposes, a mock `BrowserAgent` is provided in the `_test_browser_agent/browser_agent.py` file. This allows you to test automations that use the `run_browser_agent_goal` function without needing a live browser instance or an external AI model.
+
+To use the mock agent:
+
+1.  Ensure the `_test_browser_agent` directory is in your Python path or set `OPENCLAW_BROWSER_AGENT_PATH`.
+2.  Set the following environment variables:
+    *   `OPENCLAW_USE_BROWSER_AGENT=true`
+    *   `OPENCLAW_BROWSER_AGENT_MODULE=_test_browser_agent.browser_agent`
+    *   `OPENCLAW_BROWSER_AGENT_PATH=/path/to/your/openclaw-automation-kit` (Replace with the actual root path of the cloned repository)
+
 ## Optional messaging connector keys
 
 ### BlueBubbles (iMessage bridge)

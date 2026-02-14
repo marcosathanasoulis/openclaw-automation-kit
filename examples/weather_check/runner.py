@@ -1,127 +1,55 @@
-from __future__ import annotations
 
-import json
+from openclaw_automation.browser_agent_adapter import run_browser_agent_goal, browser_agent_enabled
+from bs4 import BeautifulSoup
 import urllib.parse
-import urllib.request
-from typing import Any, Dict
 
-WEATHER_CODE_TO_TEXT = {
-    0: "Clear",
-    1: "Mainly clear",
-    2: "Partly cloudy",
-    3: "Overcast",
-    45: "Fog",
-    48: "Rime fog",
-    51: "Light drizzle",
-    53: "Drizzle",
-    55: "Dense drizzle",
-    56: "Freezing drizzle",
-    57: "Dense freezing drizzle",
-    61: "Slight rain",
-    63: "Rain",
-    65: "Heavy rain",
-    66: "Freezing rain",
-    67: "Heavy freezing rain",
-    71: "Slight snow",
-    73: "Snow",
-    75: "Heavy snow",
-    77: "Snow grains",
-    80: "Rain showers",
-    81: "Rain showers",
-    82: "Violent rain showers",
-    85: "Snow showers",
-    86: "Heavy snow showers",
-    95: "Thunderstorm",
-    96: "Thunderstorm with hail",
-    99: "Severe thunderstorm with hail",
-}
-
-
-def _fetch_json(url: str) -> Dict[str, Any]:
-    req = urllib.request.Request(url, headers={"User-Agent": "OpenClawAutomationKit/1.0"})
-    with urllib.request.urlopen(req, timeout=20) as resp:
-        return json.loads(resp.read().decode("utf-8", errors="ignore"))
-
-
-def _geocode_location(location: str) -> Dict[str, Any]:
-    candidates = [location.strip()]
-    if "," in location:
-        candidates.append(location.split(",")[0].strip())
-
-    for candidate in candidates:
-        if not candidate:
-            continue
-        query = urllib.parse.urlencode({"name": candidate, "count": 1, "language": "en", "format": "json"})
-        url = f"https://geocoding-api.open-meteo.com/v1/search?{query}"
-        payload = _fetch_json(url)
-        results = payload.get("results") or []
-        if results:
-            return results[0]
-    raise ValueError(f"No geocoding result for '{location}'")
-
-
-def _fetch_current_weather(latitude: float, longitude: float, temperature_unit: str) -> Dict[str, Any]:
-    query = urllib.parse.urlencode(
-        {
-            "latitude": latitude,
-            "longitude": longitude,
-            "current": "temperature_2m,weather_code,wind_speed_10m",
-            "temperature_unit": temperature_unit,
-        }
-    )
-    url = f"https://api.open-meteo.com/v1/forecast?{query}"
-    payload = _fetch_json(url)
-    current = payload.get("current") or {}
-    if not current:
-        raise ValueError("Weather API returned no current data")
-    return current
-
-
-def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
-    del context
-    location = str(inputs["location"]).strip()
-    temperature_unit = str(inputs.get("temperature_unit", "fahrenheit")).strip().lower()
-    if temperature_unit not in {"fahrenheit", "celsius"}:
-        temperature_unit = "fahrenheit"
+def run(context, inputs):
+    """
+    This is the entrypoint for the automation.
+    """
+    if not browser_agent_enabled():
+        return {"error": "Browser agent is not enabled. Please set OPENCLAW_USE_BROWSER_AGENT=true."}
 
     try:
-        geo = _geocode_location(location)
-        latitude = float(geo["latitude"])
-        longitude = float(geo["longitude"])
-        resolved_location = geo.get("name") or location
+        location = inputs['location']
+        encoded_location = urllib.parse.quote(location)
+        url = f"https://www.weather.com/weather/today/l/{encoded_location}" # Example URL for weather.com
 
-        current = _fetch_current_weather(latitude, longitude, temperature_unit)
-        temperature = float(current.get("temperature_2m"))
-        weather_code = int(current.get("weather_code", -1))
-        condition = WEATHER_CODE_TO_TEXT.get(weather_code, f"Code {weather_code}")
-        wind_speed_kmh = float(current.get("wind_speed_10m", 0.0))
-        unit_symbol = "F" if temperature_unit == "fahrenheit" else "C"
+        # Use the browser agent to get the rendered page content
+        agent_result = run_browser_agent_goal(
+            goal=f"Get the current weather conditions for {location} from weather.com.",
+            url=url,
+            max_steps=5,
+            trace=False,
+            use_vision=False
+        )
 
-        return {
+        if not agent_result.get("ok"):
+            return {"error": f"Browser agent failed: {agent_result.get('error')}"}
+
+        page_content = agent_result.get("result", {}).get("content")
+
+        if not page_content:
+            return {"error": "Browser agent did not return any page content."}
+
+        soup = BeautifulSoup(page_content, 'html.parser')
+
+        # Attempt to find weather details (selectors are highly dependent on weather.com's current structure)
+        temperature = soup.find('span', class_='CurrentConditions--tempValue--MHmYY')
+        conditions = soup.find('div', class_='CurrentConditions--phraseValue--mZC_u')
+        feels_like = soup.find('div', class_='CurrentConditions--feelsLike--euW1W')
+
+        temp_text = temperature.get_text(strip=True) if temperature else "N/A"
+        conditions_text = conditions.get_text(strip=True) if conditions else "N/A"
+        feels_like_text = feels_like.get_text(strip=True) if feels_like else "N/A"
+
+        result = {
             "location": location,
-            "resolved_location": resolved_location,
-            "latitude": latitude,
-            "longitude": longitude,
-            "temperature": temperature,
-            "temperature_unit": temperature_unit,
-            "condition": condition,
-            "wind_speed_kmh": wind_speed_kmh,
-            "summary": (
-                f"Current weather for {resolved_location}: {temperature:.1f}°{unit_symbol}, "
-                f"{condition}, wind {wind_speed_kmh:.1f} km/h."
-            ),
-            "errors": [],
+            "temperature": temp_text,
+            "conditions": conditions_text,
+            "feels_like": feels_like_text
         }
-    except Exception as exc:  # noqa: BLE001
-        return {
-            "location": location,
-            "resolved_location": location,
-            "latitude": 0.0,
-            "longitude": 0.0,
-            "temperature": 0.0,
-            "temperature_unit": temperature_unit,
-            "condition": "Unavailable",
-            "wind_speed_kmh": 0.0,
-            "summary": f"Failed to fetch weather for {location}",
-            "errors": [str(exc)],
-        }
+        return result
+
+    except Exception as e:
+        return {"error": str(e)}
