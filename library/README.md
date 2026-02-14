@@ -8,6 +8,8 @@ Current library scripts:
 - `ana_award`
 - `bofa_alert`
 - `github_signin_check`
+- `site_headlines`
+- `site_text_watch`
 
 Each script includes:
 - `manifest.json`

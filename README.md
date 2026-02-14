@@ -257,6 +257,18 @@ python -m openclaw_automation.cli run-query \
   --query "Search United award travel business from SFO to AMS,LIS,FCO for 2 travelers in next 30 days under 120k miles"
 ```
 
+No-login library automations:
+
+```bash
+python -m openclaw_automation.cli run \
+  --script-dir library/site_headlines \
+  --input '{"url":"https://www.yahoo.com","max_items":8}'
+
+python -m openclaw_automation.cli run \
+  --script-dir library/site_text_watch \
+  --input '{"url":"https://status.openai.com","must_include":["status"],"must_not_include":["outage"],"case_sensitive":false}'
+```
+
 ## OpenClaw integration model
 
 Scripts can call OpenClaw CLI (`openclaw browser ...`) or use a wrapper module.
@@ -298,6 +310,7 @@ Recommended pattern (design reference, not built into core engine yet):
 Also see:
 - [`docs/MESSAGING_HUMAN_LOOP_SETUP.md`](docs/MESSAGING_HUMAN_LOOP_SETUP.md)
 - [`docs/STARTER_EXAMPLES.md`](docs/STARTER_EXAMPLES.md)
+- [`docs/SCREENSHOT_LINKS.md`](docs/SCREENSHOT_LINKS.md)
 
 ## Security and credentials
 

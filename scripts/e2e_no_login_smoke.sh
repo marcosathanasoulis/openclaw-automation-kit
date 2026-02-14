@@ -23,6 +23,8 @@ python -m openclaw_automation.cli validate --script-dir library/singapore_award 
 python -m openclaw_automation.cli validate --script-dir library/ana_award >/dev/null
 python -m openclaw_automation.cli validate --script-dir library/bofa_alert >/dev/null
 python -m openclaw_automation.cli validate --script-dir library/github_signin_check >/dev/null
+python -m openclaw_automation.cli validate --script-dir library/site_headlines >/dev/null
+python -m openclaw_automation.cli validate --script-dir library/site_text_watch >/dev/null
 
 echo "[3/5] Public query smoke"
 python -m openclaw_automation.cli run-query \
@@ -62,6 +64,28 @@ payload = json.loads(Path("/tmp/openclaw_skill_award.json").read_text())
 assert payload["status"]["ok"] is True
 assert payload["result"]["mode"] in {"placeholder", "live"}
 print("skill_award_ok")
+PY
+
+echo "[extra] Library no-login smoke"
+python -m openclaw_automation.cli run \
+  --script-dir library/site_headlines \
+  --input '{"url":"https://www.yahoo.com","max_items":5}' >/tmp/openclaw_site_headlines.json
+python -m openclaw_automation.cli run \
+  --script-dir library/site_text_watch \
+  --input '{"url":"https://www.wikipedia.org","must_include":["encyclopedia"],"must_not_include":[],"case_sensitive":false}' >/tmp/openclaw_site_watch.json
+python - <<'PY'
+import json
+from pathlib import Path
+
+headlines = json.loads(Path("/tmp/openclaw_site_headlines.json").read_text())
+watch = json.loads(Path("/tmp/openclaw_site_watch.json").read_text())
+assert headlines["ok"] is True
+assert headlines["script_id"] == "web.site_headlines"
+assert isinstance(headlines["result"]["headlines"], list)
+assert watch["ok"] is True
+assert watch["script_id"] == "web.site_text_watch"
+assert "encyclopedia" in [x.lower() for x in watch["result"]["present_required"]]
+print("library_no_login_ok")
 PY
 
 echo "E2E no-login smoke passed."

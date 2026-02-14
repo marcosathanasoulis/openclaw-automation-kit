@@ -1,0 +1,13 @@
+{
+  "id": "web.site_headlines",
+  "version": "0.1.0",
+  "description": "Fetch a public page and extract top heading lines.",
+  "entrypoint": "runner.py",
+  "execution_mode": "stateless",
+  "inputs_schema": "schemas/input.json",
+  "outputs_schema": "schemas/output.json",
+  "permissions": {
+    "browser": false,
+    "network_domains": ["*"]
+  }
+}
