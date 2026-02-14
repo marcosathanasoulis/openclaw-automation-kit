@@ -9,6 +9,12 @@ This skill supports both:
 - Basic mode: public-site checks with no credentials
 - Advanced mode: authenticated flows with `credential_refs` and optional iMessage notifications
 
+## Trust boundary
+
+This skill is a launcher. It delegates execution to your local
+`openclaw_automation.cli run-query` implementation from `openclaw-automation-kit`.
+Optional iMessage notifications delegate to a local BlueBubbles connector module if installed.
+
 ## Examples
 
 Basic:
@@ -57,7 +63,8 @@ python skills/openclaw-web-automation/scripts/run_query.py \
 ## Safety
 
 - Use `credential_refs` only; do not place raw passwords in command args.
-- Prefer `--credential-refs-file` or `--credential-refs-env` over inline `--credential-refs` to reduce CLI/history exposure.
+- Prefer `--credential-refs-file` or `--credential-refs-env` over inline `--credential-refs` to reduce shell-history exposure.
+- If inline refs are used, this launcher passes them to the backend via stdin (not argv).
 - Keep human-in-the-loop for 2FA/CAPTCHA steps.
 - Do not use on sites/accounts you are not authorized to access.
 
@@ -66,3 +73,6 @@ python skills/openclaw-web-automation/scripts/run_query.py \
 This skill is a launcher and delegates execution to `python -m openclaw_automation.cli run-query`
 from your local `openclaw-automation-kit` installation.  
 Optional iMessage notifications require the BlueBubbles connector module to be installed locally.
+
+Optional environment variable:
+- `OPENCLAW_AUTOMATION_ROOT`: path to trusted local `openclaw-automation-kit` checkout.

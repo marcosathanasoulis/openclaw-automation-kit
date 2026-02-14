@@ -37,6 +37,11 @@ def _parse_args() -> argparse.Namespace:
         "--credential-refs-env",
         help="Environment variable name holding JSON credential refs",
     )
+    cred_group.add_argument(
+        "--credential-refs-stdin",
+        action="store_true",
+        help="Read JSON credential refs from stdin",
+    )
 
     return parser.parse_args()
 
@@ -49,6 +54,9 @@ def _load_input(raw: str) -> Dict[str, Any]:
 
 
 def _load_credential_refs(args: argparse.Namespace) -> Dict[str, Any]:
+    if getattr(args, "credential_refs_stdin", False):
+        raw = sys.stdin.read().strip() or "{}"
+        return _load_input(raw)
     if getattr(args, "credential_refs_file", None):
         raw = Path(args.credential_refs_file).read_text()
         return _load_input(raw)

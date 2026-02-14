@@ -6,7 +6,6 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 
@@ -69,27 +68,16 @@ def _run_query(root: Path, query: str, args: argparse.Namespace) -> dict:
         "--query",
         query,
     ]
-    temp_path: str | None = None
+    stdin_payload: str | None = None
     if args.credential_refs_file:
         cmd.extend(["--credential-refs-file", args.credential_refs_file])
     elif args.credential_refs_env:
         cmd.extend(["--credential-refs-env", args.credential_refs_env])
     elif args.credential_refs and args.credential_refs.strip() not in {"", "{}"}:
-        # Avoid placing raw credential ref JSON in subprocess command line.
-        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as tf:
-            tf.write(args.credential_refs)
-            temp_path = tf.name
-        cmd.extend(["--credential-refs-file", temp_path])
-    else:
-        cmd.extend(["--credential-refs", "{}"])
-    try:
-        proc = subprocess.run(cmd, cwd=root, capture_output=True, text=True)
-    finally:
-        if temp_path:
-            try:
-                os.remove(temp_path)
-            except OSError:
-                pass
+        # Avoid placing credential refs in subprocess argv; pass via stdin.
+        cmd.append("--credential-refs-stdin")
+        stdin_payload = args.credential_refs
+    proc = subprocess.run(cmd, cwd=root, capture_output=True, text=True, input=stdin_payload)
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "run-query failed")
     return json.loads(proc.stdout)
