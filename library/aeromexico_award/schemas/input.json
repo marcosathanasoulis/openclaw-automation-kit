@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "from": { "type": "string" },
+    "to": { "type": "array", "items": { "type": "string" } },
+    "days_ahead": { "type": "integer" },
+    "max_miles": { "type": "integer" },
+    "travelers": { "type": "integer" },
+    "cabin": { "type": "string" },
+    "credential_refs": { "type": "object" }
+  },
+  "required": ["from", "to", "days_ahead", "max_miles", "travelers"]
+}

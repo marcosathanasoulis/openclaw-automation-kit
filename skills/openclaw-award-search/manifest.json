@@ -1,0 +1,14 @@
+{
+  "id": "skill.award_search",
+  "version": "0.1.0",
+  "entrypoint": "runner.py",
+  "inputs_schema": "schemas/input.json",
+  "outputs_schema": "schemas/output.json",
+  "description": "Natural-language award flight search across United, Singapore, and ANA",
+  "execution_mode": "exclusive",
+  "permissions": {
+    "browser": true,
+    "network_domains": ["united.com", "singaporeair.com", "ana.co.jp"]
+  },
+  "requires_human_steps": ["login_mfa_if_required"]
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["from", "to", "days_ahead", "max_miles", "travelers", "cabin"],
+  "additionalProperties": false,
+  "properties": {
+    "from": {"type": "string", "description": "Origin airport code"},
+    "to": {
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 1,
+      "description": "Destination airport codes"
+    },
+    "days_ahead": {"type": "integer", "minimum": 1},
+    "max_miles": {"type": "integer", "minimum": 1},
+    "travelers": {"type": "integer", "minimum": 1, "maximum": 9},
+    "cabin": {
+      "type": "string",
+      "enum": ["economy", "premium_economy", "business", "first"]
+    },
+    "credential_refs": {
+      "type": "object",
+      "additionalProperties": {"type": "string"}
+    }
+  }
+}

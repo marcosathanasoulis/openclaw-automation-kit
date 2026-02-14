@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict
 
+
 def browser_agent_enabled() -> bool:
     return os.getenv("OPENCLAW_USE_BROWSER_AGENT", "").strip().lower() in {"1", "true", "yes", "on"}
 
@@ -20,6 +21,11 @@ def run_browser_agent_goal(
 ) -> Dict[str, Any]:
     """Run an external BrowserAgent implementation, if available.
 
+    The external BrowserAgent is expected to handle its own CDP locking
+    internally (via CDPLock in _start_browser/_stop_browser). This adapter
+    does NOT acquire a lock — doing so would deadlock since the same process
+    would hold the lock when BrowserAgent tries to acquire it again.
+
     Required runtime env:
     - OPENCLAW_USE_BROWSER_AGENT=true
     - OPENCLAW_BROWSER_AGENT_MODULE (default: browser_agent)
@@ -33,6 +39,7 @@ def run_browser_agent_goal(
     trace_env = os.getenv("OPENCLAW_BROWSER_TRACE", "").strip().lower()
     if trace_env in {"0", "false", "no", "off"}:
         trace = False
+
     if module_path:
         resolved = str(Path(module_path).expanduser().resolve())
         if resolved not in sys.path:

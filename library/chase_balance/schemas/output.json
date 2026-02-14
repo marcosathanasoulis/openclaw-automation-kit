@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "mode": { "type": "string" },
+    "real_data": { "type": "boolean" },
+    "balances": { "type": "object" },
+    "summary": { "type": "string" },
+    "raw_observations": { "type": "array", "items": { "type": "string" } },
+    "errors": { "type": "array" }
+  },
+  "required": ["mode", "summary"]
+}
