@@ -1,0 +1,15 @@
+{
+  "id": "examples.weather_check",
+  "version": "0.1.0",
+  "description": "Get current weather for a location using Open-Meteo (no API key).",
+  "entrypoint": "runner.py",
+  "inputs_schema": "schemas/input.json",
+  "outputs_schema": "schemas/output.json",
+  "permissions": {
+    "browser": false,
+    "network_domains": [
+      "https://geocoding-api.open-meteo.com",
+      "https://api.open-meteo.com"
+    ]
+  }
+}

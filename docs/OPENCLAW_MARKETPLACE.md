@@ -3,12 +3,11 @@
 This repo includes publishable skill folders under `skills/`.
 
 Current skill packages:
-- `skills/openclaw-web-automation-basic` (no credentials)
-- `skills/openclaw-award-search` (credentials + 2FA human-loop)
+- `skills/openclaw-web-automation` (unified: no-login + credentialed/2FA flows)
 
 Local skill entrypoints:
-- `python skills/openclaw-web-automation-basic/scripts/run_query.py --query "..."`
-- `python skills/openclaw-award-search/scripts/run_query.py --query "..." --credential-refs '{...}'`
+- `python skills/openclaw-web-automation/scripts/run_query.py --query "..."`
+- `python skills/openclaw-web-automation/scripts/run_query.py --query "..." --credential-refs '{...}'`
 
 ## 1. Install CLI and authenticate
 
@@ -19,23 +18,12 @@ clawhub login
 
 ## 2. Publish a skill
 
-Example (web basic skill):
+Example (unified skill):
 
 ```bash
-clawhub publish ./skills/openclaw-web-automation-basic \
-  --slug openclaw-web-automation-basic \
-  --name "OpenClaw Web Automation Basic" \
-  --version 0.1.0 \
-  --tags latest \
-  --changelog "Initial marketplace release"
-```
-
-Example (award skill):
-
-```bash
-clawhub publish ./skills/openclaw-award-search \
-  --slug openclaw-award-search \
-  --name "OpenClaw Award Search" \
+clawhub publish ./skills/openclaw-web-automation \
+  --slug openclaw-web-automation \
+  --name "OpenClaw Web Automation" \
   --version 0.1.0 \
   --tags latest \
   --changelog "Initial marketplace release"
@@ -44,14 +32,14 @@ clawhub publish ./skills/openclaw-award-search \
 ## 3. Verify install
 
 ```bash
-clawhub install openclaw-web-automation-basic
+clawhub install openclaw-web-automation
 ```
 
 ## 4. Update release
 
 ```bash
-clawhub publish ./skills/openclaw-web-automation-basic \
-  --slug openclaw-web-automation-basic \
+clawhub publish ./skills/openclaw-web-automation \
+  --slug openclaw-web-automation \
   --version 0.1.1 \
   --tags latest \
   --changelog "Bug fixes"
@@ -59,5 +47,4 @@ clawhub publish ./skills/openclaw-web-automation-basic \
 
 ## Notes
 - Marketplace publishes skills, not full repositories.
-- Keep no-credential skill separate from credentialed skills.
-- For credentialed skills, documentation must clearly require user-owned secrets + human-loop 2FA.
+- For credentialed flows, documentation must clearly require user-owned secrets + human-loop 2FA.

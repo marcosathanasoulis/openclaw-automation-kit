@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["location"],
+  "additionalProperties": false,
+  "properties": {
+    "location": {
+      "type": "string",
+      "minLength": 2,
+      "description": "City or place name (for example: San Francisco, CA)."
+    },
+    "temperature_unit": {
+      "type": "string",
+      "enum": ["fahrenheit", "celsius"],
+      "default": "fahrenheit"
+    }
+  }
+}

@@ -10,8 +10,8 @@ from pathlib import Path
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run award-search query as an installable skill entrypoint")
-    parser.add_argument("--query", required=True, help="Natural-language award search request")
+    parser = argparse.ArgumentParser(description="Run unified web automation query")
+    parser.add_argument("--query", required=True, help="Natural-language automation request")
     parser.add_argument(
         "--credential-refs",
         default="{}",
@@ -25,9 +25,28 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--send-notification",
         action="store_true",
-        help="Actually send iMessage notification (default is no send)",
+        help="Actually send iMessage notification (default is dry run)",
     )
     return parser.parse_args()
+
+
+def _find_repo_root() -> Path | None:
+    schema_rel = Path("schemas/manifest.schema.json")
+    env_root = os.getenv("OPENCLAW_AUTOMATION_ROOT", "").strip()
+    if env_root:
+        p = Path(env_root).expanduser().resolve()
+        if (p / schema_rel).exists():
+            return p
+
+    in_repo = Path(__file__).resolve().parents[3]
+    if (in_repo / schema_rel).exists():
+        return in_repo
+
+    cur = Path.cwd().resolve()
+    for c in [cur, *cur.parents]:
+        if (c / schema_rel).exists():
+            return c
+    return None
 
 
 def _run_query(root: Path, query: str, credential_refs: str) -> dict:
@@ -48,37 +67,27 @@ def _run_query(root: Path, query: str, credential_refs: str) -> dict:
 
 
 def _notify_imessage(target: str, summary: str) -> None:
-    # Deferred import so the skill can run without connector setup.
     try:
         from connectors.imessage_bluebubbles.webhook_example import send_imessage
     except Exception as exc:  # noqa: BLE001
         raise RuntimeError("BlueBubbles connector is not installed/configured") from exc
-
     send_imessage(target, summary)
+
+
+def _extract_summary(result: dict) -> str:
+    inner = result.get("result")
+    if isinstance(inner, dict):
+        summary = inner.get("summary")
+        if isinstance(summary, str) and summary.strip():
+            return summary
+    summary = result.get("summary")
+    if isinstance(summary, str) and summary.strip():
+        return summary
+    return "Automation query completed."
 
 
 def main() -> int:
     args = _parse_args()
-    schema_rel = Path("schemas/manifest.schema.json")
-
-    def _find_repo_root() -> Path | None:
-        env_root = os.getenv("OPENCLAW_AUTOMATION_ROOT", "").strip()
-        if env_root:
-            p = Path(env_root).expanduser().resolve()
-            if (p / schema_rel).exists():
-                return p
-
-        in_repo = Path(__file__).resolve().parents[3]
-        if (in_repo / schema_rel).exists():
-            return in_repo
-
-        cur = Path.cwd().resolve()
-        candidates = [cur, *cur.parents]
-        for c in candidates:
-            if (c / schema_rel).exists():
-                return c
-        return None
-
     root = _find_repo_root()
     if root is None:
         print(
@@ -87,8 +96,7 @@ def main() -> int:
                     "ok": False,
                     "error": (
                         "Could not locate OpenClaw Automation Kit root. "
-                        "Set OPENCLAW_AUTOMATION_ROOT to your repo path and ensure "
-                        "`pip install -e .` has been run there."
+                        "Set OPENCLAW_AUTOMATION_ROOT and ensure `pip install -e .` has been run."
                     ),
                 },
                 indent=2,
@@ -102,11 +110,12 @@ def main() -> int:
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
         return 1
 
-    summary = result.get("result", {}).get("summary", "Award query completed.")
+    summary = _extract_summary(result)
     status = {
         "ok": True,
         "summary": summary,
         "script_id": result.get("script_id"),
+        "mode": result.get("mode"),
         "parsed_notes": result.get("parsed_notes", []),
         "notification": "not requested",
     }
@@ -119,9 +128,7 @@ def main() -> int:
             except Exception as exc:  # noqa: BLE001
                 status["notification"] = f"failed: {exc}"
         else:
-            status["notification"] = (
-                f"dry-run to {args.notify_imessage} (pass --send-notification to actually send)"
-            )
+            status["notification"] = f"dry-run to {args.notify_imessage} (pass --send-notification to send)"
 
     print(json.dumps({"status": status, "result": result}, indent=2))
     return 0

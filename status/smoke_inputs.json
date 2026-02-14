@@ -39,5 +39,9 @@
       "type": "imessage",
       "address": "+15555550123"
     }
+  },
+  "examples.weather_check": {
+    "location": "New York",
+    "temperature_unit": "fahrenheit"
   }
 }
