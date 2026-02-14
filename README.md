@@ -38,6 +38,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 pip install -e .
 python -m openclaw_automation.cli run-query --query "Check yahoo.com and tell me the top headlines"
+python -m openclaw_automation.cli run-query --query "Check weather in New York in fahrenheit"
 ```
 
 For a chat UI demo:
@@ -229,6 +230,7 @@ python -m openclaw_automation.cli validate --script-dir library/singapore_award
 python -m openclaw_automation.cli validate --script-dir library/ana_award
 python -m openclaw_automation.cli validate --script-dir library/bofa_alert
 python -m openclaw_automation.cli validate --script-dir library/github_signin_check
+python -m openclaw_automation.cli validate --script-dir examples/weather_check
 ```
 
 ### 4. Run an award example

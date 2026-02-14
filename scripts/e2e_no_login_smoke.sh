@@ -26,6 +26,7 @@ python -m openclaw_automation.cli validate --script-dir library/github_signin_ch
 python -m openclaw_automation.cli validate --script-dir library/site_headlines >/dev/null
 python -m openclaw_automation.cli validate --script-dir library/site_text_watch >/dev/null
 python -m openclaw_automation.cli validate --script-dir examples/stock_price_check >/dev/null
+python -m openclaw_automation.cli validate --script-dir examples/weather_check >/dev/null
 
 echo "[3/5] Public query smoke"
 python -m openclaw_automation.cli run-query \
@@ -102,6 +103,23 @@ assert result["ok"] is True
 assert result["script_id"] == "examples.stock_price_check"
 assert isinstance(result["result"]["price"], float)
 print("stock_price_check_ok")
+PY
+
+echo "[extra] Weather check smoke"
+python -m openclaw_automation.cli run \
+  --script-dir examples/weather_check \
+  --input '{"location":"New York","temperature_unit":"fahrenheit"}' >/tmp/openclaw_weather_check.json
+python - <<'PY'
+import json
+from pathlib import Path
+
+result = json.loads(Path("/tmp/openclaw_weather_check.json").read_text())
+assert result["ok"] is True
+assert result["script_id"] == "examples.weather_check"
+assert isinstance(result["result"]["temperature"], float)
+assert result["result"]["resolved_location"]
+assert result["result"]["errors"] == []
+print("weather_check_ok")
 PY
 
 
