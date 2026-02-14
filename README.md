@@ -321,3 +321,17 @@ These tests use a real browser via BrowserAgent (Playwright + Claude vision + Ch
 | `chase.balance_check` | ⏸️ skipped | — | Requires push 2FA (user must be present) |
 
 **5/6 pipelines working end-to-end. 3/6 complete within step budget.**
+
+## Daily Health Check Results
+
+_Tested via: AI Assistant (full pipeline)_
+
+| Airline | Route | Status | Matches | Time | Last Run |
+|---------|-------|--------|---------|------|----------|
+| United | SFO→NRT | ✅ pass | 0 | 205s | 2026-02-13 18:09 |
+| Delta | SFO→JFK | ✅ pass | 2 | 89s | 2026-02-13 18:09 |
+| Singapore | SFO→SIN | ✅ pass | 0 | 202s | 2026-02-13 18:09 |
+| Aeromexico | SFO→MEX | ✅ pass | 1 | 163s | 2026-02-13 18:09 |
+| Ana | SFO→HND | ✅ pass | 0 | 170s | 2026-02-13 18:09 |
+
+**Summary**: 5/5 passing | Last run: 2026-02-13 18:09 PST

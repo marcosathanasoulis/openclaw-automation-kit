@@ -1,0 +1,43 @@
+{
+  "timestamp": "2026-02-13T18:09:46.184592",
+  "mode": "agent",
+  "results": {
+    "united": {
+      "status": "pass",
+      "matches": 0,
+      "elapsed_s": 205,
+      "error": null,
+      "reply_snippet": "The search completed, but unfortunately no United business class award seats were found from SFO to NRT in the next 60 days. This means there's currently no award availability for that route and cabin"
+    },
+    "delta": {
+      "status": "pass",
+      "matches": 2,
+      "elapsed_s": 89,
+      "error": null,
+      "reply_snippet": "I found one Delta business class award option from SFO to JFK:\n\n**March 15, 2026** - 16,500 SkyMiles + minimal fees for business class\n\nThere's also availability on Thursday, March 12 at the same pric"
+    },
+    "singapore": {
+      "status": "pass",
+      "matches": 0,
+      "elapsed_s": 202,
+      "error": null,
+      "reply_snippet": "Unfortunately, no Singapore Airlines business class award availability was found from SFO to SIN over the next 60 days. This could mean:\n\n1. There are no award seats available on those routes during t"
+    },
+    "aeromexico": {
+      "status": "pass",
+      "matches": 1,
+      "elapsed_s": 163,
+      "error": null,
+      "reply_snippet": "I found 5 AeroMexico business class award options for SFO to Mexico City on April 14, 2026:\n\n**Best Value (18,000 miles):**\n- **Flight 1**: 2:35 PM - 8:00 PM (4h 25m, nonstop)\n- **Flight 2**: 11:55 PM"
+    },
+    "ana": {
+      "status": "pass",
+      "matches": 0,
+      "elapsed_s": 170,
+      "error": null,
+      "reply_snippet": "The search didn't find any ANA business class award availability from SFO to HND (Tokyo Haneda) in the next 60 days. This could mean:\n\n1. No award space is currently available for those dates\n2. The f"
+    }
+  },
+  "summary": "5/5 passing",
+  "total_elapsed_s": 844
+}
