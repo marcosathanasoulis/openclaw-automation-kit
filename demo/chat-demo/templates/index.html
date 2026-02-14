@@ -11,6 +11,7 @@
       .sidebar { padding: 16px; }
       .sidebar h2 { margin: 0 0 12px 0; font-size: 18px; }
       .sidebar p { margin: 0 0 10px 0; font-size: 14px; line-height: 1.4; }
+      .flow { margin: 10px 0 12px 0; padding: 10px; border-radius: 8px; background: #fffdf2; border: 1px solid #f2e4a0; font-size: 12px; line-height: 1.45; }
       .ex { margin: 6px 0; padding: 8px; border-radius: 8px; background: #f6f9ff; border: 1px solid #e2ebfd; font-size: 13px; cursor: pointer; }
       .chat { display: flex; flex-direction: column; min-height: 72vh; }
       .head { padding: 14px 18px; border-bottom: 1px solid #e3ebfa; font-weight: 700; }
@@ -31,7 +32,14 @@
     <div class="app">
       <aside class="card sidebar">
         <h2>Browser Automation Chat</h2>
-        <p>Tell me a browser automation to run. I will route to OpenClaw Automation Kit and return parsed results.</p>
+        <p>Tell me a browser automation to run. This demo routes your prompt through the same automation engine used by the OpenClaw skill.</p>
+        <div class="flow">
+          <strong>How this maps to OpenClaw:</strong><br />
+          1) OpenClaw (or this demo) sends a natural-language task.<br />
+          2) The kit picks the right automation and runs it.<br />
+          3) If a challenge appears, run pauses and asks for human input.<br />
+          4) If you wire iMessage/WhatsApp/email connectors, the code/challenge can be fetched from that channel and sent back automatically to resume.
+        </div>
         <p><strong>Try examples:</strong></p>
         <div class="ex" data-q="Check yahoo.com and tell me the top headlines">Check yahoo.com and tell me the top headlines</div>
         <div class="ex" data-q="Open https://www.wikipedia.org and count mentions of encyclopedia">Open wikipedia and count 'encyclopedia'</div>
