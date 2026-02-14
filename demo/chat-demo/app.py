@@ -15,6 +15,7 @@ from PIL import Image, ImageDraw, ImageFont
 app = Flask(__name__)
 CHALLENGE_DIR = Path("/tmp/openclaw-demo-challenges")
 CHALLENGES: dict[str, dict] = {}
+TWOFA_FLOWS: dict[str, dict] = {}
 
 
 def _repo_root() -> Path:
@@ -102,6 +103,29 @@ def _solve_challenge(challenge_id: str, solution: str) -> dict:
     return {"ok": False, "error": "Incorrect solution"}
 
 
+def _new_twofa_flow() -> dict:
+    flow_id = uuid.uuid4().hex[:10]
+    code = f"{random.randint(0, 999999):06d}"
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
+    TWOFA_FLOWS[flow_id] = {"code": code, "expires_at": expires_at}
+    return {
+        "flow_id": flow_id,
+        "expires_at": expires_at.isoformat(),
+    }
+
+
+def _verify_twofa(flow_id: str, code: str) -> dict:
+    flow = TWOFA_FLOWS.get(flow_id)
+    if not flow:
+        return {"ok": False, "error": "Unknown flow_id"}
+    if datetime.now(timezone.utc) > flow["expires_at"]:
+        return {"ok": False, "error": "Code expired"}
+    if code.strip() != flow["code"]:
+        return {"ok": False, "error": "Invalid code"}
+    TWOFA_FLOWS.pop(flow_id, None)
+    return {"ok": True, "status": "passed"}
+
+
 @app.get("/healthz")
 def healthz():
     return jsonify({"ok": True})
@@ -118,6 +142,23 @@ def challenge_image(challenge_id: str):
     if not path.exists():
         return jsonify({"ok": False, "error": "Not found"}), 404
     return send_file(path, mimetype="image/png")
+
+
+@app.get("/demo/2fa/<flow_id>")
+def twofa_inbox(flow_id: str):
+    flow = TWOFA_FLOWS.get(flow_id)
+    if not flow:
+        return jsonify({"ok": False, "error": "Unknown flow_id"}), 404
+    if datetime.now(timezone.utc) > flow["expires_at"]:
+        return jsonify({"ok": False, "error": "Code expired"}), 410
+    return jsonify(
+        {
+            "ok": True,
+            "flow_id": flow_id,
+            "message": f"Your one-time code is {flow['code']}",
+            "expires_at": flow["expires_at"].isoformat(),
+        }
+    )
 
 
 @app.post("/api/chat")
@@ -145,6 +186,38 @@ def chat():
                 "result": {"mode": "human_loop_demo", "step": "challenge_required"},
             }
         )
+
+    if "2fa demo" in lower or "two factor demo" in lower or "otp demo" in lower:
+        flow = _new_twofa_flow()
+        flow_id = flow["flow_id"]
+        return jsonify(
+            {
+                "ok": True,
+                "assistant_text": (
+                    "Two-factor challenge created. Simulated code sent to demo inbox. "
+                    f"Open /demo/2fa/{flow_id} to read it, then reply: otp {flow_id} XXXXXX"
+                ),
+                "twofa_flow_id": flow_id,
+                "twofa_inbox_url": f"/demo/2fa/{flow_id}",
+                "expires_at": flow["expires_at"],
+                "result": {"mode": "human_loop_demo", "step": "twofa_required"},
+            }
+        )
+
+    if lower.startswith("otp "):
+        parts = query.split(maxsplit=2)
+        if len(parts) < 3:
+            return jsonify({"ok": False, "error": "Format: otp <flow_id> <6-digit-code>"}), 400
+        verdict = _verify_twofa(parts[1], parts[2])
+        if verdict["ok"]:
+            return jsonify(
+                {
+                    "ok": True,
+                    "assistant_text": "2FA code accepted. Run resumed successfully.",
+                    "result": {"mode": "human_loop_demo", "step": "resumed", "status": "success"},
+                }
+            )
+        return jsonify({"ok": False, "error": verdict["error"]}), 400
 
     if lower.startswith("solve "):
         parts = query.split(maxsplit=2)

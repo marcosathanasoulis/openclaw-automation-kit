@@ -144,6 +144,7 @@ Then open `http://127.0.0.1:8090` and try:
 - `Open https://www.wikipedia.org and count mentions of encyclopedia`
 - `Check https://status.openai.com and summarize the page`
 - `Run captcha demo` (safe, local human-in-loop mock challenge)
+- `Run 2FA demo` (safe, local one-time-code handoff + resume)
 
 Manual Python run (no Docker):
 

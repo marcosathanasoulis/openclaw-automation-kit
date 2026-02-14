@@ -37,6 +37,7 @@
         <div class="ex" data-q="Open https://www.wikipedia.org and count mentions of encyclopedia">Open wikipedia and count 'encyclopedia'</div>
         <div class="ex" data-q="Check https://status.openai.com and summarize the page">Summarize status.openai.com</div>
         <div class="ex" data-q="Run captcha demo">Run captcha demo</div>
+        <div class="ex" data-q="Run 2FA demo">Run 2FA demo</div>
       </aside>
       <section class="card chat">
         <div class="head">OpenClaw Demo Chat</div>
@@ -60,7 +61,7 @@
         messages.scrollTop = messages.scrollHeight;
       }
 
-      function addBot(text, raw, imageUrl) {
+      function addBot(text, raw, imageUrl, actionUrl) {
         const div = document.createElement("div");
         div.className = "bubble bot";
         div.textContent = text;
@@ -72,6 +73,15 @@
           img.style.marginTop = "8px";
           img.style.borderRadius = "8px";
           div.appendChild(img);
+        }
+        if (actionUrl) {
+          const a = document.createElement("a");
+          a.href = actionUrl;
+          a.textContent = "Open simulated inbox";
+          a.style.display = "block";
+          a.style.marginTop = "8px";
+          a.target = "_blank";
+          div.appendChild(a);
         }
         if (raw) {
           const d = document.createElement("details");
@@ -103,7 +113,12 @@
           if (!res.ok || !data.ok) {
             addBot(`Error: ${data.error || "request failed"}`);
           } else {
-            addBot(data.assistant_text || "Done", data.result || data, data.challenge_image_url || null);
+            addBot(
+              data.assistant_text || "Done",
+              data.result || data,
+              data.challenge_image_url || null,
+              data.twofa_inbox_url || null
+            );
           }
         } catch (err) {
           addBot(`Error: ${err.message}`);

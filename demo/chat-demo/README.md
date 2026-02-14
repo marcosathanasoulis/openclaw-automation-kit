@@ -53,3 +53,15 @@ Example:
 `solve a1b2c3d4e5 2,5,9`
 
 This demonstrates pause/resume with human intervention using a sandbox challenge (no real third-party CAPTCHA service, no personal account access).
+
+## Simulated 2FA demo (safe mock)
+
+In chat, send:
+
+`Run 2FA demo`
+
+The demo returns a simulated inbox URL and flow id. Open the inbox URL to read the one-time code, then reply:
+
+`otp <flow_id> <6-digit-code>`
+
+This demonstrates external code delivery + resume without using any personal account.
