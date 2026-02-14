@@ -2,13 +2,19 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import subprocess
 import sys
+import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, send_file
+from PIL import Image, ImageDraw, ImageFont
 
 app = Flask(__name__)
+CHALLENGE_DIR = Path("/tmp/openclaw-demo-challenges")
+CHALLENGES: dict[str, dict] = {}
 
 
 def _repo_root() -> Path:
@@ -42,6 +48,60 @@ def _assistant_text(result: dict) -> str:
     return "Run completed. Open raw JSON details to inspect parsed fields."
 
 
+def _new_challenge() -> dict:
+    CHALLENGE_DIR.mkdir(parents=True, exist_ok=True)
+    challenge_id = uuid.uuid4().hex[:10]
+    target = sorted(random.sample(range(1, 13), 3))
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+
+    img = Image.new("RGB", (560, 440), color=(16, 24, 39))
+    draw = ImageDraw.Draw(img)
+    font = ImageFont.load_default()
+    draw.text((20, 14), "Mock CAPTCHA Challenge", fill=(255, 255, 255), font=font)
+    draw.text((20, 32), "Pick the green tiles and reply with their numbers.", fill=(200, 215, 240), font=font)
+
+    tile_w, tile_h = 120, 88
+    gap_x, gap_y = 12, 12
+    start_x, start_y = 20, 62
+    for idx in range(1, 13):
+        row = (idx - 1) // 4
+        col = (idx - 1) % 4
+        x = start_x + col * (tile_w + gap_x)
+        y = start_y + row * (tile_h + gap_y)
+        is_target = idx in target
+        bg = (34, 197, 94) if is_target else (31, 41, 55)
+        draw.rounded_rectangle((x, y, x + tile_w, y + tile_h), radius=10, fill=bg, outline=(148, 163, 184), width=2)
+        draw.text((x + 56, y + 36), str(idx), fill=(255, 255, 255), font=font)
+
+    image_path = CHALLENGE_DIR / f"{challenge_id}.png"
+    img.save(image_path)
+    CHALLENGES[challenge_id] = {
+        "target": target,
+        "expires_at": expires_at,
+    }
+    return {
+        "challenge_id": challenge_id,
+        "target": target,
+        "image_path": image_path,
+        "expires_at": expires_at.isoformat(),
+    }
+
+
+def _solve_challenge(challenge_id: str, solution: str) -> dict:
+    record = CHALLENGES.get(challenge_id)
+    if not record:
+        return {"ok": False, "error": "Unknown challenge_id"}
+    if datetime.now(timezone.utc) > record["expires_at"]:
+        return {"ok": False, "error": "Challenge expired"}
+    parsed = sorted(
+        int(s.strip()) for s in solution.split(",") if s.strip().isdigit()
+    )
+    if parsed == record["target"]:
+        CHALLENGES.pop(challenge_id, None)
+        return {"ok": True, "status": "passed"}
+    return {"ok": False, "error": "Incorrect solution"}
+
+
 @app.get("/healthz")
 def healthz():
     return jsonify({"ok": True})
@@ -52,12 +112,54 @@ def index():
     return render_template("index.html")
 
 
+@app.get("/demo/challenge/<challenge_id>.png")
+def challenge_image(challenge_id: str):
+    path = CHALLENGE_DIR / f"{challenge_id}.png"
+    if not path.exists():
+        return jsonify({"ok": False, "error": "Not found"}), 404
+    return send_file(path, mimetype="image/png")
+
+
 @app.post("/api/chat")
 def chat():
     payload = request.get_json(silent=True) or {}
     query = str(payload.get("query", "")).strip()
     if not query:
         return jsonify({"ok": False, "error": "Missing query"}), 400
+
+    lower = query.lower()
+
+    if "captcha demo" in lower or "challenge demo" in lower:
+        challenge = _new_challenge()
+        challenge_id = challenge["challenge_id"]
+        return jsonify(
+            {
+                "ok": True,
+                "assistant_text": (
+                    "Challenge detected. I captured a screenshot for you. "
+                    f"Reply: solve {challenge_id} n,n,n"
+                ),
+                "challenge_id": challenge_id,
+                "challenge_image_url": f"/demo/challenge/{challenge_id}.png",
+                "expires_at": challenge["expires_at"],
+                "result": {"mode": "human_loop_demo", "step": "challenge_required"},
+            }
+        )
+
+    if lower.startswith("solve "):
+        parts = query.split(maxsplit=2)
+        if len(parts) < 3:
+            return jsonify({"ok": False, "error": "Format: solve <challenge_id> <n,n,n>"}), 400
+        verdict = _solve_challenge(parts[1], parts[2])
+        if verdict["ok"]:
+            return jsonify(
+                {
+                    "ok": True,
+                    "assistant_text": "Challenge solved. Run resumed successfully.",
+                    "result": {"mode": "human_loop_demo", "step": "resumed", "status": "success"},
+                }
+            )
+        return jsonify({"ok": False, "error": verdict["error"]}), 400
 
     try:
         result = _run_query(query)

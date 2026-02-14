@@ -143,6 +143,7 @@ Then open `http://127.0.0.1:8090` and try:
 - `Check yahoo.com and tell me the top headlines`
 - `Open https://www.wikipedia.org and count mentions of encyclopedia`
 - `Check https://status.openai.com and summarize the page`
+- `Run captcha demo` (safe, local human-in-loop mock challenge)
 
 Manual Python run (no Docker):
 

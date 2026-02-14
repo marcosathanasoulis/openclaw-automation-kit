@@ -79,6 +79,11 @@ Use this file for short-lived cross-agent coordination so parallel work does not
   - `demo/chat-demo/Dockerfile` now copies `demo/chat-demo/requirements.txt` (previously copied repo root `requirements.txt` by mistake).
   - Added `demo/chat-demo/run_local_docker.sh` for one-command local startup + health check.
   - Updated chat UI to return assistant summary text + expandable raw JSON payload.
+- Added safe human-loop mock CAPTCHA flow (single container):
+  - Chat command: `Run captcha demo`
+  - App returns challenge screenshot URL + `challenge_id`
+  - User reply format: `solve <challenge_id> n,n,n`
+  - Endpoints: `/api/chat`, `/demo/challenge/<id>.png`
 
 ## Example Entry
 

@@ -37,3 +37,19 @@ curl -sS -X POST http://127.0.0.1:8090/api/chat \
   -H "Content-Type: application/json" \
   -d '{"query":"Check yahoo.com and tell me the top headlines"}' | python -m json.tool
 ```
+
+## Human-loop CAPTCHA demo (safe mock)
+
+In chat, send:
+
+`Run captcha demo`
+
+The demo returns a generated challenge image URL and prompt:
+
+`solve <challenge_id> n,n,n`
+
+Example:
+
+`solve a1b2c3d4e5 2,5,9`
+
+This demonstrates pause/resume with human intervention using a sandbox challenge (no real third-party CAPTCHA service, no personal account access).
