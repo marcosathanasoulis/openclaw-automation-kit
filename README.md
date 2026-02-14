@@ -26,6 +26,28 @@ Optional routing:
 - WhatsApp Cloud API connector
 - Email connector
 
+## 5-minute OpenClaw quickstart
+
+If you only want to see it working fast:
+
+```bash
+git clone https://github.com/marcosathanasoulis/openclaw-automation-kit.git
+cd openclaw-automation-kit
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+pip install -e .
+python -m openclaw_automation.cli run-query --query "Check yahoo.com and tell me the top headlines"
+```
+
+For a chat UI demo:
+
+```bash
+./demo/chat-demo/run_local_docker.sh
+```
+
+Open `http://127.0.0.1:8090`.
+
 ### Model usage policy
 
 - For public, no-credential checks (for example Yahoo/Wikipedia keyword/headline tasks), the kit uses deterministic extractors and does not require a separate LLM API key.
