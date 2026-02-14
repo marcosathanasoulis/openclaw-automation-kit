@@ -40,6 +40,20 @@ Agent guardrails:
 - Avoid anti-bot bypass techniques.
 - Include explicit error paths and clear logs.
 
+## How this toolkit helps you iterate until it works
+
+Use this loop for hard sites:
+1. Run via `run-query` or direct `run --script-dir`.
+2. Capture artifacts (JSON output, trace, screenshots).
+3. If human challenge appears, send screenshot link and resume with response.
+4. Feed failures back to your AI coding agent with exact artifacts.
+5. Patch runner steps/parsing and re-run quickly.
+
+Useful tools:
+- schema validation: `python -m openclaw_automation.cli validate --script-dir <path>`
+- regression smoke: `./scripts/e2e_no_login_smoke.sh`
+- screenshot hosting for chat links: `python scripts/serve_artifacts.py --dir browser_runs --port 8765`
+
 ## 1. Scope the automation
 - Define the exact user story and output JSON shape first.
 - Identify required login state, MFA, and challenge points.

@@ -8,6 +8,86 @@ This project is designed for people who want to:
 - Expose a stable API for execution and scheduling
 - Keep channel delivery (WhatsApp/iMessage/Slack/email) pluggable
 
+## OpenClaw-first usage
+
+This kit is optimized for OpenClaw users first:
+- You can ask in plain English from chat.
+- The automation runs in a real browser session.
+- If 2FA is needed, default behavior is human-in-the-loop via chat prompt.
+- If you configure connectors (iMessage/WhatsApp/email), the same 2FA step can be routed there.
+
+Default 2FA pattern for OpenClaw chat:
+1. automation pauses and asks for code,
+2. you reply in chat with the code/token,
+3. automation resumes.
+
+Optional routing:
+- iMessage (BlueBubbles connector)
+- WhatsApp Cloud API connector
+- Email connector
+
+## 5-minute OpenClaw quickstart
+
+If you only want to see it working fast:
+
+```bash
+git clone https://github.com/marcosathanasoulis/openclaw-automation-kit.git
+cd openclaw-automation-kit
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+pip install -e .
+python -m openclaw_automation.cli run-query --query "Check yahoo.com and tell me the top headlines"
+```
+
+For a chat UI demo:
+
+```bash
+./demo/chat-demo/run_local_docker.sh
+```
+
+Open `http://127.0.0.1:8090`.
+
+## What works out of the box vs. what needs a custom script
+
+Many automations work immediately with no login:
+- public page headlines/summaries/text checks
+- website watch checks (required/forbidden phrase checks)
+- chat-driven demo flows
+
+Use a custom script when a site has:
+- login/session requirements
+- dynamic UI with multi-step forms/filters
+- recurring challenge/2FA checkpoints
+- domain-specific extraction needs (for example fare grids, account tables)
+
+Short rule: **simple public checks = generic flow; complex authenticated workflows = custom script.**
+
+### Model usage policy
+
+- For public, no-credential checks (for example Yahoo/Wikipedia keyword/headline tasks), the kit uses deterministic extractors and does not require a separate LLM API key.
+- For advanced browser-agent workflows (login flows, dynamic sites, hard UI reasoning), the BrowserAgent path currently depends on Claude vision-capable runs and requires `ANTHROPIC_API_KEY`.
+- Goal: keep defaults simple for OpenClaw users and only require extra model keys when advanced automation is requested.
+
+## What makes this useful
+
+You can give plain-English instructions and have the automation execute real browser tasks, including authenticated flows:
+- "Log in and check if business-class award seats to Europe are under 120k miles."
+- "Open a dashboard and confirm if a specific metric changed today."
+- "Go to my bank alerts page and report new notices."
+
+For protected flows, it supports semi-automated human checkpoints:
+- 2FA codes via chat first (default), then optional channel connectors (iMessage/WhatsApp/email)
+- CAPTCHA pause + human solve + resume
+
+For image-based challenges (CAPTCHA/screenshot review), the practical pattern is:
+1. save challenge image locally,
+2. publish it via a lightweight HTTP endpoint (local service, tunnel, or your own web server),
+3. send that link in chat,
+4. accept user reply token/instructions and resume the run.
+
+This keeps humans in control while still automating the repetitive browser work.
+
 ## Why this exists
 
 Most automation projects fail on structure: scripts are ad-hoc, outputs are inconsistent, and adding contributors is risky.
@@ -38,9 +118,9 @@ flowchart LR
 | `library/*_award` without BrowserAgent integration | Placeholder mode (`mode=placeholder`, `real_data=false`) |
 | `library/*_award` with BrowserAgent integration | Supported, depends on your private BrowserAgent runtime |
 | CDP file lock | Implemented |
-| Queue scheduler orchestration | Planned/design only |
-| CAPTCHA/2FA resume orchestration API | Planned/design only |
-| HTTP API server (`/runs`, `/resume`) | Planned/design only |
+| Queue scheduler orchestration | Prototype present (`src/openclaw_automation/scheduler.py`), not wired into engine/CLI by default |
+| CAPTCHA/2FA resume orchestration API | Implemented in private assistant stack; public kit currently docs/contracts only |
+| HTTP API server (`/runs`, `/resume`) | Implemented in private assistant stack; public kit currently docs/contracts only |
 
 ## Repository layout
 
@@ -71,6 +151,29 @@ cp .env.example .env
 ```
 Then fill values per `docs/CONFIGURATION.md`.
 
+### 2. Run the local chat demo (fastest path)
+
+From repo root:
+
+```bash
+./demo/chat-demo/run_local_docker.sh
+```
+
+Open:
+
+`http://127.0.0.1:8090`
+
+Try:
+- `Check yahoo.com and tell me the top headlines`
+- `Run captcha demo`
+- `Run 2FA demo`
+
+Stop it:
+
+```bash
+docker rm -f openclaw-chat-demo
+```
+
 ## Platform support
 
 The framework is intended to be cross-platform. Current practical testing has been on:
@@ -86,6 +189,35 @@ If you hit Windows-specific issues, please open an issue or submit a PR.
 python -m openclaw_automation.cli run \
   --script-dir examples/public_page_check \
   --input '{"url":"https://www.yahoo.com","keyword":"news"}'
+```
+
+### 2b. Demo Chat UI (container-first, Cloud Run ready)
+
+Run locally (Docker, recommended):
+
+```bash
+./demo/chat-demo/run_local_docker.sh
+```
+
+Then open `http://127.0.0.1:8090` and try:
+- `Check yahoo.com and tell me the top headlines`
+- `Open https://www.wikipedia.org and count mentions of encyclopedia`
+- `Check https://status.openai.com and summarize the page`
+- `Run captcha demo` (safe, local human-in-loop mock challenge)
+- `Run 2FA demo` (safe, local one-time-code handoff + resume)
+
+Manual Python run (no Docker):
+
+```bash
+cd demo/chat-demo
+python app.py
+```
+
+Deploy to Cloud Run (low-cost defaults):
+
+```bash
+cd demo/chat-demo
+PROJECT_ID=your-gcp-project REGION=us-central1 SERVICE=openclaw-demo-chat ./deploy_cloud_run.sh
 ```
 
 ### 3. Validate example automation specs
@@ -140,16 +272,28 @@ python -m openclaw_automation.cli run-query \
   --query "Search United award travel business from SFO to AMS,LIS,FCO for 2 travelers in next 30 days under 120k miles"
 ```
 
+No-login library automations:
+
+```bash
+python -m openclaw_automation.cli run \
+  --script-dir library/site_headlines \
+  --input '{"url":"https://www.yahoo.com","max_items":8}'
+
+python -m openclaw_automation.cli run \
+  --script-dir library/site_text_watch \
+  --input '{"url":"https://status.openai.com","must_include":["status"],"must_not_include":["outage"],"case_sensitive":false}'
+```
+
 ## OpenClaw integration model
 
-Scripts can call OpenClaw CLI (`openclaw browser ...`) or use a wrapper module. This kit does not hardcode a single OpenClaw strategy.
+Scripts can call OpenClaw CLI (`openclaw browser ...`) or use a wrapper module.
 
 ### OpenClaw-first, not OpenClaw-only
 
 This toolkit is intentionally portable: the core runner is not locked to one browser stack.
 You can run automations with OpenClaw, Playwright, or other browser drivers inside script runners.
 
-We still recommend OpenClaw as the default path because it gives a strong base for:
+We recommend OpenClaw as the default path because it gives a strong base for:
 - agent-friendly browser control
 - human-in-the-loop 2FA/CAPTCHA workflows
 - messaging-based checkpoints and resumes
@@ -181,6 +325,7 @@ Recommended pattern (design reference, not built into core engine yet):
 Also see:
 - [`docs/MESSAGING_HUMAN_LOOP_SETUP.md`](docs/MESSAGING_HUMAN_LOOP_SETUP.md)
 - [`docs/STARTER_EXAMPLES.md`](docs/STARTER_EXAMPLES.md)
+- [`docs/SCREENSHOT_LINKS.md`](docs/SCREENSHOT_LINKS.md)
 
 ## Security and credentials
 
@@ -246,6 +391,45 @@ Use the webhook output from the runner to integrate with:
 
 Read [`docs/NEW_AUTOMATION_PLAYBOOK.md`](docs/NEW_AUTOMATION_PLAYBOOK.md) for the recommended workflow to create production-grade new site automations.
 
+Promotion policy for community submissions:
+- start in `examples/`
+- promote to `library/` only after passing [`docs/AUTOMATION_PROMOTION.md`](docs/AUTOMATION_PROMOTION.md)
+
+### When do you need a custom script?
+
+Use built-in generic flows when the task is simple:
+- open a public page
+- extract text/headlines
+- check for required/forbidden phrases
+
+Create a custom script when any of these are true:
+- login/session state is required
+- site has dynamic multi-step UI behavior
+- filtering/sorting rules are specific to one site
+- 2FA/CAPTCHA checkpoints appear regularly
+- output needs domain-specific normalization (for example award fare rows)
+
+### How AI is used to get a script working
+
+The intended workflow is iterative:
+1. Ask an AI coding agent (Codex/Claude Code) to scaffold `examples/<name>`.
+2. Run the script with real prompts and inspect output/traces/screenshots.
+3. Ask the AI to patch selectors/steps/parsing based on those artifacts.
+4. Repeat until output is stable and schema-valid.
+5. Add tests + docs, then submit PR.
+6. Promote to `library/` only after promotion checks pass.
+
+In short: this toolkit gives structure, contracts, and debugging hooks so AI-assisted automation development can converge quickly instead of staying ad-hoc.
+
+### Community contribution path (for complex sites)
+
+1. Build first version in `examples/<automation_name>`.
+2. Run validation + tests + smoke checks.
+3. Include run evidence in PR (command + output excerpt).
+4. Promote to `library/` only after passing [`docs/AUTOMATION_PROMOTION.md`](docs/AUTOMATION_PROMOTION.md).
+
+This keeps shared automations trustworthy while still allowing fast community iteration.
+
 ## Marketplace skills
 
 This repository ships publishable OpenClaw skill folders:
@@ -254,6 +438,18 @@ This repository ships publishable OpenClaw skill folders:
 
 Publishing and release steps are documented in:
 - [`docs/OPENCLAW_MARKETPLACE.md`](docs/OPENCLAW_MARKETPLACE.md)
+
+## Release smoke tests (no login required)
+
+Manual:
+
+```bash
+./scripts/e2e_no_login_smoke.sh
+```
+
+CI:
+- GitHub Actions workflow: `E2E No-Login Smoke`
+- Runs lint/tests, manifest validation, public query path, and skill script smoke checks.
 
 ## Concurrency and queueing
 
@@ -290,7 +486,7 @@ See [`DISCLAIMER.md`](DISCLAIMER.md) and [`SECURITY.md`](SECURITY.md).
 <!-- AUTOMATION_STATUS:START -->
 ## Daily Automation Health
 
-_Last generated (UTC): 2026-02-13 04:08:34_
+_Last generated (UTC): 2026-02-13 15:21:32_
 
 | Automation | Location | Validate | Smoke | Status | Notes |
 |---|---|---|---|---|---|

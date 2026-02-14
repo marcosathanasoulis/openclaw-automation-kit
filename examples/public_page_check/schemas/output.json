@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
-  "required": ["summary", "url", "title", "keyword", "keyword_count"],
+  "required": ["summary", "url", "title", "task", "keyword", "keyword_count", "headlines"],
   "properties": {
     "summary": {
       "type": "string"
@@ -12,7 +12,16 @@
     "title": {
       "type": "string"
     },
+    "task": {
+      "type": "string"
+    },
     "highlights": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "headlines": {
       "type": "array",
       "items": {
         "type": "string"

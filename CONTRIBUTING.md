@@ -18,6 +18,14 @@
    - `pytest`
 4. Open PR with test evidence.
 
+## Promotion path (`examples` -> `library`)
+
+Use `examples/` for new automations first. Promote to `library/` only after passing the promotion gate in:
+
+- [`docs/AUTOMATION_PROMOTION.md`](docs/AUTOMATION_PROMOTION.md)
+
+If an approved `library/` automation regresses, demote it back to `examples/` until fixed.
+
 ## Provider/API adapter PR rules
 
 If your PR adds or changes LLM/provider integrations:
