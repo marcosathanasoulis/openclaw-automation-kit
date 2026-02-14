@@ -132,7 +132,7 @@ def _detect_script_dir(query: str) -> str:
     if "home page" in q or "homepage" in q:
         return "examples/public_page_check"
     for token, script_dir in AIRLINE_TO_SCRIPT.items():
-        if token in q:
+        if re.search(rf"\b{re.escape(token)}\b", q):
             return script_dir
     return "examples/public_page_check"
 

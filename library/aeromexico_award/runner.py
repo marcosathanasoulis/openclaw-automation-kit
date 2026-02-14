@@ -29,9 +29,7 @@ def _goal(inputs: Dict[str, Any]) -> str:
     origin = inputs["from"]
     destinations = inputs["to"]
     dest = destinations[0]
-    cabin = str(inputs.get("cabin", "economy"))
     days_ahead = int(inputs["days_ahead"])
-    max_miles = int(inputs["max_miles"])
     mid_days = max(7, days_ahead // 2)
     depart_date = date.today() + timedelta(days=mid_days)
     range_end = date.today() + timedelta(days=days_ahead)

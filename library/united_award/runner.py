@@ -41,8 +41,6 @@ def _goal(inputs: Dict[str, Any]) -> str:
     origin = inputs["from"]
     destinations = inputs["to"]
     dest = destinations[0]
-    travelers = int(inputs["travelers"])
-    cabin = str(inputs.get("cabin", "economy"))
     days_ahead = int(inputs["days_ahead"])
     max_miles = int(inputs["max_miles"])
     # Use midpoint of range so the date strip shows more of the window
@@ -77,9 +75,9 @@ def _goal(inputs: Dict[str, Any]) -> str:
         f"  2c. Click the 'From' field and type: {origin}",
         f"       Select '{origin}' from the dropdown.",
         f"  2d. Click the 'To' field and type: {dest}",
-        f"       Select the airport from the dropdown.",
+        "       Select the airport from the dropdown.",
         f"  2e. Click the date field and select {depart_date.strftime('%B %-d, %Y')}.",
-        f"       Navigate forward in the calendar if needed.",
+        "       Navigate forward in the calendar if needed.",
         "  2f. Click the 'Search' button.",
         "",
         "STEP 3 - WAIT FOR RESULTS:",
