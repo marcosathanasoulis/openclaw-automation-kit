@@ -1,6 +1,6 @@
 ---
 name: openclaw-web-automation
-description: Unified OpenClaw web automation skill. Supports basic public-site checks and advanced login/2FA-capable automations with credential refs.
+description: Automates web interactions for public checks and authenticated workflows, with credential references, human-mediated CAPTCHA handling, optional 2FA orchestration, and optional iMessage task-completion notifications.
 ---
 
 # OpenClaw Web Automation (Unified)

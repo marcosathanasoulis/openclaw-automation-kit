@@ -11,6 +11,11 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 
 ## Current Work
 
+- `codex/update-skill-description`
+  - Task: update marketplace skill description text and publish patch release.
+  - Files: `skills/openclaw-web-automation/SKILL.md`
+  - Status: complete (description updated; pending publish + merge)
+
 - `codex/fix-award-extraction-gap`
   - Added structured `MATCH|...` extraction path and fallback parsing.
   - Added no-login library automations:
