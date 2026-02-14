@@ -214,23 +214,23 @@ class TestValidateResult:
         assert valid is False
         assert "dollar" in reason.lower()
 
-    def test_aeromexico_valid_puntos(self):
-        result = {
-            "ok": True,
-            "result": {
-                "status": "success",
-                "result": "FLIGHT: 08:00-14:30 | 18,000 puntos | Directo",
-            },
-        }
-        valid, reason = validate_result("aeromexico", result, {})
-        assert valid is True
-
-    def test_aeromexico_pesos_invalid(self):
+    def test_aeromexico_valid_cash(self):
         result = {
             "ok": True,
             "result": {
                 "status": "success",
                 "result": "Vuelo MEX-CUN $2,500 MXN economia",
+            },
+        }
+        valid, reason = validate_result("aeromexico", result, {})
+        assert valid is True
+
+    def test_aeromexico_points_invalid(self):
+        result = {
+            "ok": True,
+            "result": {
+                "status": "success",
+                "result": "FLIGHT: 08:00-14:30 | 18,000 puntos | Directo",
             },
         }
         valid, reason = validate_result("aeromexico", result, {})
