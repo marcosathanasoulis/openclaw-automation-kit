@@ -268,7 +268,9 @@ def _run_hybrid(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, An
     cabin = str(inputs.get("cabin", "economy"))
     days_ahead = int(inputs["days_ahead"])
     max_miles = int(inputs["max_miles"])
-    depart_date = date.today() + timedelta(days=days_ahead)
+    # Use midpoint of range for broader calendar coverage
+    mid_days = max(7, days_ahead // 2)
+    depart_date = date.today() + timedelta(days=mid_days)
 
     # Phase 1: BrowserAgent login (short goal, ~20 steps max)
     observations.append("Phase 1: BrowserAgent login")
@@ -440,14 +442,18 @@ def _goal(inputs: Dict[str, Any]) -> str:
     cabin = str(inputs.get("cabin", "economy"))
     cabin_display = CABIN_MAP.get(cabin, cabin.title())
     days_ahead = int(inputs["days_ahead"])
-    depart_date = date.today() + timedelta(days=days_ahead)
+    # Use midpoint of range so the 7-day calendar shows more availability
+    mid_days = max(7, days_ahead // 2)
+    depart_date = date.today() + timedelta(days=mid_days)
+    range_end = date.today() + timedelta(days=days_ahead)
     month_display = depart_date.strftime("%B %Y")
     travelers = int(inputs["travelers"])
     max_miles = int(inputs["max_miles"])
 
     lines = [
-        f"Search for Singapore Airlines KrisFlyer award flights {origin} to {dest} "
-        f"around {month_display}, {cabin_display} class.",
+        f"Search for Singapore Airlines KrisFlyer award flights {origin} to {dest}, "
+        f"{cabin_display} class. Check availability from now through "
+        f"{range_end.strftime('%B %-d, %Y')} (starting around {month_display}).",
         "",
         "STEP 1 - LOGIN:",
         "Login with KrisFlyer number: 8814147288.",
@@ -463,10 +469,30 @@ def _goal(inputs: Dict[str, Any]) -> str:
         f"Set date to {depart_date.isoformat()}.",
         "Click Search.",
         "",
-        "STEP 4 - READ RESULTS:",
-        f"Report available flights under {max_miles:,} miles ({max_miles // travelers:,} per person).",
-        "Before calling done, note the current page URL from your browser.",
-        "Use the done action with your findings.",
+        "STEP 4 - SCAN CALENDAR:",
+        "After results load, look at the 7-day calendar strip showing availability.",
+        "Each day shows a miles price or dash (unavailable).",
+        "If you see right/left arrows, click RIGHT to see more dates.",
+        "Then: wait 3",
+        "Note ALL dates with availability (miles prices shown).",
+        "",
+        "STEP 5 - TAKE SCREENSHOT:",
+        "Your VERY NEXT ACTION must be: screenshot",
+        "",
+        "STEP 6 - REPORT AND DONE:",
+        "Your VERY NEXT ACTION must be: done",
+        "Report:",
+        "",
+        "A) CALENDAR DATES (list all dates with miles prices):",
+        "DATE: Mar 10 | XX,XXX miles (Saver/Advantage)",
+        "DATE: Mar 12 | XX,XXX miles (Saver/Advantage)",
+        "",
+        "B) SUMMARY:",
+        "- Cheapest business (Saver): [miles] on [date]",
+        "- Cheapest economy (if visible): [miles] on [date]",
+        "",
+        f"Focus on fares under {max_miles:,} miles ({max_miles // travelers:,} per person).",
+        "If no Saver awards, report Standard/Advantage pricing.",
     ]
     return "\n".join(lines)
 

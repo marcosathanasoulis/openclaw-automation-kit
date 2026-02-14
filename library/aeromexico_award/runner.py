@@ -32,13 +32,17 @@ def _goal(inputs: Dict[str, Any]) -> str:
     cabin = str(inputs.get("cabin", "economy"))
     days_ahead = int(inputs["days_ahead"])
     max_miles = int(inputs["max_miles"])
-    depart_date = date.today() + timedelta(days=days_ahead)
+    # Use midpoint of range so calendar shows more of the window
+    mid_days = max(7, days_ahead // 2)
+    depart_date = date.today() + timedelta(days=mid_days)
+    range_end = date.today() + timedelta(days=days_ahead)
     month_spanish = SPANISH_MONTHS[depart_date.month]
     day_num = depart_date.day
 
     lines = [
-        f"Book an AeroMexico award flight {origin} to {dest}, {cabin} class, "
-        f"{depart_date.strftime('%B %-d, %Y')}.",
+        f"Book an AeroMexico award flight {origin} to {dest}, {cabin} class. "
+        f"Check availability from now through {range_end.strftime('%B %-d, %Y')} "
+        f"(starting around {depart_date.strftime('%B %-d')}).",
         "",
         "THIS PAGE IS IN SPANISH. You are on the Spanish booking page (es-mx/reserva).",
         "The user is logged in ('Hola, Marcos' in top nav).",

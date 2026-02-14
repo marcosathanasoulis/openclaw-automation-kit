@@ -45,13 +45,17 @@ def _goal(inputs: Dict[str, Any]) -> str:
     cabin = str(inputs.get("cabin", "economy"))
     days_ahead = int(inputs["days_ahead"])
     max_miles = int(inputs["max_miles"])
-    depart_date = date.today() + timedelta(days=days_ahead)
+    # Use midpoint of range so the date strip shows more of the window
+    mid_days = max(7, days_ahead // 2)
+    depart_date = date.today() + timedelta(days=mid_days)
+    range_end = date.today() + timedelta(days=days_ahead)
 
     search_url = _booking_url(origin, dest, depart_date, cabin, travelers)
 
     lines = [
-        f"Search for United award flights {origin} to {dest} "
-        f"on {depart_date.strftime('%B %-d, %Y')}, {cabin} class.",
+        f"Search for United award flights {origin} to {dest}, {cabin} class. "
+        f"Check availability from now through {range_end.strftime('%B %-d, %Y')} "
+        f"(starting search near {depart_date.strftime('%B %-d')}).",
         "",
         "=== ACTION SEQUENCE (follow EXACTLY, step by step) ===",
         "",
@@ -78,12 +82,12 @@ def _goal(inputs: Dict[str, Any]) -> str:
         "",
         "STEP 4 - SWITCH TO MILES VIEW:",
         "Look at the 'Show price in:' dropdown near the top of the results.",
-        "If it already shows 'Miles', SKIP directly to STEP 7 (screenshot).",
+        "If it already shows 'Miles', SKIP directly to STEP 8 (screenshot).",
         "If it shows 'Money', click the dropdown and select 'Miles'.",
         "Then: wait 5",
         "",
         "STEP 5 - VERIFY MILES ARE SHOWING:",
-        "Look at the flight prices. If you see miles amounts (e.g. '80,000 miles'), go to STEP 7.",
+        "Look at the flight prices. If you see miles amounts (e.g. '80,000 miles'), go to STEP 8.",
         "If prices still show dollar amounts ($), click the blue 'Update' button to re-run the search.",
         "Then: wait 10",
         "IMPORTANT: Do NOT re-select Miles from the dropdown again. Just click Update once.",
@@ -93,19 +97,34 @@ def _goal(inputs: Dict[str, Any]) -> str:
         f"Re-enter the date {depart_date.strftime('%B %-d')} and click Update again.",
         "Then: wait 10",
         "",
-        "STEP 7 - TAKE SCREENSHOT:",
-        "Your VERY NEXT ACTION must be: screenshot",
-        "This will show the flight results with pure miles prices.",
+        "STEP 7 - SCAN DATE STRIP:",
+        "Look at the date strip/bar at the top of the results showing prices for nearby dates.",
+        "Each date shows a miles price underneath. Note the cheapest dates.",
+        "If you see left/right arrows on the date strip, click RIGHT arrow once to see more dates.",
+        "Then: wait 3",
         "",
-        "STEP 8 - REPORT AND DONE:",
+        "STEP 8 - TAKE SCREENSHOT:",
+        "Your VERY NEXT ACTION must be: screenshot",
+        "This captures the flight list AND the date strip with prices.",
+        "",
+        "STEP 9 - REPORT AND DONE:",
         "Your VERY NEXT ACTION must be: done",
-        "From the screenshot and page content, report ALL visible flights.",
-        "Format each flight as:",
+        "From the screenshot and page content, report:",
+        "",
+        "A) DATE STRIP PRICES (list ALL visible dates from the date bar):",
+        "DATE: Mon Mar 10 | XX,XXX miles",
+        "DATE: Tue Mar 11 | XX,XXX miles",
+        "(list every date shown with its miles price)",
+        "",
+        "B) FLIGHT LIST for the selected date:",
         f"FLIGHT: HH:MM-HH:MM | XX,XXX miles | Nonstop/1 stop | carrier | {cabin}",
         "",
+        "C) SUMMARY:",
+        "- Cheapest business: [miles] on [date]",
+        "- Cheapest economy (if visible): [miles] on [date]",
+        "",
         f"Focus on flights under {max_miles:,} miles.",
-        "If the page shows 'Sign in' instead of results, note that.",
-        "If miles prices aren't showing, report what IS visible.",
+        "If no saver awards, report dynamic/everyday pricing you see.",
         "",
         "=== CRITICAL WARNINGS ===",
         "- STEP 2 is MANDATORY. Always navigate to the direct URL.",
@@ -113,8 +132,8 @@ def _goal(inputs: Dict[str, Any]) -> str:
         "- If you see dollar prices after selecting Miles, click 'Update' button — do NOT re-select Miles.",
         "- Do NOT fill in the booking form from scratch. Use the direct URL first.",
         "- If a 'Sign in' popup appears, close it and continue.",
-        "- After taking your screenshot in STEP 7, IMMEDIATELY do 'done' in STEP 8.",
-        "- Follow steps 1-8 EXACTLY in order. Do not repeat steps.",
+        "- After taking your screenshot in STEP 8, IMMEDIATELY do 'done' in STEP 9.",
+        "- Follow steps 1-9 EXACTLY in order. Do not repeat steps.",
     ]
     return "\n".join(lines)
 
@@ -203,6 +222,41 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
                     "stops": stops,
                     "notes": line[:150],
                 })
+
+    # Pattern 3: "DATE: Mon Mar 10 | XX,XXX miles" (calendar strip entries)
+    date_pattern = re.compile(
+        r'DATE:.*?(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*\s+)?'
+        r'((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{1,2})'
+        r'.*?([\d,]+)\s*(?:miles|mi)',
+        re.IGNORECASE,
+    )
+    for line in result_text.split("\n"):
+        dm = date_pattern.search(line.strip())
+        if dm:
+            date_label = dm.group(1).strip()
+            miles = int(dm.group(2).replace(",", ""))
+            if 1000 <= miles <= max_miles:
+                # Try to parse the date
+                try:
+                    from datetime import datetime as dt
+                    parsed = dt.strptime(f"{date_label} {date.today().year}", "%b %d %Y")
+                    iso_date = parsed.strftime("%Y-%m-%d")
+                except ValueError:
+                    iso_date = depart_date.isoformat()
+                key = f"cal-{date_label}-{miles}"
+                if key not in seen:
+                    seen.add(key)
+                    matches.append({
+                        "route": f"{origin}-{dest}",
+                        "date": iso_date,
+                        "date_label": date_label,
+                        "miles": miles,
+                        "travelers": travelers,
+                        "cabin": cabin,
+                        "mixed_cabin": False,
+                        "source": "calendar_strip",
+                        "notes": line.strip()[:150],
+                    })
 
     # Fallback: raw miles extraction (skip combo pricing)
     if not matches:

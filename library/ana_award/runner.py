@@ -22,11 +22,16 @@ def _goal(inputs: Dict[str, Any]) -> str:
     cabin = str(inputs.get("cabin", "economy"))
     days_ahead = int(inputs["days_ahead"])
     max_miles = int(inputs["max_miles"])
-    depart_date = date.today() + timedelta(days=days_ahead)
+    # Use midpoint of range for broader calendar coverage
+    mid_days = max(7, days_ahead // 2)
+    depart_date = date.today() + timedelta(days=mid_days)
+    range_end = date.today() + timedelta(days=days_ahead)
     month_display = depart_date.strftime("%B %Y")
 
     lines = [
-        f"Search for ANA Mileage Club award flights {origin} to {dest} around {month_display}, {cabin} class.",
+        f"Search for ANA Mileage Club award flights {origin} to {dest}, {cabin} class. "
+        f"Check availability from now through {range_end.strftime('%B %-d, %Y')} "
+        f"(starting around {month_display}).",
         "",
         "STEP 1 - LOGIN (if needed):",
         "Check if already logged in (look for a name/welcome message).",
@@ -44,15 +49,34 @@ def _goal(inputs: Dict[str, Any]) -> str:
         "NOTE: ANA may default to round-trip. That is OK.",
         "Click Search.",
         "",
-        "STEP 3 - READ RESULTS:",
-        "After results load, read the available flights.",
-        "ANA shows miles per person. Report what you see.",
-        f"Note which flights are under {max_miles:,} miles total ({max_miles // travelers:,} per person).",
-        "If CAPTCHA appears, report stuck.",
-        "When done reading results, use the done action with your findings.",
+        "STEP 3 - SCAN CALENDAR:",
+        "After results load, look for the calendar/date view showing availability.",
+        "ANA shows a monthly calendar with available dates highlighted.",
+        "Note ALL dates that show availability and their miles prices.",
+        "If you can navigate forward to see more dates, do so once.",
+        "Then: wait 3",
         "",
-        "IMPORTANT: Before calling done, note the current page URL from your browser.",
-        "Include it in your response so we can generate a direct booking link.",
+        "STEP 4 - TAKE SCREENSHOT:",
+        "Your VERY NEXT ACTION must be: screenshot",
+        "",
+        "STEP 5 - REPORT AND DONE:",
+        "Your VERY NEXT ACTION must be: done",
+        "Report:",
+        "",
+        "A) CALENDAR DATES (list all dates with availability):",
+        "DATE: Mar 10 | XX,XXX miles (Regular/Low season)",
+        "DATE: Mar 15 | XX,XXX miles (Regular/Low season)",
+        "",
+        "B) FLIGHT LIST for selected date (if flight details are shown):",
+        "FLIGHT: HH:MM-HH:MM | XX,XXX miles | Nonstop/1 stop | cabin",
+        "",
+        "C) SUMMARY:",
+        "- Cheapest business: [miles] on [date]",
+        "- Cheapest economy (if visible): [miles] on [date]",
+        "",
+        f"ANA shows miles per person. Focus on fares under {max_miles:,} total "
+        f"({max_miles // travelers:,} per person).",
+        "If CAPTCHA appears, report stuck.",
     ]
     return "\n".join(lines)
 

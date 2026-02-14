@@ -227,6 +227,69 @@ def parse_agent_reply(reply: str) -> tuple[int, str | None]:
     return 0, "could not parse results"
 
 
+def extract_fare_summary(reply: str) -> str:
+    """Extract a brief fare summary from the agent's reply.
+
+    Looks for patterns like:
+    - "Best Value: 9,500 miles" or "cheapest: 9,500 miles"
+    - "Business: XX,XXX miles" / "Economy: XX,XXX miles"
+    - "Lowest: XX,XXX miles on March 15"
+    """
+    if not reply:
+        return ""
+
+    lines = []
+    reply_lower = reply.lower()
+
+    # Check for "no availability" first
+    if any(p in reply_lower for p in ["no award availability", "no availability found",
+                                       "didn't find any", "no award flights"]):
+        return "No award availability found"
+
+    # Extract business class info
+    biz_patterns = [
+        re.compile(r'(?:business|biz|first).*?(?:cheapest|lowest|best|from)\s*:?\s*([\d,]+)\s*(?:miles|pts|puntos|points)', re.IGNORECASE),
+        re.compile(r'(?:cheapest|lowest|best)\s+(?:business|biz|first).*?([\d,]+)\s*(?:miles|pts|puntos|points)', re.IGNORECASE),
+        re.compile(r'(?:best\s+value|lowest\s+fare).*?([\d,]+)\s*(?:miles|pts|puntos|points)', re.IGNORECASE),
+    ]
+    for pat in biz_patterns:
+        m = pat.search(reply)
+        if m:
+            lines.append(f"Biz: {m.group(1)} mi")
+            break
+
+    # Extract economy info
+    econ_patterns = [
+        re.compile(r'(?:economy|econ|main\s+cabin).*?(?:cheapest|lowest|best|from)\s*:?\s*([\d,]+)\s*(?:miles|pts|puntos|points)', re.IGNORECASE),
+        re.compile(r'(?:cheapest|lowest|best)\s+(?:economy|econ|main).*?([\d,]+)\s*(?:miles|pts|puntos|points)', re.IGNORECASE),
+    ]
+    for pat in econ_patterns:
+        m = pat.search(reply)
+        if m:
+            lines.append(f"Econ: {m.group(1)} mi")
+            break
+
+    # If we didn't match specific cabin patterns, try generic "X,XXX miles" with date
+    if not lines:
+        generic = re.compile(r'([\d,]+)\s*(?:miles|pts|puntos|points).*?(?:on|for)\s+(\w+\s+\d{1,2})', re.IGNORECASE)
+        matches = generic.findall(reply)
+        if matches:
+            # Take the first (usually cheapest/highlighted)
+            miles, date_str = matches[0]
+            lines.append(f"From {miles} mi ({date_str})")
+
+    # Also look for date-specific availability mentions
+    if not lines:
+        avail = re.compile(r'([\d,]+)\s*(?:miles|pts|puntos|points)', re.IGNORECASE)
+        all_fares = avail.findall(reply)
+        if all_fares:
+            fare_nums = [int(f.replace(",", "")) for f in all_fares if 1000 <= int(f.replace(",", "")) <= 500000]
+            if fare_nums:
+                lines.append(f"From {min(fare_nums):,} mi")
+
+    return " | ".join(lines) if lines else ""
+
+
 def run_airline_test_via_agent(test: dict) -> dict:
     """Run a single airline award search through the full AI assistant pipeline."""
     airline = test["airline"]
@@ -265,6 +328,7 @@ def run_airline_test_via_agent(test: dict) -> dict:
         }
 
     matches, error = parse_agent_reply(reply)
+    fare_summary = extract_fare_summary(reply)
 
     if error:
         return {
@@ -272,7 +336,8 @@ def run_airline_test_via_agent(test: dict) -> dict:
             "matches": 0,
             "elapsed_s": elapsed,
             "error": error,
-            "reply_snippet": reply[:200],
+            "reply_snippet": reply[:500],
+            "fare_summary": fare_summary,
         }
 
     return {
@@ -280,7 +345,8 @@ def run_airline_test_via_agent(test: dict) -> dict:
         "matches": matches,
         "elapsed_s": elapsed,
         "error": None,
-        "reply_snippet": reply[:200],
+        "reply_snippet": reply[:500],
+        "fare_summary": fare_summary,
     }
 
 
@@ -414,8 +480,13 @@ def send_imessage_report(results: dict, mode: str):
         elapsed = r.get("elapsed_s", 0)
         error = r.get("error")
 
+        fare_info = r.get("fare_summary", "")
+
         if status == "pass":
-            lines.append(f"\u2705 {airline.title()}: {matches} matches ({elapsed}s)")
+            detail = f"{matches} matches ({elapsed}s)"
+            if fare_info:
+                detail += f"\n   {fare_info}"
+            lines.append(f"\u2705 {airline.title()}: {detail}")
         elif status == "skip":
             lines.append(f"\u23f8\ufe0f {airline.title()}: skipped")
         else:

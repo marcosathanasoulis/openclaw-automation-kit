@@ -328,10 +328,10 @@ _Tested via: AI Assistant (full pipeline)_
 
 | Airline | Route | Status | Matches | Time | Last Run |
 |---------|-------|--------|---------|------|----------|
-| United | SFO→NRT | ✅ pass | 0 | 205s | 2026-02-13 18:09 |
-| Delta | SFO→JFK | ✅ pass | 2 | 89s | 2026-02-13 18:09 |
-| Singapore | SFO→SIN | ✅ pass | 0 | 202s | 2026-02-13 18:09 |
-| Aeromexico | SFO→MEX | ✅ pass | 1 | 163s | 2026-02-13 18:09 |
-| Ana | SFO→HND | ✅ pass | 0 | 170s | 2026-02-13 18:09 |
+| United | SFO→NRT | ✅ pass | 0 | 263s | 2026-02-13 20:16 |
+| Delta | SFO→BOS | ✅ pass | 2 | 140s | 2026-02-13 20:16 |
+| Singapore | SFO→BKK | ✅ pass | 0 | 128s | 2026-02-13 20:16 |
+| Aeromexico | SFO→MEX | ✅ pass | 1 | 160s | 2026-02-13 20:16 |
+| Ana | SFO→TYO | ✅ pass | 0 | 169s | 2026-02-13 20:16 |
 
-**Summary**: 5/5 passing | Last run: 2026-02-13 18:09 PST
+**Summary**: 5/5 passing | Last run: 2026-02-13 20:16 PST
