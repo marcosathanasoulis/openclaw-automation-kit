@@ -125,6 +125,26 @@ python -m openclaw_automation.cli run \
   --input '{"url":"https://www.yahoo.com","keyword":"news"}'
 ```
 
+### 2b. Demo Chat UI (Cloud Run ready)
+
+Run locally:
+
+```bash
+cd demo/chat-demo
+python app.py
+```
+
+Then open `http://localhost:8080` and try:
+- `Open https://www.yahoo.com and count mentions of news`
+- `Load https://www.wikipedia.org and check if encyclopedia appears`
+
+Deploy to Cloud Run (low-cost defaults):
+
+```bash
+cd demo/chat-demo
+PROJECT_ID=your-gcp-project REGION=us-central1 SERVICE=openclaw-demo-chat ./deploy_cloud_run.sh
+```
+
 ### 3. Validate example automation specs
 
 ```bash

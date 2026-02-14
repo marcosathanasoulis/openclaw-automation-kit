@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenClaw Demo Chat</title>
+    <style>
+      body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; background: #f5f7fb; }
+      .wrap { max-width: 900px; margin: 32px auto; background: #fff; border: 1px solid #d9e1ef; border-radius: 10px; }
+      .head { padding: 16px 20px; border-bottom: 1px solid #e4ebf7; font-weight: 700; }
+      .messages { height: 55vh; overflow: auto; padding: 16px 20px; white-space: pre-wrap; }
+      .msg { margin: 0 0 12px 0; }
+      .user { color: #143c8f; }
+      .bot { color: #1f2937; }
+      .controls { display: flex; gap: 8px; padding: 14px; border-top: 1px solid #e4ebf7; }
+      input { flex: 1; padding: 12px; border: 1px solid #c6d2e8; border-radius: 8px; }
+      button { padding: 12px 16px; border: 0; border-radius: 8px; background: #0b5fff; color: #fff; cursor: pointer; }
+      button:disabled { background: #8aaef8; cursor: not-allowed; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="head">OpenClaw Automation Demo</div>
+      <div id="messages" class="messages"></div>
+      <div class="controls">
+        <input id="query" placeholder='Try: Open https://www.yahoo.com and count mentions of news' />
+        <button id="send">Send</button>
+      </div>
+    </div>
+    <script>
+      const messages = document.getElementById("messages");
+      const query = document.getElementById("query");
+      const send = document.getElementById("send");
+
+      function add(cls, text) {
+        const p = document.createElement("div");
+        p.className = `msg ${cls}`;
+        p.textContent = text;
+        messages.appendChild(p);
+        messages.scrollTop = messages.scrollHeight;
+      }
+
+      async function runQuery() {
+        const text = query.value.trim();
+        if (!text) return;
+        query.value = "";
+        send.disabled = true;
+        add("user", `You: ${text}`);
+        try {
+          const res = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query: text }),
+          });
+          const data = await res.json();
+          if (!res.ok || !data.ok) {
+            add("bot", `Error: ${data.error || "request failed"}`);
+          } else {
+            add("bot", `Bot:\n${JSON.stringify(data.result, null, 2)}`);
+          }
+        } catch (err) {
+          add("bot", `Error: ${err.message}`);
+        } finally {
+          send.disabled = false;
+          query.focus();
+        }
+      }
+
+      send.addEventListener("click", runQuery);
+      query.addEventListener("keydown", (e) => { if (e.key === "Enter") runQuery(); });
+    </script>
+  </body>
+</html>
