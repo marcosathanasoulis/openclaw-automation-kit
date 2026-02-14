@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenClaw Automation Demo</title>
+    <style>
+      body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; background: #f2f5fb; color: #1a2333; }
+      .app { max-width: 1080px; margin: 20px auto; display: grid; grid-template-columns: 280px 1fr; gap: 16px; }
+      .card { background: #fff; border: 1px solid #dce6f8; border-radius: 12px; }
+      .sidebar { padding: 16px; }
+      .sidebar h2 { margin: 0 0 12px 0; font-size: 18px; }
+      .sidebar p { margin: 0 0 10px 0; font-size: 14px; line-height: 1.4; }
+      .flow { margin: 10px 0 12px 0; padding: 10px; border-radius: 8px; background: #fffdf2; border: 1px solid #f2e4a0; font-size: 12px; line-height: 1.45; }
+      .ex { margin: 6px 0; padding: 8px; border-radius: 8px; background: #f6f9ff; border: 1px solid #e2ebfd; font-size: 13px; cursor: pointer; }
+      .chat { display: flex; flex-direction: column; min-height: 72vh; }
+      .head { padding: 14px 18px; border-bottom: 1px solid #e3ebfa; font-weight: 700; }
+      .messages { flex: 1; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+      .bubble { max-width: 88%; padding: 10px 12px; border-radius: 10px; white-space: pre-wrap; line-height: 1.4; }
+      .user { align-self: flex-end; background: #0b5fff; color: #fff; }
+      .bot { align-self: flex-start; background: #f4f7fe; border: 1px solid #dbe5fa; }
+      .controls { display: flex; gap: 8px; padding: 12px; border-top: 1px solid #e3ebfa; }
+      input { flex: 1; padding: 12px; border: 1px solid #c5d5f3; border-radius: 8px; font-size: 14px; }
+      button { padding: 12px 16px; border: 0; border-radius: 8px; background: #0b5fff; color: #fff; cursor: pointer; }
+      button:disabled { background: #8aaef8; cursor: not-allowed; }
+      details { margin-top: 8px; font-size: 12px; }
+      pre { max-height: 220px; overflow: auto; background: #0d1526; color: #dbe7ff; border-radius: 8px; padding: 10px; }
+      @media (max-width: 900px) { .app { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="card sidebar">
+        <h2>Browser Automation Chat</h2>
+        <p>Tell me a browser automation to run. This demo routes your prompt through the same automation engine used by the OpenClaw skill.</p>
+        <div class="flow">
+          <strong>How this maps to OpenClaw:</strong><br />
+          1) OpenClaw (or this demo) sends a natural-language task.<br />
+          2) The kit picks the right automation and runs it.<br />
+          3) If a challenge appears, run pauses and asks for human input.<br />
+          4) If you wire iMessage/WhatsApp/email connectors, the code/challenge can be fetched from that channel and sent back automatically to resume.
+        </div>
+        <p><strong>Try examples:</strong></p>
+        <div class="ex" data-q="Check yahoo.com and tell me the top headlines">Check yahoo.com and tell me the top headlines</div>
+        <div class="ex" data-q="Open https://www.wikipedia.org and count mentions of encyclopedia">Open wikipedia and count 'encyclopedia'</div>
+        <div class="ex" data-q="Check https://status.openai.com and summarize the page">Summarize status.openai.com</div>
+        <div class="ex" data-q="Run headlines demo">Run headlines demo</div>
+        <div class="ex" data-q="Run text watch demo">Run text watch demo</div>
+        <div class="ex" data-q="Run captcha demo">Run captcha demo</div>
+        <div class="ex" data-q="Run 2FA demo">Run 2FA demo</div>
+      </aside>
+      <section class="card chat">
+        <div class="head">OpenClaw Demo Chat</div>
+        <div id="messages" class="messages"></div>
+        <div class="controls">
+          <input id="query" placeholder="Tell me a browser automation to run..." />
+          <button id="send">Run</button>
+        </div>
+      </section>
+    </div>
+    <script>
+      const messages = document.getElementById("messages");
+      const query = document.getElementById("query");
+      const send = document.getElementById("send");
+
+      function addUser(text) {
+        const div = document.createElement("div");
+        div.className = "bubble user";
+        div.textContent = text;
+        messages.appendChild(div);
+        messages.scrollTop = messages.scrollHeight;
+      }
+
+      function addBot(text, raw, imageUrl, actionUrl) {
+        const div = document.createElement("div");
+        div.className = "bubble bot";
+        div.textContent = text;
+        if (imageUrl) {
+          const img = document.createElement("img");
+          img.src = imageUrl;
+          img.alt = "Challenge screenshot";
+          img.style.maxWidth = "100%";
+          img.style.marginTop = "8px";
+          img.style.borderRadius = "8px";
+          div.appendChild(img);
+        }
+        if (actionUrl) {
+          const a = document.createElement("a");
+          a.href = actionUrl;
+          a.textContent = "Open simulated inbox";
+          a.style.display = "block";
+          a.style.marginTop = "8px";
+          a.target = "_blank";
+          div.appendChild(a);
+        }
+        if (raw) {
+          const d = document.createElement("details");
+          const s = document.createElement("summary");
+          s.textContent = "Raw JSON";
+          const p = document.createElement("pre");
+          p.textContent = JSON.stringify(raw, null, 2);
+          d.appendChild(s);
+          d.appendChild(p);
+          div.appendChild(d);
+        }
+        messages.appendChild(div);
+        messages.scrollTop = messages.scrollHeight;
+      }
+
+      async function runQuery() {
+        const text = query.value.trim();
+        if (!text) return;
+        query.value = "";
+        send.disabled = true;
+        addUser(text);
+        try {
+          const res = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query: text }),
+          });
+          const data = await res.json();
+          if (!res.ok || !data.ok) {
+            addBot(`Error: ${data.error || "request failed"}`);
+          } else {
+            addBot(
+              data.assistant_text || "Done",
+              data.result || data,
+              data.challenge_image_url || null,
+              data.twofa_inbox_url || null
+            );
+          }
+        } catch (err) {
+          addBot(`Error: ${err.message}`);
+        } finally {
+          send.disabled = false;
+          query.focus();
+        }
+      }
+
+      send.addEventListener("click", runQuery);
+      query.addEventListener("keydown", (e) => { if (e.key === "Enter") runQuery(); });
+      document.querySelectorAll(".ex").forEach((el) => {
+        el.addEventListener("click", () => {
+          query.value = el.dataset.q;
+          query.focus();
+        });
+      });
+      addBot("Ready. Try one of the example prompts on the left, or type your own browser automation request.");
+    </script>
+  </body>
+</html>

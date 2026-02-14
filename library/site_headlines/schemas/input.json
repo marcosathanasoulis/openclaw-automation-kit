@@ -8,14 +8,11 @@
       "type": "string",
       "format": "uri"
     },
-    "keyword": {
-      "type": "string",
-      "default": "mental"
-    },
-    "task": {
-      "type": "string",
-      "enum": ["keyword_count", "headlines", "summary"],
-      "default": "keyword_count"
+    "max_items": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20,
+      "default": 8
     }
   }
 }

@@ -7,8 +7,11 @@ from openclaw_automation.engine import AutomationEngine
 
 
 class _FakeBrowserAgent:
+    last_kwargs = None
+
     def __init__(self, **kwargs):
         self.kwargs = kwargs
+        _FakeBrowserAgent.last_kwargs = kwargs
 
     def run(self):
         return {
@@ -55,3 +58,19 @@ def test_united_runner_uses_browser_agent_when_enabled(monkeypatch):
     )
     assert result["ok"] is True
     assert result["result"]["matches"]
+
+
+def test_adapter_allows_env_to_disable_trace(monkeypatch):
+    fake_module = types.SimpleNamespace(BrowserAgent=_FakeBrowserAgent)
+    monkeypatch.setenv("OPENCLAW_BROWSER_AGENT_MODULE", "fake_browser_agent")
+    monkeypatch.setenv("OPENCLAW_BROWSER_TRACE", "false")
+    monkeypatch.setitem(sys.modules, "fake_browser_agent", fake_module)
+    run_browser_agent_goal(
+        goal="test goal",
+        url="https://example.com",
+        max_steps=3,
+        trace=True,
+        use_vision=False,
+    )
+    assert _FakeBrowserAgent.last_kwargs is not None
+    assert _FakeBrowserAgent.last_kwargs["trace"] is False

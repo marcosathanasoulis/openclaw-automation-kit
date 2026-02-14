@@ -17,7 +17,11 @@ def _goal(inputs: Dict[str, Any]) -> str:
         f"Travelers: {inputs['travelers']}. "
         f"Cabin: {inputs.get('cabin', 'economy')}. "
         f"Days ahead: {inputs['days_ahead']}. "
-        f"Max miles: {inputs['max_miles']}."
+        f"Max miles: {inputs['max_miles']}. "
+        "When you finish, respond with ONLY lines in this exact format: "
+        "MATCH|YYYY-MM-DD|MILES|TAXES|STOPS|CARRIER|NOTES. "
+        "If you cannot determine a value, use 'unknown'. "
+        "Only include matches at or under max miles."
     )
 
 

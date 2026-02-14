@@ -83,6 +83,73 @@ Both agents can now run browser tests in parallel on different machines. CDPLock
 4. **Credential proxy** — needed for Ubuntu to fetch credentials from Mac Mini keychain
 5. **Daily regression** — script exists (`scripts/collect_automation_status.py --write-readme`) but needs browser test integration
 
+---
+
+## Codex update (2026-02-13)
+
+- Pulled latest `main` on local and Mac Mini.
+- Merged PRs:
+  - `#2` hardening (placeholder signaling, output validation, parser/docs updates)
+  - `#3` adapter deadlock fix (no duplicate lock acquisition)
+- Current live test status (Mac Mini):
+  - United via public engine path: **completed** (BrowserAgent run finished, trace emitted)
+  - Singapore via public engine path: **running**
+  - ANA via public engine path: **pending**
+- CDP coordination:
+  - One run at a time only.
+  - Respect `/tmp/browser_cdp.lock` ownership and avoid parallel launches.
+
+## Codex update (2026-02-13, later)
+
+- Extraction gap mitigation pushed on branch `codex/fix-award-extraction-gap`:
+  - `src/openclaw_automation/result_extract.py`
+  - `library/united_award/runner.py`
+  - `library/singapore_award/runner.py`
+  - `library/ana_award/runner.py`
+  - `tests/test_result_extract.py`
+- Change details:
+  - runners now instruct BrowserAgent to return strict `MATCH|...` lines
+  - parser now prioritizes `MATCH|...` format, then falls back to legacy patterns
+  - additional fallback parses standalone `130,000 miles` style mentions
+- Validation:
+  - local tests: `22 passed`
+
+## Parallel CDP endpoint on home-mind.local
+
+- Chromium headless CDP endpoint is now runnable on Ubuntu host as a second automation target.
+- Launch command (already validated):
+  ```bash
+  nohup /snap/bin/chromium --headless=new --disable-gpu \
+    --remote-debugging-address=127.0.0.1 --remote-debugging-port=9223 \
+    --user-data-dir=/home/marcos/snap/chromium/common/openclaw/profile-9223 \
+    about:blank >/home/marcos/snap/chromium/common/openclaw/logs/chromium-9223.log 2>&1 &
+  ```
+- Health check:
+  ```bash
+  curl -sS http://127.0.0.1:9223/json/version
+  ```
+- Note: for cross-machine usage, either run automation directly on `home-mind.local` or tunnel `9223`; current bind is loopback for safety.
+
+### Current caveat (observed in live run)
+
+- United live run on `home-mind.local` (headless Chromium `:9223`) fails during navigation with:
+  - `net::ERR_HTTP2_PROTOCOL_ERROR`
+- BrowserAgent exits `stuck` after retries; no matches extracted.
+- Practical implication:
+  - keep award-search live runs on mac-mini Chrome for now.
+  - home-mind CDP is still useful for generic/public-page automations and non-HTTP2-problem sites.
+
+## New-user installability check
+
+- Fresh-user smoke test passed for no-credential query flow:
+  - fresh clone + venv + `pip install -e .`
+  - `run-query` against Yahoo returns live result.
+- `clawhub install openclaw-web-automation-basic` currently fails with `Skill not found` (publish step still pending).
+- Added guardrails in both skill scripts:
+  - `skills/openclaw-web-automation-basic/scripts/run_query.py`
+  - `skills/openclaw-award-search/scripts/run_query.py`
+  - behavior: detect repo root automatically; if missing, return clear setup message (`OPENCLAW_AUTOMATION_ROOT`, `pip install -e .`).
+
 ## Coordination Rules
 1. Check INPROCESS.md and HANDOFF.md before starting work
 2. Pull latest before making changes

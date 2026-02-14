@@ -131,6 +131,15 @@ def _extract_keyword(query: str, default: str = "news") -> str:
     return default
 
 
+def _extract_public_task(query: str) -> str:
+    q = query.lower()
+    if any(token in q for token in ["headline", "headlines", "top stories", "top news"]):
+        return "headlines"
+    if any(token in q for token in ["summarize", "summary", "what is this page about"]):
+        return "summary"
+    return "keyword_count"
+
+
 def _extract_airport_codes(query: str) -> List[str]:
     codes = re.findall(r"\b[A-Z]{3}\b", query)
     known = [code for code in codes if code in KNOWN_AIRPORT_CODES]
@@ -190,8 +199,9 @@ def parse_query_to_run(query: str) -> ParsedQuery:
     if script_dir == "examples/public_page_check":
         url = _extract_url(query) or "https://www.yahoo.com"
         keyword = _extract_keyword(query, default="news")
-        inputs = {"url": url, "keyword": keyword}
-        notes = [f"script={script_dir}", f"url={url}", f"keyword={keyword}"]
+        task = _extract_public_task(query)
+        inputs = {"url": url, "keyword": keyword, "task": task}
+        notes = [f"script={script_dir}", f"url={url}", f"keyword={keyword}", f"task={task}"]
     elif "award" in script_dir:
         inputs = {
             "from": from_code,
@@ -209,4 +219,3 @@ def parse_query_to_run(query: str) -> ParsedQuery:
 
 def resolve_script_dir(root: Path, script_dir: str) -> Path:
     return (root / script_dir).resolve()
-

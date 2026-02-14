@@ -20,3 +20,20 @@ def test_extract_award_matches_from_text_filters_by_max_miles() -> None:
     assert matches[0]["miles"] == 80000
     assert matches[0]["route"] == "SFO-CDG"
 
+
+def test_extract_award_matches_from_match_line_format() -> None:
+    text = (
+        "MATCH|2026-03-02|80000|29.50|1 stop|Lufthansa|overnight\n"
+        "MATCH|2026-03-03|130000|5.60|nonstop|United|over budget\n"
+    )
+    matches = extract_award_matches_from_text(
+        text,
+        route="SFO-AMS",
+        cabin="business",
+        travelers=2,
+        max_miles=120000,
+    )
+    assert len(matches) == 1
+    assert matches[0]["date"] == "2026-03-02"
+    assert matches[0]["miles"] == 80000
+    assert matches[0]["source"] == "match_line"
