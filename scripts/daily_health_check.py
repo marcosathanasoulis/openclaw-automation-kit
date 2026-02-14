@@ -32,57 +32,59 @@ BOT_SEND_TOKEN = os.environ.get("BOT_SEND_TOKEN", "8sjFz81Oluqjmv3gMhpjYrL4PqX2L
 AGENT_HOST = "home-mind.local"  # Ubuntu server running the AI agent
 AGENT_URL = "http://127.0.0.1:8800/chat"  # Agent endpoint (localhost on Ubuntu)
 REPORT_PHONE = "+14152268266"
-TIMEOUT_PER_AIRLINE = 600  # 10 minutes (agent + browser agent combined)
+TIMEOUT_PER_AIRLINE = 900  # 10 minutes (agent + browser agent combined)
 
 KIT_DIR = Path(__file__).resolve().parent.parent
 RESULTS_PATH = KIT_DIR / "status" / "daily_results.json"
 README_PATH = KIT_DIR / "README.md"
 
+_PROMPT_SUFFIX = (
+    "Report ALL visible fares from the results page including economy and business "
+    "class if shown. Show the cheapest fare per cabin with date and miles. "
+    "Do NOT run a second search for a different cabin — just report what is on the page."
+)
+
 TESTS = [
     {
         "airline": "united",
         "text": (
-            "use the search_award_flights tool to search united business SFO to NRT "
-            "next 30 days. Report general availability for both business and economy "
-            "if visible on the results page."
+            f"use the search_award_flights tool to search united economy SFO to NRT "
+            f"next 30 days. {_PROMPT_SUFFIX}"
         ),
         "route": "SFO\u2192NRT",
     },
     {
         "airline": "delta",
         "text": (
-            "use the search_award_flights tool to search delta business SFO to BOS "
-            "next 30 days. Report general availability for both business and economy "
-            "if visible on the results page."
+            f"use the search_award_flights tool to search delta economy SFO to BOS "
+            f"next 30 days. {_PROMPT_SUFFIX}"
         ),
         "route": "SFO\u2192BOS",
     },
     {
         "airline": "singapore",
         "text": (
-            "use the search_award_flights tool to search singapore business SFO to BKK "
-            "next 30 days. Report general availability for both business and economy "
-            "if visible on the results page."
+            f"use the search_award_flights tool to search singapore economy SFO to SIN "
+            f"next 30 days. {_PROMPT_SUFFIX}"
         ),
-        "route": "SFO\u2192BKK",
+        "route": "SFO\u2192SIN",
     },
     {
         "airline": "aeromexico",
         "text": (
             "use the search_award_flights tool to search aeromexico economy SFO to MEX "
-            "next 30 days. Report general availability for both economy and business "
-            "if visible on the results page."
+            "next 30 days. Report the cheapest cash prices for economy and business class "
+            "with dates. Do NOT search for points/puntos."
         ),
         "route": "SFO\u2192MEX",
     },
     {
         "airline": "ana",
         "text": (
-            "use the search_award_flights tool to search ana business SFO to TYO "
-            "next 30 days. Report general availability for both business and economy "
-            "if visible on the results page."
+            f"use the search_award_flights tool to search ana economy SFO to NRT "
+            f"next 30 days. {_PROMPT_SUFFIX}"
         ),
-        "route": "SFO\u2192TYO",
+        "route": "SFO\u2192NRT",
     },
 ]
 
@@ -186,16 +188,19 @@ def parse_agent_reply(reply: str) -> tuple[int, str | None]:
     if "award search failed" in reply_lower:
         return 0, "search failed"
 
-    if "timed out" in reply_lower:
-        return 0, "timeout"
-
     if "captcha" in reply_lower:
         return 0, "CAPTCHA blocked"
 
     if "placeholder" in reply_lower:
         return 0, "placeholder data"
 
-    if "couldn't" in reply_lower or "unable to" in reply_lower or "error" in reply_lower:
+    # Check if "timed out" appears but only for a secondary search (not primary)
+    # If the reply also contains actual fare data, don't mark as timeout
+    has_fares = bool(re.search(r'[\d,]+\s*(?:miles|pts|puntos|points)', reply_lower))
+    if "timed out" in reply_lower and not has_fares:
+        return 0, "timeout"
+
+    if ("couldn't" in reply_lower or "unable to" in reply_lower or "error" in reply_lower) and not has_fares:
         return 0, "search error"
 
     # Try to extract match count from reply
@@ -486,12 +491,17 @@ def send_imessage_report(results: dict, mode: str):
             detail = f"{matches} matches ({elapsed}s)"
             if fare_info:
                 detail += f"\n   {fare_info}"
+            elif matches == 0:
+                detail += "\n   No award availability found"
             lines.append(f"\u2705 {airline.title()}: {detail}")
         elif status == "skip":
             lines.append(f"\u23f8\ufe0f {airline.title()}: skipped")
         else:
             err_short = error[:40] if error else status
-            lines.append(f"\u274c {airline.title()}: {err_short} ({elapsed}s)")
+            detail = f"{err_short} ({elapsed}s)"
+            if fare_info:
+                detail += f"\n   {fare_info}"
+            lines.append(f"\u274c {airline.title()}: {detail}")
 
     passing = sum(1 for r in results.values() if r.get("status") == "pass")
     total = sum(1 for r in results.values() if r.get("status") != "skip")

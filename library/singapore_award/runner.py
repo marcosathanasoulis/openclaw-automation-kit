@@ -71,7 +71,7 @@ def _fill_form_and_search(
     dest_name = CITY_NAMES.get(dest, dest)
     cabin_display = CABIN_MAP.get(cabin, cabin.title())
     month_display = depart_date.strftime("%B %Y")
-    date_str = depart_date.strftime("%Y-%m-01")
+    date_str = depart_date.strftime("%Y-%m-%d")  # Use actual date, not day 01
     errors: List[str] = []
 
     try:
@@ -79,6 +79,15 @@ def _fill_form_and_search(
         page.wait_for_selector("form.redeem-flight", timeout=15000)
     except Exception:
         return {"ok": False, "error": "Form not found after login", "errors": ["form.redeem-flight not found"]}
+
+    # Dismiss cookie popup if present
+    try:
+        cookie_btn = page.locator("button:has-text('Accept'), button:has-text('OK'), .dwc--SiaCookie__PopupClose, [aria-label='Close cookie']")
+        if cookie_btn.count() > 0:
+            cookie_btn.first.click(timeout=3000)
+            time.sleep(1)
+    except Exception:
+        pass  # No cookie popup
 
     try:
         # --- Origin field ---

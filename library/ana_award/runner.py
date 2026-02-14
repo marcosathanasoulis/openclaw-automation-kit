@@ -6,7 +6,8 @@ from typing import Any, Dict, List
 
 from openclaw_automation.browser_agent_adapter import browser_agent_enabled, run_browser_agent_goal
 
-ANA_URL = "https://aswbe-i.ana.co.jp/international_asw/pages/award/search/roundtrip/award_search_roundtrip_input.xhtml?CONNECTION_KIND=JPN&LANG=en"
+# Use the English/US path — less bot-sensitive per LEARNINGS.md
+ANA_URL = "https://www.ana.co.jp/en/us/amc/mileage-reservation/"
 
 
 def _booking_url() -> str:
@@ -76,7 +77,12 @@ def _goal(inputs: Dict[str, Any]) -> str:
         "",
         f"ANA shows miles per person. Focus on fares under {max_miles:,} total "
         f"({max_miles // travelers:,} per person).",
-        "If CAPTCHA appears, report stuck.",
+        "",
+        "CAPTCHA HANDLING:",
+        "If a CAPTCHA appears (image selection, reCAPTCHA, etc.):",
+        "  1. Take a screenshot immediately.",
+        "  2. Report stuck with message: 'CAPTCHA appeared - screenshot taken'.",
+        "  The system will send the screenshot to the user to solve manually.",
     ]
     return "\n".join(lines)
 
