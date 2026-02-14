@@ -363,6 +363,10 @@ Use the webhook output from the runner to integrate with:
 
 Read [`docs/NEW_AUTOMATION_PLAYBOOK.md`](docs/NEW_AUTOMATION_PLAYBOOK.md) for the recommended workflow to create production-grade new site automations.
 
+Promotion policy for community submissions:
+- start in `examples/`
+- promote to `library/` only after passing [`docs/AUTOMATION_PROMOTION.md`](docs/AUTOMATION_PROMOTION.md)
+
 ## Marketplace skills
 
 This repository ships publishable OpenClaw skill folders:
