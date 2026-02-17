@@ -21,7 +21,7 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 - `codex/agent-ci-gate-rules`
   - Task: update agent instruction files to require branch isolation and mandatory CI fixes before handoff/merge.
   - Files: `AGENTS.md`, `CLAUDE.md`, `codex.md`, `INPROCESS.md`
-  - Status: active
+  - Status: complete (`ruff check .` clean; `pytest` 30 passed)
 
 - `codex/skill-confidence-v106`
   - Task: harden marketplace-facing skill docs for trust boundaries and safe defaults.
