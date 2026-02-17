@@ -1,63 +1,103 @@
-# AGENTS.md
+# OpenClaw Automation Kit — Agent Instructions
 
-Operational rules for human + AI multi-agent collaboration in this repository.
-
-## Branching (required)
-
-- Never work directly on `main`.
-- Every change must start from a new branch.
-- Branch names:
-  - `codex/<topic>` for Codex
-  - `claude/<topic>` for Claude
-  - `gemini/<topic>` for Gemini
-  - human developers may use any clear prefix.
-
-## Coordination files
-
-- `INPROCESS.md`: short-lived operational status (locks, active runs, who is doing what now).
-- `HANDOFF.md`: durable cross-agent context and decisions.
-
-Before starting work:
-1. `git checkout main && git pull --ff-only`
-2. Create a new branch.
-3. Read `INPROCESS.md` and `HANDOFF.md`.
-
-During work:
-- Update `INPROCESS.md` when taking/releasing shared resources.
-- Add durable findings to `HANDOFF.md`.
-- Commit and push frequently so other agents can pull.
-
-## Shared resource locking
-
-- Browser/CDP resources must not be used concurrently on the same endpoint.
-- Respect `/tmp/browser_cdp.lock` and existing lock conventions.
-- If lock is busy, work on non-lock tasks (tests/docs/parsers) until free.
-
-## Code quality gates (before opening/updating PR)
-
-Run locally:
-
+## Getting Latest Code
 ```bash
-ruff check .
-pytest -q
-./scripts/e2e_no_login_smoke.sh
+cd ~/openclaw-automation-kit && git pull origin main
+```
+Always pull before making changes to avoid conflicts.
+
+## Architecture: Two Browser Runners
+
+The system has two machines that can run browser automation:
+
+### Mac Mini (primary) — `marcoss-mac-mini.local`
+- **Chrome CDP**: port 9222 (real Chrome with user profile)
+- **Kit path**: `~/openclaw-automation-kit/`
+- **Credentials**: macOS automation keychain (`~/Library/Keychains/automation.keychain-db`)
+- **SMS 2FA**: Direct access to `~/Library/Messages/chat.db`
+- **CDPLock**: `/tmp/browser_cdp.lock` — file-based lock to prevent concurrent browser use
+- **Start Chrome**: `/tmp/launch_chrome_cdp.sh`
+
+### Home-mind (secondary) — `home-mind.local` (Ubuntu)
+- **Chrome CDP**: port 9226 (real Chrome via Xvfb on display :99)
+- **Kit path**: `~/openclaw-automation-kit/`
+- **Credentials**: File-based at `~/.credentials.json` (add new sites here)
+- **SMS 2FA**: Via SSH to Mac Mini (`/tmp/read_sms_code.py`)
+- **CDPLock**: `/tmp/browser_cdp.lock`
+- **Start Chrome**: `/tmp/start_chrome_real.sh`
+
+## Runner Selection (automatic)
+
+The AI agent on home-mind (`src/agent/tools.py`) automatically picks the runner:
+
+1. Checks Mac Mini's `/tmp/browser_cdp.lock` via SSH
+2. If lock exists and PID is alive → Mac Mini is **busy** → runs locally on home-mind
+3. If no lock or stale lock → Mac Mini is **free** → SSHes search to Mac Mini
+4. If Mac Mini unreachable → falls back to home-mind
+
+Function: `_pick_browser_runner()` in `src/agent/tools.py`
+
+## CDPLock Protocol
+
+**CRITICAL**: Only one BrowserAgent can use Chrome at a time per machine.
+
+- Lock file: `/tmp/browser_cdp.lock`
+- Contains: `{"pid": 12345, "started": "2026-02-16T20:31:25"}`
+- The BrowserAgent acquires the lock on start and releases on exit
+- If you see a lock from a dead PID, it's safe to delete
+- **Never run two browser automations on the same Chrome simultaneously**
+
+## Key Config (.env)
+
+Each machine's `~/openclaw-automation-kit/.env` must have:
+```
+OPENCLAW_USE_BROWSER_AGENT=true
+OPENCLAW_BROWSER_AGENT_PATH=/path/to/src/browser
+OPENCLAW_CDP_URL=http://127.0.0.1:<port>
+ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-## Security and data handling
+Mac Mini uses port 9222, home-mind uses port 9226.
 
-- Never commit secrets, tokens, personal phone numbers, or real credentials.
-- Use `credential_refs` only.
-- Keep public demos sandboxed.
-- No anti-bot bypass techniques.
+## Running a Search
 
-## PR and merge flow
+```bash
+cd ~/openclaw-automation-kit
+set -a && source .env && set +a
+.venv/bin/python -m openclaw_automation.cli run-query \
+  --query "Search United business SFO to SIN June 30 for 2 people under 250k miles"
+```
 
-- Open PR from your branch to `main`.
-- Resolve conflicts locally (do not overwrite other agents' work blindly).
-- Merge only after required checks pass.
+## Adding Credentials for Home-mind
 
-## Automation contribution policy
+Home-mind uses `~/.credentials.json` instead of macOS keychain:
+```json
+{
+  "www.united.com": {"user": "ka388724", "password": "..."},
+  "www.delta.com": {"user": "9396260433", "password": "..."}
+}
+```
 
-- New automations start in `examples/`.
-- Promote to `library/` only after passing `docs/AUTOMATION_PROMOTION.md`.
-- Include test evidence in PR.
+## Airline Runners
+
+Located in `library/<airline>_award/runner.py`. Each has:
+- `_goal()` — generates step-by-step instructions for the BrowserAgent
+- `run()` — entry point called by the engine
+- `_parse_matches()` or uses `result_extract.py` for parsing
+
+### United (`library/united_award/runner.py`)
+- Login: MileagePlus ka388724, SMS 2FA from sender 26266
+- Approach: Cash URL first → click "Money + Miles" tab → re-enter date → Update
+- "Remember me" checkbox instruction included in login goal
+
+### Singapore Airlines (`library/singapore_award/runner.py`)
+- Hybrid: BrowserAgent login + Playwright form fill + scrape
+- KrisFlyer 8814147288, Akamai CAPTCHA risk
+
+### Delta, AeroMexico, ANA, JetBlue
+- See individual runner.py files for details
+
+## Git Workflow
+- **Branch**: work on `main` for kit changes
+- **Commit**: include what changed and test results
+- **Push**: `git push origin main` — both machines pull from GitHub
