@@ -537,55 +537,76 @@ def _run_agent_only(inputs: Dict[str, Any], observations: List[str]) -> Dict[str
     }
 
 
-def _goal(inputs: Dict[str, Any]) -> str:
+def _goal(inputs):
     """Build goal for agent-only fallback mode."""
     origin = inputs["from"]
     dest = inputs["to"][0]
     cabin = str(inputs.get("cabin", "economy"))
     cabin_display = CABIN_MAP.get(cabin, cabin.title())
     days_ahead = int(inputs["days_ahead"])
-    mid_days = days_ahead
-    depart_date = date.today() + timedelta(days=mid_days)
-    range_end = date.today() + timedelta(days=days_ahead)
+    depart_date = date.today() + timedelta(days=days_ahead)
     travelers = int(inputs["travelers"])
     max_miles = int(inputs["max_miles"])
 
+    origin_name = CITY_NAMES.get(origin, origin)
+    dest_name = CITY_NAMES.get(dest, dest)
+
     lines = [
         f"Search for Singapore Airlines KrisFlyer award flights {origin} to {dest}, "
-        f"{cabin_display} class, {travelers} adults. Check availability from now through "
-        f"{range_end.strftime('%B %-d, %Y')}.",
+        f"{cabin_display} class, {travelers} adults, on {depart_date.strftime('%B %-d, %Y')}.",
+        "",
+        "=== ACTION SEQUENCE (follow EXACTLY) ===",
         "",
         "STEP 1 - LOGIN:",
-        "Login with KrisFlyer number: 8814147288.",
+        "Navigate to https://www.singaporeair.com/en_UK/us/ppsclub-krisflyer/login/",
+        "KrisFlyer number: 8814147288",
         "Get password from keychain for www.singaporeair.com.",
-        "If already logged in, skip login.",
+        "Enter credentials and click login.",
+        "If already logged in, skip to STEP 2.",
         "",
-        "STEP 2 - NAVIGATE TO REDEMPTION SEARCH:",
-        "Click 'Redeem flights' or navigate to the redemption form.",
+        "STEP 2 - NAVIGATE TO REDEEM FLIGHTS:",
+        "Navigate to https://www.singaporeair.com/en_UK/us/home#/book/redeemflight",
+        "Wait 5 seconds for the form to load.",
         "",
-        "STEP 3 - FILL FORM AND SEARCH:",
-        f"Set origin to {origin}, destination to {dest}.",
-        f"Set cabin to {cabin_display}, passengers to {travelers}.",
-        f"Set date to {depart_date.isoformat()}.",
-        "Click Search.",
+        "STEP 3 - FILL ORIGIN:",
+        f"Click the origin/departure field and type '{origin_name}' or '{origin}'.",
+        "Select the matching airport from suggestions.",
         "",
-        "STEP 4 - SCAN CALENDAR:",
-        "After results load, look at the 7-day calendar strip.",
-        "Click RIGHT arrow to see more dates. Note ALL dates with availability.",
+        "STEP 4 - FILL DESTINATION:",
+        f"Click the destination field and type '{dest_name}' or '{dest}'.",
+        "Select the matching airport from suggestions.",
         "",
-        "STEP 5 - TAKE SCREENSHOT:",
-        "Your VERY NEXT ACTION must be: screenshot",
+        "STEP 5 - SET DATE:",
+        f"Click the date field and navigate to {depart_date.strftime('%B %Y')}.",
+        f"Select day {depart_date.day}.",
+        "Use forward arrows to navigate months.",
         "",
-        "STEP 6 - REPORT AND DONE:",
-        "Your VERY NEXT ACTION must be: done",
-        "Report:",
-        "A) CALENDAR DATES:",
-        "DATE: Mar 10 | XX,XXX miles",
-        "B) SUMMARY:",
-        f"- Cheapest {cabin_display}: [miles] on [date]",
-        f"Focus on fares under {max_miles:,} miles.",
+        "STEP 6 - SET CABIN:",
+        f"Set cabin class to {cabin_display} if not already set.",
+        "",
+        "STEP 7 - SET PASSENGERS:",
+        f"Set passengers to {travelers} adults.",
+        "",
+        "STEP 8 - SEARCH:",
+        "Click the Search button.",
+        "wait 10",
+        "",
+        "STEP 9 - SCREENSHOT AND REPORT:",
+        "screenshot",
+        "Then: done",
+        "Report ALL visible availability with miles costs.",
+        "Format: DATE: [date] | [miles] miles | [cabin]",
+        f"Focus on results under {max_miles:,} miles.",
+        "",
+        "=== CRITICAL NOTES ===",
+        "- SIA uses Angular/Vue.js -- wait for dropdowns to appear",
+        "- If cookie popup appears, dismiss it first",
+        "- The form may have autocomplete dropdowns -- wait and click the right option",
+        "- Do NOT use form.submit() or fetch() -- they trigger CAPTCHA",
+        "- Only click real buttons",
     ]
     return "\n".join(lines)
+
 
 
 def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
@@ -607,7 +628,12 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
     book_url = _booking_url(inputs["from"], destinations[0], depart_date)
 
     if browser_agent_enabled():
-        return _run_hybrid(inputs, observations)
+        # Try hybrid first, fall back to agent-only if it fails
+        result = _run_hybrid(inputs, observations)
+        if result.get("errors") or not result.get("matches"):
+            observations.append("Hybrid approach failed or returned no matches, trying agent-only")
+            return _run_agent_only(inputs, observations)
+        return result
 
     print(
         "WARNING: BrowserAgent not enabled. Results are placeholder data.",
