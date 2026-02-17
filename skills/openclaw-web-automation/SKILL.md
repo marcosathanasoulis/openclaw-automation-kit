@@ -54,7 +54,8 @@ Advanced (credentialed):
 ```bash
 python skills/openclaw-web-automation/scripts/run_query.py \
   --query "Search United award travel economy from SFO to AMS in next 30 days under 120k miles" \
-  --credential-refs-file /secure/path/credential_refs.json
+  --credential-refs-file /secure/path/credential_refs.json \
+  --security-assertion-file /secure/path/security_assertion.json
 ```
 
 Where `/secure/path/credential_refs.json` contains:
@@ -87,9 +88,17 @@ python skills/openclaw-web-automation/scripts/run_query.py \
 
 ## Safety
 
+- Security gate status:
+  - Optional for local demos and no-credential checks.
+  - Strongly recommended for any real credentialed/state-changing automation.
+  - If not enabled, risky runs may execute without recent verified-user proof.
+  - This can allow unauthorized account actions if another process/user can invoke the runner.
 - Use `credential_refs` only; do not place raw passwords in command args.
 - Prefer `--credential-refs-file` or `--credential-refs-env` over inline `--credential-refs` to reduce shell-history exposure.
 - If inline refs are used, this launcher passes them to the backend via stdin (not argv).
+- For risky/credentialed runs, configure OpenClaw security gate and pass a recent signed `security_assertion`.
+- Issue an assertion after fresh TOTP verification:
+  `python -m openclaw_automation.cli issue-security-assertion --user-id <you> --totp-code <code>`
 - Keep human-in-the-loop for 2FA/CAPTCHA steps.
 - Do not use on sites/accounts you are not authorized to access.
 - Configure OpenClaw to require user confirmation for credentialed or state-changing automations.

@@ -29,6 +29,21 @@ def _parse_args() -> argparse.Namespace:
         help="Env var containing JSON credential refs (safer than inline args)",
     )
     parser.add_argument(
+        "--security-assertion",
+        default="{}",
+        help="Optional JSON signed assertion proving recent verified user identity",
+    )
+    parser.add_argument(
+        "--security-assertion-file",
+        default="",
+        help="Path to JSON security assertion file",
+    )
+    parser.add_argument(
+        "--security-assertion-env",
+        default="",
+        help="Env var containing JSON security assertion",
+    )
+    parser.add_argument(
         "--notify-imessage",
         default="",
         help="Optional phone/chat GUID for BlueBubbles notification",
@@ -78,6 +93,12 @@ def _run_query(root: Path, query: str, args: argparse.Namespace) -> dict:
         # Avoid placing credential refs in subprocess argv; pass via stdin.
         cmd.append("--credential-refs-stdin")
         stdin_payload = args.credential_refs
+    if args.security_assertion_file:
+        cmd.extend(["--security-assertion-file", args.security_assertion_file])
+    elif args.security_assertion_env:
+        cmd.extend(["--security-assertion-env", args.security_assertion_env])
+    elif args.security_assertion and args.security_assertion.strip() not in {"", "{}"}:
+        cmd.extend(["--security-assertion", args.security_assertion])
     retryable_markers = (
         "rate limit",
         "temporarily unavailable",

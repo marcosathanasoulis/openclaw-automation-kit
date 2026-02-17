@@ -10,7 +10,17 @@ Operational rules for human + AI multi-agent collaboration in this repository.
   - `codex/<topic>` for Codex
   - `claude/<topic>` for Claude
   - `gemini/<topic>` for Gemini
-  - human developers may use any clear prefix.
+- human developers may use any clear prefix.
+
+## Repository Scope (Hard Allowlist)
+
+Agents working on the personal assistant stack may only operate in:
+
+1. `/Users/Marcos/code-projects/athanasoulis-ai-assistant`
+2. `/Users/Marcos/code-projects/openclaw-automation-kit`
+3. `/Users/Marcos/code-projects/openclaw-universal-memory-skill`
+
+Everything else is default-deny unless the user explicitly approves in the same turn.
 
 ## Coordination files
 
@@ -55,6 +65,16 @@ pytest -q
 - Open PR from your branch to `main`.
 - Resolve conflicts locally (do not overwrite other agents' work blindly).
 - Merge only after required checks pass.
+
+### Remote write safety (required)
+
+Remote writes are allowed only in the personal assistant allowlist repos.
+
+Rules:
+- Agents may push their own branches.
+- Agents may merge PRs that are approved and have passing required checks.
+- Agents may close stale/superseded PRs and delete stale branches when cleanup is requested.
+- Operations outside the allowlist are blocked unless explicitly approved by the user.
 
 ## Automation contribution policy
 

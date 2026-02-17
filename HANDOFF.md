@@ -173,3 +173,29 @@ Both agents can now run browser tests in parallel on different machines. CDPLock
 3. CDPLock prevents concurrent browser automation on the same machine
 4. Commit and push changes immediately so the other agent can see them
 5. Do NOT revert or overwrite the other agent's changes without coordination
+
+## 2026-02-17 Security Gate + Regression Tier Work (codex/security-regression-gates)
+
+- Added generic `security_gate` framework logic in `src/openclaw_automation/security_gate.py`.
+- Engine now blocks risky/credentialed runs when security gate is enabled and assertion is missing/invalid/expired/user-mismatch.
+- Added TOTP utilities + CLI command:
+  - `python -m openclaw_automation.cli issue-security-assertion --user-id <id> --totp-code <code>`
+- Added tiered regression framework:
+  - `scripts/regression/critical/security_gate.sh`
+  - `scripts/regression/medium/core_flows.sh`
+  - `scripts/regression/low/public_smoke.sh`
+  - `scripts/regression/run_all.sh`
+- Added docs: `docs/REGRESSION_TIERS.md` and security-gate config section in `docs/CREDENTIALS_AND_2FA.md`.
+- Added session/device binding enforcement via `OPENCLAW_SECURITY_EXPECTED_SESSION_BINDING`.
+- Critical regression now validates mismatch blocked + matching binding allowed.
+
+## 2026-02-17 Multi-agent Source-Control Policy Update (codex/personal-repo-guardrails)
+
+- Personal assistant allowlist established across docs:
+  - `/Users/Marcos/code-projects/athanasoulis-ai-assistant`
+  - `/Users/Marcos/code-projects/openclaw-automation-kit`
+  - `/Users/Marcos/code-projects/openclaw-universal-memory-skill`
+- Operations outside allowlist are blocked by default unless explicitly approved by user.
+- Merge behavior updated per owner preference:
+  - agents may merge PRs that are already approved with passing checks in allowlisted repos
+  - no per-merge explicit user confirmation required inside allowlist

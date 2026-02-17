@@ -119,6 +119,36 @@ The runner resolves refs via a credential adapter layer.
 }
 ```
 
+## Recent verification gate (recommended for risky runs)
+
+Use the built-in security gate to block credentialed/risky automations unless the caller proves
+recent identity verification (default max age: 7 days).
+
+Environment controls:
+
+```bash
+export OPENCLAW_SECURITY_GATE_ENABLED=true
+export OPENCLAW_SECURITY_SIGNING_KEY="<long-random-secret>"
+export OPENCLAW_SECURITY_EXPECTED_USER_ID="+14152268266"    # phone/email
+export OPENCLAW_SECURITY_MAX_AGE_SECONDS=604800             # 7 days
+export OPENCLAW_SECURITY_REQUIRED_METHOD=totp
+export OPENCLAW_SECURITY_EXPECTED_SESSION_BINDING="mac-mini:marcos"
+export OPENCLAW_SECURITY_CONFIRM_IMESSAGE="+14152268266"
+```
+
+Issue a signed assertion after fresh TOTP verification:
+
+```bash
+export OPENCLAW_TOTP_SECRET="<base32-secret>"
+python -m openclaw_automation.cli issue-security-assertion \
+  --user-id +14152268266 \
+  --totp-code 123456 \
+  --session-binding "mac-mini:marcos"
+```
+
+Pass `security_assertion` into `run`/`run-query` for risky scripts. If assertion is
+missing/invalid/expired, the run is denied before runner execution.
+
 ## Messaging scaffolding options
 - iMessage via BlueBubbles webhook bridge
 - WhatsApp Cloud API webhook

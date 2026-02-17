@@ -30,6 +30,18 @@
     "requires_human_steps": {
       "type": "array",
       "items": {"type": "string"}
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "risk_level": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"]
+        },
+        "state_changing": {"type": "boolean"},
+        "requires_recent_verification": {"type": "boolean"}
+      }
     }
   }
 }

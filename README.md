@@ -348,6 +348,26 @@ Also see:
 
 Read [`docs/CREDENTIALS_AND_2FA.md`](docs/CREDENTIALS_AND_2FA.md) before deploying.
 
+### Optional gate, recommended for sensitive use
+
+The recent-verification security gate is optional by default.
+
+- For demos/no-credential checks: optional.
+- For real credentialed or state-changing automations: strongly recommended.
+- If not enabled, risky runs can execute without recent verified-user proof.
+- On shared hosts or compromised runtimes, this increases unauthorized-action risk.
+
+Recommended minimum for sensitive deployments:
+
+```bash
+export OPENCLAW_SECURITY_GATE_ENABLED=true
+export OPENCLAW_SECURITY_SIGNING_KEY="<long-random-secret>"
+export OPENCLAW_SECURITY_EXPECTED_USER_ID="<your phone/email>"
+export OPENCLAW_SECURITY_MAX_AGE_SECONDS=604800   # 7 days
+export OPENCLAW_SECURITY_REQUIRED_METHOD=totp
+export OPENCLAW_SECURITY_EXPECTED_SESSION_BINDING="<device-or-session-id>"
+```
+
 ### Shared-responsibility warning
 
 If you connect real account credentials + 2FA channels, this system can perform high-impact actions as that user.

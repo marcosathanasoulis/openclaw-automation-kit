@@ -9,6 +9,9 @@ from typing import Any, Dict
 
 from .contract import validate_inputs, validate_manifest, validate_output
 from .credentials import redacted_keys, resolve_credential_refs
+from .security_gate import evaluate_security_gate
+
+FRAMEWORK_INPUT_KEYS = {"security_assertion"}
 
 
 class AutomationEngine:
@@ -39,16 +42,32 @@ class AutomationEngine:
 
     def run(self, script_dir: Path, inputs: Dict[str, Any]) -> Dict[str, Any]:
         manifest = self.validate_script(script_dir)
+        execution_inputs = {k: v for k, v in inputs.items() if k not in FRAMEWORK_INPUT_KEYS}
+
+        security_decision = evaluate_security_gate(manifest=manifest, inputs=inputs)
+        if not security_decision.allowed:
+            return {
+                "ok": False,
+                "script_id": manifest["id"],
+                "script_version": manifest["version"],
+                "error": security_decision.reason,
+                "security_gate": security_decision.as_dict(),
+            }
+
         input_schema_path = script_dir / manifest["inputs_schema"]
         output_schema_path = script_dir / manifest["outputs_schema"]
-        validate_inputs(inputs, input_schema_path)
+        validate_inputs(execution_inputs, input_schema_path)
 
         runner_path = script_dir / manifest["entrypoint"]
         module = self._load_runner_module(runner_path)
         if not hasattr(module, "run"):
             raise AttributeError(f"runner has no run(context, inputs): {runner_path}")
 
-        credential_refs = inputs.get("credential_refs") if isinstance(inputs.get("credential_refs"), dict) else {}
+        credential_refs = (
+            execution_inputs.get("credential_refs")
+            if isinstance(execution_inputs.get("credential_refs"), dict)
+            else {}
+        )
         resolution = resolve_credential_refs(credential_refs)
 
         context = {
@@ -62,7 +81,7 @@ class AutomationEngine:
         timeout_seconds = int(os.getenv("OPENCLAW_RUNNER_TIMEOUT_SECONDS", "600"))
         try:
             with ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(module.run, context, inputs)
+                future = executor.submit(module.run, context, execution_inputs)
                 result = future.result(timeout=timeout_seconds)
         except FutureTimeoutError:
             return {
@@ -108,6 +127,7 @@ class AutomationEngine:
             "real_data": real_data,
             "placeholder": mode == "placeholder",
             "inputs": inputs,
+            "security_gate": security_decision.as_dict(),
             "credential_status": {
                 "requested_refs": redacted_keys(credential_refs),
                 "resolved_keys": sorted(resolution.resolved.keys()),
@@ -125,4 +145,3 @@ class AutomationEngine:
 
 def pretty_json(data: Dict[str, Any]) -> str:
     return json.dumps(data, indent=2, sort_keys=True)
-

@@ -46,3 +46,17 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 - Keep entries concise: `owner`, `task`, `resource`, `status`.
 - Move durable info to `HANDOFF.md`; keep this file operational.
 - Commit and push frequently so parallel agents can see latest state.
+
+- `codex/security-regression-gates`
+  - Task: add generic risk-gate + regression tests for TOTP/session verification before risky automations.
+  - Files: `src/openclaw_automation/*` (auth/gating), `tests/*`, docs as needed.
+  - Status: active
+- `codex/security-regression-gates`
+  - Task: add generic risk-gate + regression tests for TOTP/session verification before risky automations.
+  - Files: `src/openclaw_automation/*` (auth/gating), `tests/*`, docs as needed.
+  - Status: complete
+
+- `codex/personal-repo-guardrails`
+  - Task: align agent policy with personal allowlist and permit merging approved PRs in allowlisted repos.
+  - Files: `AGENTS.md`, `HANDOFF.md`, `INPROCESS.md`
+  - Status: active
