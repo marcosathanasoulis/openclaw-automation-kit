@@ -1,118 +1,99 @@
 from __future__ import annotations
 
+import json
+import os
 import re
 import sys
+import time
 from datetime import date, timedelta
 from typing import Any, Dict, List
 
 from openclaw_automation.browser_agent_adapter import browser_agent_enabled
 from openclaw_automation.adaptive import adaptive_run
 
-# The Spanish booking page has the points toggle (English page does NOT)
-AEROMEXICO_AWARD_URL = "https://www.aeromexico.com/es-mx/reserva"
+# Use English page for simpler navigation; cash prices are fine per user
+AEROMEXICO_URL = "https://www.aeromexico.com/en-us"
 AEROMEXICO_BOOK_URL = "https://www.aeromexico.com/en-us"
 
 CABIN_MAP_AM = {
-    "business": "Clase Premier",
-    "economy": "Turista",
-    "first": "Clase Premier",
-}
-
-SPANISH_MONTHS = {
-    1: "enero", 2: "febrero", 3: "marzo", 4: "abril",
-    5: "mayo", 6: "junio", 7: "julio", 8: "agosto",
-    9: "septiembre", 10: "octubre", 11: "noviembre", 12: "diciembre",
+    "business": "Business/Premier",
+    "economy": "Economy",
+    "first": "Business/Premier",
 }
 
 
 def _goal(inputs: Dict[str, Any]) -> str:
     origin = inputs["from"]
-    destinations = inputs["to"]
-    dest = destinations[0]
+    dest = inputs["to"][0]
     cabin = str(inputs.get("cabin", "economy"))
-    _cabin_display = CABIN_MAP_AM.get(cabin, cabin.title())
+    cabin_display = CABIN_MAP_AM.get(cabin, cabin.title())
     days_ahead = int(inputs["days_ahead"])
     max_miles = int(inputs["max_miles"])
     depart_date = date.today() + timedelta(days=days_ahead)
-    month_spanish = SPANISH_MONTHS[depart_date.month]
-    day_num = depart_date.day
 
     lines = [
-        f"Book an AeroMexico award flight {origin} to {dest}, {cabin} class, "
-        f"{depart_date.strftime('%B %-d, %Y')}.",
+        f"Search for AeroMexico flights {origin} to {dest}, {cabin_display} class, "
+        f"on {depart_date.strftime('%B %-d, %Y')}.",
         "",
-        "THIS PAGE IS IN SPANISH. You are on the Spanish booking page (es-mx/reserva).",
-        "The user is logged in ('Hola, Marcos' in top nav).",
+        "=== ACTION SEQUENCE ===",
         "",
-        "=== ACTION SEQUENCE (follow EXACTLY, step by step) ===",
+        "STEP 1 - DISMISS COOKIES:",
+        "If you see a cookie banner, click 'Accept' or dismiss it.",
         "",
-        "STEP 1 — DISMISS COOKIES:",
-        "If you see a cookie banner at the bottom with 'Acepto', click it.",
-        "If no cookie banner, skip to step 2.",
+        "STEP 2 - SET ONE WAY:",
+        "Click the trip type selector and choose 'One Way'.",
         "",
-        "STEP 2 — SELECT TRIP TYPE:",
-        "Click the trip type dropdown (says 'Ida y vuelta').",
-        "Select 'Sólo ida' (One way).",
+        "STEP 3 - SET ORIGIN:",
+        f"Click the origin/departure field. Type '{origin}'. Select from dropdown.",
         "",
-        "STEP 3 — SET ORIGIN:",
-        f"Click the 'Origen' field. Type '{origin}'. Select from dropdown.",
+        "STEP 4 - SET DESTINATION:",
+        f"Click the destination/arrival field. Type '{dest}'. Select from dropdown.",
         "",
-        "STEP 4 — SET DESTINATION:",
-        f"Click the 'Destino' field. Type '{dest}'. Select from dropdown.",
+        "STEP 5 - SET DATE:",
+        "Click the date field.",
+        f"Navigate to {depart_date.strftime('%B %Y')} and select day {depart_date.day}.",
         "",
-        "STEP 5 — SET DATE:",
-        "Click the 'Fechas' / '¿Cuándo?' field.",
-        f"Navigate the calendar to {month_spanish} {depart_date.year}.",
-        f"Click day {day_num}.",
+        "STEP 6 - SEARCH:",
+        "Click the Search/Find Flights button.",
         "",
-        "STEP 6 — ENABLE POINTS TOGGLE (CRITICAL):",
-        "Below the form fields, you will see text: 'Usar mis Puntos Aeroméxico Rewards'",
-        "with a small toggle switch next to it.",
-        "If the toggle is OFF (gray/white circle on the left), CLICK it to turn it ON (blue/green).",
-        "If the toggle is already ON (blue/green circle on the right), skip this.",
-        "The toggle is NOT in the accessibility tree — use mouse_click at approximately x=345, y=520",
-        "if you cannot find it in the snapshot. Then take a screenshot to verify it turned on.",
+        "STEP 7 - WAIT:",
+        "wait 10",
         "",
-        "STEP 7 — SEARCH:",
-        "Click 'Buscar vuelo' (the big pink/magenta button).",
+        "STEP 8 - CHECK FOR POINTS TOGGLE:",
+        "On the results page, look for a toggle between 'Pesos'/'Cash' and 'Points'/'Puntos'.",
+        "If you find it, click 'Points'/'Puntos' to see point prices.",
+        "If you cannot find it within 2 actions, that is OK — report cash prices.",
         "",
-        "STEP 8 — WAIT:",
-        "Your VERY NEXT ACTION must be: wait 8",
+        "STEP 9 - SCREENSHOT:",
+        "screenshot",
         "",
-        "STEP 9 — SWITCH TO POINTS VIEW:",
-        "On the results page, look for 'Buscar vuelos con' with two buttons: 'Pesos' and 'Puntos'.",
-        "Click the 'Puntos' button to see point prices instead of cash.",
-        "If it's already showing points, skip this.",
+        "STEP 10 - REPORT AND DONE:",
+        "done",
+        "Report ALL visible flights. Include:",
+        "- Departure/arrival times",
+        "- Price (in points if available, otherwise in pesos/dollars)",
+        "- Number of stops",
+        "- Cabin class",
         "",
-        "STEP 10 — WAIT FOR UPDATE:",
-        "Your VERY NEXT ACTION must be: wait 5",
+        "Format:",
+        "FLIGHT: HH:MM-HH:MM | XX,XXX points | stops | cabin",
+        "  or",
+        "FLIGHT: HH:MM-HH:MM | $X,XXX MXN | stops | cabin",
         "",
-        "STEP 11 — TAKE SCREENSHOT:",
-        "Your VERY NEXT ACTION must be: screenshot",
-        "",
-        "STEP 12 — REPORT AND DONE:",
-        "Your VERY NEXT ACTION must be: done",
-        "From the screenshot, report ALL visible flights with their POINTS cost.",
-        "Format each flight as:",
-        "FLIGHT: HH:MM-HH:MM | XX,XXX puntos | Directo/1 escala | cabin",
-        "",
-        f"Note which flights cost under {max_miles:,} puntos per person.",
-        "Include the calendar prices at the top of the page if visible.",
-        "",
-        "=== CRITICAL WARNINGS ===",
-        "- Do NOT skip step 6 (toggle) or step 9 (Puntos switch).",
-        "- Do NOT navigate to aeromexico.com/en-us — stay on the Spanish page.",
-        "- Do NOT scroll on results pages.",
-        "- Do NOT waste steps verifying the toggle via JS — just click it.",
+        "=== CRITICAL NOTES ===",
+        "- The English page (en-us) is fine. Do NOT switch to Spanish.",
+        "- If the page asks to select a country, pick 'United States'.",
+        "- Report cash prices if you cannot see points — cash prices are useful too.",
+        "- Do NOT try more than 2 actions to find a points toggle.",
+        "- After screenshot, immediately do done.",
     ]
     return "\n".join(lines)
 
 
 def _parse_result(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Parse BrowserAgent result text for AeroMexico award matches."""
+    """Parse AeroMexico results — handles both points and cash prices."""
     origin = inputs["from"]
-    destinations = inputs["to"]
-    dest = destinations[0]
+    dest = inputs["to"][0]
     travelers = int(inputs["travelers"])
     cabin = str(inputs.get("cabin", "economy"))
     max_miles = int(inputs["max_miles"])
@@ -123,89 +104,90 @@ def _parse_result(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, An
     if not result_text:
         return matches
 
-    # Pattern 1: "FLIGHT: HH:MM-HH:MM | XX,XXX puntos | Directo"
-    flight_pattern = re.compile(
-        r'(?:FLIGHT:?\s*)?(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2}).*?'
-        r'([\d,\.]+)\s*(?:points?|puntos?|miles?|millas?|pts?)',
+    # Pattern 1: Points/miles
+    points_pattern = re.compile(
+        r'(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2}).*?'
+        r'([\d,\.]+)\s*(?:points?|puntos?|miles?|millas?|pts)',
+        re.IGNORECASE,
+    )
+
+    # Pattern 2: Cash prices (MXN or USD)
+    cash_pattern = re.compile(
+        r'(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2}).*?'
+        r'[\$MXN\s]*([\d,\.]+)\s*(?:MXN|USD|pesos?|\$)',
+        re.IGNORECASE,
+    )
+
+    # Pattern 3: Generic "time range + number"
+    generic_pattern = re.compile(
+        r'(\d{1,2}:\d{2}(?:\s*[AP]M)?)\s*[-–]\s*(\d{1,2}:\d{2}(?:\s*[AP]M)?)',
         re.IGNORECASE,
     )
 
     for line in result_text.split("\n"):
-        fm = flight_pattern.search(line)
-        if fm:
-            dep_time = fm.group(1)
-            arr_time = fm.group(2)
-            raw_miles = fm.group(3).replace(",", "")
-            if "." in raw_miles:
-                try:
-                    miles = int(float(raw_miles) * 1000)
-                except ValueError:
-                    continue
-            else:
-                try:
-                    miles = int(raw_miles)
-                except ValueError:
-                    continue
+        line = line.strip()
+        if not line:
+            continue
+
+        # Try points first
+        pm = points_pattern.search(line)
+        if pm:
+            raw_val = pm.group(3).replace(",", "")
+            try:
+                miles = int(float(raw_val))
+            except ValueError:
+                continue
             if miles < 100:
                 miles *= 1000
-            if miles > max_miles:
+            if 1000 <= miles <= max_miles:
+                stops = ""
+                if re.search(r'\b(nonstop|direct|directo)\b', line, re.IGNORECASE):
+                    stops = "Nonstop"
+                elif re.search(r'\b1\s*stop\b', line, re.IGNORECASE):
+                    stops = "1 stop"
+                matches.append({
+                    "route": f"{origin}-{dest}",
+                    "date": depart_date.isoformat(),
+                    "miles": miles,
+                    "travelers": travelers,
+                    "cabin": cabin,
+                    "mixed_cabin": False,
+                    "depart_time": pm.group(1),
+                    "arrive_time": pm.group(2),
+                    "stops": stops,
+                    "notes": line[:120],
+                })
+            continue
+
+        # Try cash pattern
+        cm = cash_pattern.search(line)
+        if cm:
+            raw_val = cm.group(3).replace(",", "")
+            try:
+                price = float(raw_val)
+            except ValueError:
                 continue
             stops = ""
-            if re.search(r'\b(nonstop|directo|sin\s*escala[s]?)\b', line, re.IGNORECASE):
+            if re.search(r'\b(nonstop|direct|directo)\b', line, re.IGNORECASE):
                 stops = "Nonstop"
-            elif re.search(r'\b(1\s*(?:stop|escala))\b', line, re.IGNORECASE):
+            elif re.search(r'\b1\s*stop\b', line, re.IGNORECASE):
                 stops = "1 stop"
-
             matches.append({
                 "route": f"{origin}-{dest}",
                 "date": depart_date.isoformat(),
-                "miles": miles,
+                "miles": 0,  # Cash price, no miles
+                "cash_price": price,
+                "currency": "MXN" if "MXN" in line.upper() or "pesos" in line.lower() else "USD",
                 "travelers": travelers,
                 "cabin": cabin,
                 "mixed_cabin": False,
-                "depart_time": dep_time,
-                "arrive_time": arr_time,
+                "depart_time": cm.group(1),
+                "arrive_time": cm.group(2),
                 "stops": stops,
-                "booking_url": AEROMEXICO_BOOK_URL,
-                "notes": line.strip()[:120],
+                "notes": line[:120],
             })
 
-    # Pattern 2: Calendar prices "mar 15 | 12,500 puntos"
-    if not matches:
-        cal_pattern = re.compile(
-            r'(?:mar|abr|may|jun|jul|ago|sep|oct|nov|dic|ene|feb)\w*\s+\d{1,2}.*?'
-            r'([\d,\.]+)\s*(?:points?|puntos?|miles?|millas?|pts)',
-            re.IGNORECASE,
-        )
-        for line in result_text.split("\n"):
-            cm = cal_pattern.search(line)
-            if cm:
-                raw_val = cm.group(1).replace(",", "")
-                if "." in raw_val:
-                    try:
-                        miles = int(float(raw_val) * 1000)
-                    except ValueError:
-                        continue
-                else:
-                    try:
-                        miles = int(raw_val)
-                    except ValueError:
-                        continue
-                if miles < 100:
-                    miles *= 1000
-                if 1000 <= miles <= max_miles:
-                    matches.append({
-                        "route": f"{origin}-{dest}",
-                        "date": depart_date.isoformat(),
-                        "miles": miles,
-                        "travelers": travelers,
-                        "cabin": cabin,
-                        "mixed_cabin": False,
-                        "booking_url": AEROMEXICO_BOOK_URL,
-                        "notes": line.strip()[:120],
-                    })
-
-    # Pattern 3: Generic point extraction (fallback)
+    # Fallback: just look for any points/miles mentions
     if not matches:
         point_pattern = re.compile(
             r'([\d,\.]+)\s*(?:points?|puntos?|miles?|millas?|pts)',
@@ -214,17 +196,11 @@ def _parse_result(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, An
         for line in result_text.split("\n"):
             pm = point_pattern.search(line)
             if pm:
-                raw_val = pm.group(1).replace(",", "")
-                if "." in raw_val:
-                    try:
-                        miles = int(float(raw_val) * 1000)
-                    except ValueError:
-                        continue
-                else:
-                    try:
-                        miles = int(raw_val)
-                    except ValueError:
-                        continue
+                raw = pm.group(1).replace(",", "")
+                try:
+                    miles = int(float(raw))
+                except ValueError:
+                    continue
                 if miles < 100:
                     miles *= 1000
                 if 1000 <= miles <= max_miles:
@@ -235,7 +211,30 @@ def _parse_result(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, An
                         "travelers": travelers,
                         "cabin": cabin,
                         "mixed_cabin": False,
-                        "booking_url": AEROMEXICO_BOOK_URL,
+                        "notes": line.strip()[:120],
+                    })
+
+    # Last fallback: cash prices without time
+    if not matches:
+        cash_line = re.compile(r'[\$]([\d,\.]+)', re.IGNORECASE)
+        for line in result_text.split("\n"):
+            cm = cash_line.search(line)
+            if cm and ("flight" in line.lower() or ":" in line):
+                raw = cm.group(1).replace(",", "")
+                try:
+                    price = float(raw)
+                except ValueError:
+                    continue
+                if price > 50:  # Skip tiny prices
+                    matches.append({
+                        "route": f"{origin}-{dest}",
+                        "date": depart_date.isoformat(),
+                        "miles": 0,
+                        "cash_price": price,
+                        "currency": "USD",
+                        "travelers": travelers,
+                        "cabin": cabin,
+                        "mixed_cabin": False,
                         "notes": line.strip()[:120],
                     })
 
@@ -250,25 +249,24 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
     cabin = str(inputs.get("cabin", "economy"))
     travelers = int(inputs["travelers"])
 
-    dest_str = ", ".join(destinations)
     observations: List[str] = [
         "OpenClaw session expected",
         f"Range: {today.isoformat()}..{end.isoformat()}",
-        f"Destinations: {dest_str}",
+        f"Destinations: {', '.join(destinations)}",
         f"Cabin: {cabin}",
     ]
 
     if context.get("unresolved_credential_refs"):
-        observations.append("Credential refs unresolved; run would require manual auth flow.")
+        observations.append("Credential refs unresolved.")
 
     if browser_agent_enabled():
         agent_run = adaptive_run(
             goal=_goal(inputs),
-            url=AEROMEXICO_AWARD_URL,
-            max_steps=45,
+            url=AEROMEXICO_URL,
+            max_steps=35,
             airline="aeromexico",
             inputs=inputs,
-            max_attempts=3,
+            max_attempts=2,
             trace=True,
             use_vision=True,
         )
@@ -276,57 +274,48 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
             run_result = agent_run.get("result") or {}
             observations.extend([
                 "BrowserAgent run executed.",
-                f"BrowserAgent status: {run_result.get('status', 'unknown')}",
-                f"BrowserAgent steps: {run_result.get('steps', 'n/a')}",
-                f"BrowserAgent trace_dir: {run_result.get('trace_dir', 'n/a')}",
+                f"Status: {run_result.get('status', 'unknown')}",
+                f"Steps: {run_result.get('steps', 'n/a')}",
             ])
 
             result_text = run_result.get("result", "")
             live_matches = _parse_result(result_text, inputs)
 
-            agent_matches = run_result.get("matches", [])
-            if agent_matches and not live_matches:
-                live_matches = agent_matches
-
             for m in live_matches:
                 if "booking_url" not in m:
                     m["booking_url"] = AEROMEXICO_BOOK_URL
+
+            # Separate points and cash matches for summary
+            pts_matches = [m for m in live_matches if m.get("miles", 0) > 0]
+            cash_matches = [m for m in live_matches if m.get("cash_price")]
+
+            summary_parts = [f"AeroMexico search: {len(live_matches)} flight(s) found"]
+            if pts_matches:
+                best = min(m["miles"] for m in pts_matches)
+                summary_parts.append(f"Best: {best:,} points")
+            if cash_matches:
+                best_cash = min(m["cash_price"] for m in cash_matches)
+                curr = cash_matches[0].get("currency", "USD")
+                summary_parts.append(f"Cheapest: ${best_cash:,.0f} {curr}")
 
             return {
                 "mode": "live",
                 "real_data": True,
                 "matches": live_matches,
                 "booking_url": AEROMEXICO_BOOK_URL,
-                "summary": (
-                    f"AeroMexico award search completed. "
-                    f"Found {len(live_matches)} match(es) under {max_miles:,} miles."
-                ),
+                "summary": ". ".join(summary_parts) + ".",
                 "raw_observations": observations,
                 "errors": [],
             }
-        observations.append(f"BrowserAgent adapter error: {agent_run['error']}")
+        observations.append(f"BrowserAgent error: {agent_run['error']}")
 
-    print(
-        "WARNING: BrowserAgent not enabled. Results are placeholder data.",
-        file=sys.stderr,
-    )
-    matches = [{
-        "route": f"{inputs['from']}-{destinations[0]}",
-        "date": today.isoformat(),
-        "miles": min(50000, max_miles),
-        "travelers": travelers,
-        "cabin": cabin,
-        "mixed_cabin": False,
-        "booking_url": AEROMEXICO_BOOK_URL,
-        "notes": "placeholder result",
-    }]
-
+    print("WARNING: BrowserAgent not enabled.", file=sys.stderr)
     return {
         "mode": "placeholder",
         "real_data": False,
-        "matches": matches,
+        "matches": [],
         "booking_url": AEROMEXICO_BOOK_URL,
-        "summary": f"PLACEHOLDER: Found {len(matches)} synthetic AeroMexico match(es) <= {max_miles} miles",
+        "summary": "PLACEHOLDER: AeroMexico search not available",
         "raw_observations": observations,
         "errors": [],
     }

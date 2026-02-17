@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import os
 import re
 import sys
+import time
 from datetime import date, timedelta
 from typing import Any, Dict, List
 
@@ -10,7 +12,6 @@ from openclaw_automation.adaptive import adaptive_run
 from openclaw_automation.result_extract import extract_award_matches_from_text
 
 ANA_URL = "https://www.ana.co.jp/en/us/"
-ANA_SEARCH_URL = "https://www.ana.co.jp/en/us/amc/award-rsrv/international/search/"
 
 CABIN_MAP = {
     "economy": "Economy Class",
@@ -30,86 +31,88 @@ def _goal(inputs):
     depart_date = date.today() + timedelta(days=days_ahead)
 
     lines = [
-        f"Search for ANA Mileage Club award flights {origin} to {dest} "
+        f"Search for ANA award flights {origin} to {dest} "
         f"on {depart_date.strftime('%B %-d, %Y')}, {cabin_display}, {travelers} passengers.",
         "",
-        "=== ACTION SEQUENCE (follow EXACTLY, step by step) ===",
+        "=== ACTION SEQUENCE ===",
         "",
-        "STEP 1 - LOGIN (required for award search):",
-        "On the ANA homepage, look for a 'Log In' or 'Sign In' button/link.",
-        "Click it to open the login form.",
-        "If you see a login form with AMC Number and password fields:",
-        "  1a. credentials for www.ana.co.jp",
-        "  1b. Enter the ANA Mileage Club number (AMC Number) into the member number field",
-        "  1c. Enter the password into the password field",
-        "  1d. Click the 'Log In' button to submit",
-        "  1e. wait 8",
-        "If already logged in (you see a member name or welcome message), skip login.",
-        "NOTE: The login may redirect to cam.ana.co.jp — that is normal.",
+        "STEP 1 - LOGIN:",
+        "You are on the ANA homepage (ana.co.jp/en/us/).",
+        "Look at the top-right area for 'Log In', 'Sign In', 'ANA Mileage Club', or a person icon.",
+        "If you see 'Welcome' or a member name, you are already logged in — skip to STEP 2.",
         "",
-        "STEP 1b - NAVIGATE TO AWARD SEARCH:",
-        f"After login, navigate to: {ANA_SEARCH_URL}",
-        "This takes you directly to the international award search form.",
+        "To log in:",
+        "  1a. Click the 'Log In' or 'ANA Mileage Club' link/button in the header.",
+        "  1b. wait 3",
+        "  1c. You may see a login modal or be redirected to cam.ana.co.jp.",
+        "  1d. credentials for www.ana.co.jp",
+        "  1e. Enter the AMC Number (10-digit member number) into the member number field.",
+        "  1f. Enter the password into the password field.",
+        "  1g. Click 'Log In' / 'Sign In' to submit.",
+        "  1h. wait 8",
         "",
-        "STEP 2 - WAIT FOR PAGE:",
-        "Your VERY NEXT ACTION must be: wait 5",
+        "If login fails or the page does not respond, try once more. If it still fails,",
+        "proceed to STEP 2 anyway — some award info may be visible without login.",
         "",
-        "STEP 3 - TAKE SCREENSHOT TO SEE FORM:",
-        "Your VERY NEXT ACTION must be: screenshot",
-        "Look at the form layout. You should see fields for departure/arrival, dates, cabin, passengers.",
+        "STEP 2 - NAVIGATE TO AWARD BOOKING:",
+        "Look in the navigation menu for 'ANA Mileage Club' > 'Use Miles' > 'Award Reservation'",
+        "OR look for a 'Book Award' or 'Flight Awards' link.",
+        "Click it and wait for the award search page to load.",
+        "wait 5",
         "",
-        "STEP 4 - SET DEPARTURE CITY:",
-        f"Click the departure city field and type '{origin}'.",
-        "Select the matching airport from the dropdown suggestions.",
-        f"If it says 'San Francisco' or shows '{origin}', that's correct.",
+        "If the page shows 'This page cannot be displayed' or an error:",
+        "  - Go back to the homepage.",
+        "  - Look for 'Flight Award' or 'Award Ticket' in the booking tab area.",
+        "  - Try clicking that link instead.",
+        "  - wait 5",
         "",
-        "STEP 5 - SET ARRIVAL CITY:",
-        f"Click the arrival/destination city field and type '{dest}'.",
-        "Select the matching airport from the dropdown suggestions.",
+        "STEP 3 - TAKE SCREENSHOT:",
+        "screenshot",
+        "Look at what form/page loaded. You need a search form with departure/arrival fields.",
         "",
-        "STEP 6 - SET TRAVEL DATE:",
-        f"Click the date field and navigate to {depart_date.strftime('%B %Y')}.",
+        "STEP 4 - FILL DEPARTURE:",
+        f"Click the departure/from field and type '{origin}'.",
+        "Select the matching airport from suggestions.",
+        "",
+        "STEP 5 - FILL ARRIVAL:",
+        f"Click the destination/to field and type '{dest}'.",
+        "Select the matching airport from suggestions.",
+        "",
+        "STEP 6 - SET DATE:",
+        f"Click the date field. Navigate to {depart_date.strftime('%B %Y')}.",
         f"Select day {depart_date.day}.",
-        "Use forward arrows to navigate months if needed.",
         "",
-        "STEP 7 - SET CABIN CLASS:",
+        "STEP 7 - SET CABIN:",
         f"If there is a cabin class dropdown, select '{cabin_display}'.",
-        "If no cabin dropdown is visible, skip this step.",
         "",
         "STEP 8 - SET PASSENGERS:",
-        f"If passengers is not already set to {travelers}, change it to {travelers}.",
-        "Look for a passengers/adults field or +/- buttons.",
+        f"Set adults to {travelers} if not already set.",
         "",
-        "STEP 9 - SUBMIT SEARCH:",
-        "Click the 'Search' or 'Search for Flights' button.",
+        "STEP 9 - SEARCH:",
+        "Click the 'Search' button.",
+        "wait 15",
         "",
-        "STEP 10 - WAIT FOR RESULTS:",
-        "Your VERY NEXT ACTION must be: wait 15",
-        "ANA results take time to load.",
+        "STEP 10 - SCREENSHOT AND REPORT:",
+        "screenshot",
+        "done",
         "",
-        "STEP 11 - TAKE SCREENSHOT:",
-        "Your VERY NEXT ACTION must be: screenshot",
+        "Report ALL visible flights with miles cost:",
+        "FLIGHT: [details] | [miles] miles | [cabin]",
         "",
-        "STEP 12 - REPORT AND DONE:",
-        "Your VERY NEXT ACTION must be: done",
-        "From the screenshot, report ALL visible flights with miles cost.",
-        "Format: FLIGHT: [details] | [miles] miles | [cabin]",
+        "If you see a calendar with O/X availability indicators:",
+        "Report: DATE [date]: [O=available / X=unavailable]",
         "",
-        "If the page shows a calendar/date grid with availability indicators,",
-        "report which dates show 'O' (available) vs 'X' (unavailable).",
-        "",
-        "=== CRITICAL NOTES ===",
-        "- ANA's form may require clicking specific elements to reveal dropdowns",
-        "- If a field doesn't respond to typing, try clicking it first",
-        "- The departure/arrival fields may use autocomplete — wait for suggestions to appear",
-        "- ANA award search REQUIRES login — always log in first",
-        "- If you see a 'cookies' banner, dismiss it first",
+        "=== IMPORTANT ===",
+        "- ANA's site is slow. Use wait commands generously.",
+        "- The award system is at aswbe-i.ana.co.jp — it may take time to load.",
+        "- If a field doesn't respond, try clicking it again after a short wait.",
+        "- If the award search system is unavailable, report that in your done message.",
+        "- Do NOT get stuck in loops. If something fails after 2 attempts, move on.",
     ]
     return "\n".join(lines)
 
 
 def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Parse ANA agent result text for flight matches."""
     if not result_text:
         return []
 
@@ -122,8 +125,8 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
 
     matches = []
 
-    # Pattern: miles amounts in text
-    miles_pattern = re.compile(r'([\d,]+)\s*(?:miles|mi)', re.IGNORECASE)
+    # Pattern: miles amounts
+    miles_pattern = re.compile(r'([\d,]+)\s*(?:miles|mi)\b', re.IGNORECASE)
     for line in result_text.split("\n"):
         mm = miles_pattern.search(line)
         if mm:
@@ -139,7 +142,7 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
                     "notes": line.strip()[:150],
                 })
 
-    # Also try the standard extractor
+    # Also try standard extractor
     if not matches:
         matches = extract_award_matches_from_text(
             result_text,
@@ -169,13 +172,13 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
     ]
 
     if context.get("unresolved_credential_refs"):
-        observations.append("Credential refs unresolved; run would require manual auth flow.")
+        observations.append("Credential refs unresolved.")
 
     if browser_agent_enabled():
         agent_run = adaptive_run(
             goal=_goal(inputs),
             url=ANA_URL,
-            max_steps=40,
+            max_steps=45,
             airline="ana",
             inputs=inputs,
             max_attempts=2,
@@ -190,9 +193,9 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
 
             observations.extend([
                 "BrowserAgent run executed.",
-                f"BrowserAgent status: {run_result.get('status', 'unknown') if isinstance(run_result, dict) else 'unknown'}",
-                f"BrowserAgent steps: {run_result.get('steps', 'n/a') if isinstance(run_result, dict) else 'n/a'}",
-                f"Extracted matches: {len(live_matches)}",
+                f"Status: {run_result.get('status', 'unknown') if isinstance(run_result, dict) else 'unknown'}",
+                f"Steps: {run_result.get('steps', 'n/a') if isinstance(run_result, dict) else 'n/a'}",
+                f"Matches: {len(live_matches)}",
             ])
             return {
                 "mode": "live",
@@ -201,34 +204,19 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
                 "summary": (
                     f"ANA award search: {len(live_matches)} flight(s) found. "
                     + (f"Best: {min(m['miles'] for m in live_matches):,} miles. "
-                       if live_matches else "No matches extracted. ")
+                       if live_matches else "No matches. ")
                 ),
                 "raw_observations": observations,
                 "errors": [],
             }
-        observations.append(f"BrowserAgent adapter error: {agent_run['error']}")
+        observations.append(f"BrowserAgent error: {agent_run['error']}")
 
-    print(
-        "WARNING: BrowserAgent not enabled. Results are placeholder data.",
-        file=sys.stderr,
-    )
-    matches = [
-        {
-            "route": f"{inputs['from']}-{destinations[0]}",
-            "date": today.isoformat(),
-            "miles": min(65000, max_miles),
-            "travelers": int(inputs["travelers"]),
-            "cabin": cabin,
-            "mixed_cabin": False,
-            "notes": "placeholder result",
-        }
-    ]
-
+    print("WARNING: BrowserAgent not enabled.", file=sys.stderr)
     return {
         "mode": "placeholder",
         "real_data": False,
-        "matches": matches,
-        "summary": f"PLACEHOLDER: Found {len(matches)} synthetic ANA match(es) <= {max_miles} miles",
+        "matches": [],
+        "summary": "PLACEHOLDER: ANA search not available",
         "raw_observations": observations,
         "errors": [],
     }

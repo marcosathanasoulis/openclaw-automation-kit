@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import json
+import os
 import re
 import sys
+import time
 from datetime import date, timedelta
 from typing import Any, Dict, List
 from urllib.parse import urlencode
 
-from openclaw_automation.browser_agent_adapter import browser_agent_enabled
+from openclaw_automation.browser_agent_adapter import browser_agent_enabled, run_browser_agent_goal
 from openclaw_automation.adaptive import adaptive_run
 
 DELTA_URL = "https://www.delta.com"
@@ -27,7 +30,6 @@ DELTA_FARE_CLASS = {
 
 
 def _booking_url(origin: str, dest: str, depart_date: date, cabin: str, travelers: int) -> str:
-    """Construct a Delta.com deep-link for the award search."""
     params = {
         "tripType": "ONE_WAY",
         "originCity": origin,
@@ -40,14 +42,97 @@ def _booking_url(origin: str, dest: str, depart_date: date, cabin: str, traveler
     return f"https://www.delta.com/flight-search/book-a-flight?{urlencode(params)}"
 
 
-def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Parse agent free-text result into structured match dicts.
+def _login_goal() -> str:
+    return "\n".join([
+        "Login to Delta.com SkyMiles account.",
+        "",
+        "1. Look at the top right of the page.",
+        "2. If you see a name/greeting (like 'Hi Marcos'), you are already logged in. Report done.",
+        "3. If you see 'Log In' or 'Sign Up':",
+        "   a. Click 'Log In'",
+        "   b. credentials for www.delta.com",
+        "   c. Type the SkyMiles number (username) into the SkyMiles/username field",
+        "   d. Type the password into the password field",
+        "   e. Click the 'Log In' submit button",
+        "   f. wait 5",
+        "4. After login, report done.",
+        "5. Do NOT navigate anywhere else after login.",
+    ])
 
-    Handles multiple formats the agent might produce:
-    1. Structured: "DL1234 | 08:00-16:30 | Nonstop | 30,500 miles"
-    2. Natural: "Flight DL1234 departs 8:00 AM arrives 4:30 PM, 30,500 miles, nonstop"
-    3. Calendar: "30,500 miles" (fallback when only calendar data available)
-    """
+
+def _extract_results_js():
+    """JS to extract flight results from the Delta results page."""
+    return """() => {
+        const results = [];
+
+        // Method 1: Flexible Dates calendar cells
+        const cells = document.querySelectorAll(
+            '[class*="calendar"] td, [class*="Calendar"] td, ' +
+            '[class*="flex-date"], [class*="FlexDate"], ' +
+            '.offering-cell, .flex-dates-cell, ' +
+            '[data-testid*="calendar"], [class*="offering"]'
+        );
+        cells.forEach(c => {
+            const text = c.textContent.trim().replace(/\\s+/g, ' ');
+            if (text.length > 2 && text.length < 200 && /\\d/.test(text)) {
+                results.push({type: 'calendar', text: text});
+            }
+        });
+
+        // Method 2: Flight cards/rows
+        const flights = document.querySelectorAll(
+            '[class*="flight-card"], [class*="FlightCard"], ' +
+            '[class*="trip-card"], [class*="TripCard"], ' +
+            '[class*="flight-info"], [class*="FlightInfo"], ' +
+            '.bound-content, [data-testid*="flight"]'
+        );
+        flights.forEach(f => {
+            const text = f.textContent.trim().replace(/\\s+/g, ' ');
+            if (text.length > 10 && text.length < 500) {
+                results.push({type: 'flight', text: text});
+            }
+        });
+
+        // Method 3: All text lines containing "miles" or prices
+        const bodyText = document.body.innerText || '';
+        const lines = bodyText.split('\\n');
+        const relevant = [];
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.length > 3 && trimmed.length < 200) {
+                if (/mile/i.test(trimmed) || /\\b\\d{1,3},?\\d{3}\\b/.test(trimmed)) {
+                    relevant.push(trimmed);
+                }
+            }
+        }
+
+        // Method 4: From/starting prices at bottom
+        const fromPrices = [];
+        const fromElements = document.querySelectorAll(
+            '[class*="price"], [class*="Price"], ' +
+            '[class*="miles"], [class*="Miles"], ' +
+            '[class*="from-price"], [class*="starting"]'
+        );
+        fromElements.forEach(el => {
+            const text = el.textContent.trim();
+            if (/\\d/.test(text) && text.length < 100) {
+                fromPrices.push(text);
+            }
+        });
+
+        return {
+            calendar: results.filter(r => r.type === 'calendar').map(r => r.text).slice(0, 30),
+            flights: results.filter(r => r.type === 'flight').map(r => r.text).slice(0, 15),
+            milesLines: relevant.slice(0, 40),
+            fromPrices: fromPrices.slice(0, 20),
+            url: window.location.href,
+            title: document.title
+        };
+    }"""
+
+
+def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Parse agent or Playwright result text into structured match dicts."""
     if not result_text:
         return []
 
@@ -59,143 +144,45 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
     depart_date = date.today() + timedelta(days=int(inputs["days_ahead"]))
 
     matches = []
+    seen = set()
 
-    # Pattern 1: Structured pipe-separated format
-    # "DL1234 | 08:00-16:30 | Nonstop | 30,500 miles"
-    pipe_pattern = re.compile(
-        r'(?:DL|Delta\s*)\s*(\d{2,5})\s*\|'
-        r'\s*(\d{1,2}:\d{2}(?:\s*[AP]M)?)\s*[-–]\s*(\d{1,2}:\d{2}(?:\s*[AP]M)?)\s*\|'
-        r'\s*(.*?)\|'
-        r'\s*([\d,]+)\s*(?:miles|mi)',
-        re.IGNORECASE,
-    )
+    # Pattern: various miles formats
+    miles_pattern = re.compile(r'([\d,]+)\s*(?:miles?|mi)\b', re.IGNORECASE)
 
-    # Pattern 2: Natural language flight info
-    # "Flight DL1234 departs 8:00 AM arrives 4:30 PM ... 30,500 miles"
-    natural_pattern = re.compile(
-        r'(?:flight\s+)?(?:DL|Delta\s*)[\s#]*(\d{2,5}).*?'
-        r'(?:depart|dep|leave|from)[^\d]*(\d{1,2}:\d{2}(?:\s*[AP]M)?).*?'
-        r'(?:arrive|arr|land|to)[^\d]*(\d{1,2}:\d{2}(?:\s*[AP]M)?).*?'
-        r'([\d,]+)\s*(?:miles|mi)',
-        re.IGNORECASE,
-    )
-
-    # Pattern 3: Flight number + miles on same line (less structured)
-    # "DL1234 ... 30,500 miles" or "Delta 1234 ... 30,500 miles"
-    flight_miles_pattern = re.compile(
+    # Pattern: structured flight info
+    flight_pattern = re.compile(
         r'(?:DL|Delta\s*)[\s#]*(\d{2,5}).*?([\d,]+)\s*(?:miles|mi)',
         re.IGNORECASE,
     )
 
-    # Pattern 4: Time range + miles (no flight number)
-    # "8:00 AM - 4:30 PM ... 30,500 miles"
-    time_miles_pattern = re.compile(
+    # Pattern: time range + miles
+    time_miles = re.compile(
         r'(\d{1,2}:\d{2}(?:\s*[AP]M)?)\s*[-–]\s*(\d{1,2}:\d{2}(?:\s*[AP]M)?)'
         r'.*?([\d,]+)\s*(?:miles|mi)',
         re.IGNORECASE,
     )
 
-    seen_flights = set()
+    # Pattern: calendar-style "date miles"
+    cal_pattern = re.compile(
+        r'(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*[\s,]+)?'
+        r'(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{1,2}|\d{1,2}/\d{1,2})'
+        r'.*?([\d,]+)\s*(?:miles|mi)',
+        re.IGNORECASE,
+    )
 
     for line in result_text.split("\n"):
         line = line.strip()
         if not line:
             continue
 
-        match_data = None
-
-        # Try patterns in order of specificity
-        pm = pipe_pattern.search(line)
-        if pm:
-            miles = int(pm.group(5).replace(",", ""))
-            if miles <= max_miles:
-                match_data = {
-                    "flight": f"DL{pm.group(1)}",
-                    "depart_time": pm.group(2).strip(),
-                    "arrive_time": pm.group(3).strip(),
-                    "stops": pm.group(4).strip().rstrip("|").strip(),
-                    "miles": miles,
-                }
-        if not match_data:
-            nm = natural_pattern.search(line)
-            if nm:
-                miles = int(nm.group(4).replace(",", ""))
-                if miles <= max_miles:
-                    match_data = {
-                        "flight": f"DL{nm.group(1)}",
-                        "depart_time": nm.group(2).strip(),
-                        "arrive_time": nm.group(3).strip(),
-                        "stops": "",
-                        "miles": miles,
-                    }
-        if not match_data:
-            fm = flight_miles_pattern.search(line)
-            if fm:
-                miles = int(fm.group(2).replace(",", ""))
-                if 1000 <= miles <= max_miles:
-                    match_data = {
-                        "flight": f"DL{fm.group(1)}",
-                        "depart_time": "",
-                        "arrive_time": "",
-                        "stops": "",
-                        "miles": miles,
-                    }
-        if not match_data:
-            tm = time_miles_pattern.search(line)
-            if tm:
-                miles = int(tm.group(3).replace(",", ""))
-                if 1000 <= miles <= max_miles:
-                    match_data = {
-                        "flight": "",
-                        "depart_time": tm.group(1).strip(),
-                        "arrive_time": tm.group(2).strip(),
-                        "stops": "",
-                        "miles": miles,
-                    }
-
-        if match_data:
-            # Deduplicate by flight number
-            key = match_data.get("flight") or f"{match_data['depart_time']}-{match_data['arrive_time']}"
-            if key and key not in seen_flights:
-                seen_flights.add(key)
-                # Extract stops info if present in line
-                if not match_data["stops"]:
-                    if re.search(r'\bnonstop\b', line, re.IGNORECASE):
-                        match_data["stops"] = "Nonstop"
-                    else:
-                        sm = re.search(r'(\d)\s*stop', line, re.IGNORECASE)
-                        if sm:
-                            match_data["stops"] = f"{sm.group(1)} stop(s)"
-
-                matches.append({
-                    "route": f"{origin}-{dest}",
-                    "date": depart_date.isoformat(),
-                    "miles": match_data["miles"],
-                    "travelers": travelers,
-                    "cabin": cabin,
-                    "mixed_cabin": False,
-                    "flight": match_data.get("flight", ""),
-                    "depart_time": match_data.get("depart_time", ""),
-                    "arrive_time": match_data.get("arrive_time", ""),
-                    "stops": match_data.get("stops", ""),
-                    "notes": line[:150],
-                })
-
-    # Pattern 5: Calendar format from Flexible Dates view
-    # "CALENDAR: March 15 | 30,500 miles | Nonstop"
-    if not matches:
-        cal_pattern = re.compile(
-            r'CALENDAR:.*?([\d,]+)\s*(?:miles|mi)',
-            re.IGNORECASE,
-        )
-        for line in result_text.split("\n"):
-            cm = cal_pattern.search(line)
-            if cm:
-                miles = int(cm.group(1).replace(",", ""))
-                if 1000 <= miles <= max_miles:
-                    stops = ""
-                    if re.search(r'\bnonstop\b', line, re.IGNORECASE):
-                        stops = "Nonstop"
+        # Try flight pattern first
+        fm = flight_pattern.search(line)
+        if fm:
+            miles = int(fm.group(2).replace(",", ""))
+            if 1000 <= miles <= max_miles:
+                key = f"DL{fm.group(1)}"
+                if key not in seen:
+                    seen.add(key)
                     matches.append({
                         "route": f"{origin}-{dest}",
                         "date": depart_date.isoformat(),
@@ -203,37 +190,53 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
                         "travelers": travelers,
                         "cabin": cabin,
                         "mixed_cabin": False,
-                        "stops": stops,
-                        "notes": f"Calendar: {line.strip()[:150]}",
+                        "flight": key,
+                        "notes": line[:150],
                     })
+                continue
 
-    # Pattern 6: Raw text extraction — look for the target date followed by miles
-    # e.g., "Sun, Mar 15\n30,500\n+$6" or "Mar 15 ... 30,500 miles"
-    if not matches:
-        # Try to find date + miles in raw text (from js_eval output)
-        raw_miles = re.compile(r'([\d,]+)\s*(?:miles|mi)', re.IGNORECASE)
-        all_miles = []
-        for line in result_text.split("\n"):
-            for mm in raw_miles.finditer(line):
-                miles = int(mm.group(1).replace(",", ""))
-                if 1000 <= miles <= max_miles:
-                    all_miles.append((miles, line.strip()[:150]))
-        if all_miles:
-            # Take the first mention (usually the target date price)
-            miles, note = all_miles[0]
-            matches.append({
-                "route": f"{origin}-{dest}",
-                "date": depart_date.isoformat(),
-                "miles": miles,
-                "travelers": travelers,
-                "cabin": cabin,
-                "mixed_cabin": False,
-                "notes": f"Calendar-level: {note}",
-            })
+        # Try time+miles
+        tm = time_miles.search(line)
+        if tm:
+            miles = int(tm.group(3).replace(",", ""))
+            if 1000 <= miles <= max_miles:
+                key = f"{tm.group(1)}-{tm.group(2)}"
+                if key not in seen:
+                    seen.add(key)
+                    matches.append({
+                        "route": f"{origin}-{dest}",
+                        "date": depart_date.isoformat(),
+                        "miles": miles,
+                        "travelers": travelers,
+                        "cabin": cabin,
+                        "mixed_cabin": False,
+                        "depart_time": tm.group(1),
+                        "arrive_time": tm.group(2),
+                        "notes": line[:150],
+                    })
+                continue
 
-    # Fallback: if still no matches, scan for any miles amounts
+        # Calendar pattern
+        cm = cal_pattern.search(line)
+        if cm:
+            miles = int(cm.group(1).replace(",", ""))
+            if 1000 <= miles <= max_miles:
+                key = f"cal-{miles}-{line[:30]}"
+                if key not in seen:
+                    seen.add(key)
+                    matches.append({
+                        "route": f"{origin}-{dest}",
+                        "date": depart_date.isoformat(),
+                        "miles": miles,
+                        "travelers": travelers,
+                        "cabin": cabin,
+                        "mixed_cabin": False,
+                        "notes": f"Calendar: {line[:150]}",
+                    })
+                continue
+
+    # Fallback: raw miles extraction
     if not matches:
-        miles_pattern = re.compile(r'([\d,]+)\s*(?:miles|mi)', re.IGNORECASE)
         for line in result_text.split("\n"):
             mm = miles_pattern.search(line)
             if mm:
@@ -246,102 +249,290 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
                         "travelers": travelers,
                         "cabin": cabin,
                         "mixed_cabin": False,
-                        "notes": f"Raw extraction: {line.strip()[:150]}",
+                        "notes": f"Raw: {line.strip()[:150]}",
                     })
-                    break  # Only take first/cheapest mention
+                    if len(matches) >= 5:
+                        break
 
     return matches
 
 
-def _goal(inputs):
+def _run_hybrid(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, Any]:
+    """Hybrid: BrowserAgent for login, Playwright for search + extraction."""
     origin = inputs["from"]
-    destinations = inputs["to"]
-    dest = destinations[0]
+    dest = inputs["to"][0]
     travelers = int(inputs["travelers"])
     cabin = str(inputs.get("cabin", "economy"))
-    cabin_display = CABIN_MAP.get(cabin, cabin.title())
     days_ahead = int(inputs["days_ahead"])
-    max_miles = int(inputs["max_miles"])
     depart_date = date.today() + timedelta(days=days_ahead)
+    max_miles = int(inputs.get("max_miles", 999999))
 
-    # Build the direct search URL
     search_url = _booking_url(origin, dest, depart_date, cabin, travelers)
 
-    lines = [
+    # Phase 1: BrowserAgent login
+    observations.append("Phase 1: BrowserAgent login to Delta")
+    login_result = adaptive_run(
+        goal=_login_goal(),
+        url=DELTA_URL,
+        max_steps=20,
+        airline="delta",
+        inputs=inputs,
+        max_attempts=1,
+        trace=True,
+        use_vision=True,
+    )
+
+    if not login_result["ok"]:
+        observations.append(f"Login failed: {login_result['error']}")
+        # Continue anyway - Delta search works without login, just heavier
+        observations.append("Continuing without login (results may be heavier)")
+
+    login_info = login_result.get("result") or {}
+    observations.append(f"Login status: {login_info.get('status', 'unknown')}")
+
+    # Phase 2: Playwright navigation + extraction
+    observations.append("Phase 2: Playwright search + extraction")
+    cdp_url = os.getenv("OPENCLAW_CDP_URL", "http://127.0.0.1:9222")
+
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        observations.append("Playwright not available, falling back to agent-only")
+        return _run_agent_only(inputs, observations)
+
+    matches: List[Dict[str, Any]] = []
+    errors: List[str] = []
+    result_text_parts: List[str] = []
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.connect_over_cdp(cdp_url)
+            contexts = browser.contexts
+            if not contexts:
+                errors.append("No browser contexts")
+                return _run_agent_only(inputs, observations)
+
+            context = contexts[0]
+
+            # Find existing Delta page or create new one
+            page = None
+            for pg in context.pages:
+                if "delta.com" in pg.url:
+                    page = pg
+                    break
+            if page is None:
+                page = context.new_page()
+
+            # Navigate to search URL
+            observations.append(f"Navigating to: {search_url}")
+            try:
+                page.goto(search_url, wait_until="domcontentloaded", timeout=30000)
+            except Exception as e:
+                observations.append(f"Nav warning: {e}")
+
+            # Wait for form to load
+            time.sleep(5)
+
+            # Verify Shop with Miles is enabled via JS (don't click - URL should set it)
+            try:
+                miles_checked = page.evaluate("""() => {
+                    const cb = document.querySelector('[id*="shopWithMiles"], input[name*="shopWithMiles"]');
+                    if (cb) return cb.checked;
+                    // Check for toggle state
+                    const toggle = document.querySelector('[class*="shopWithMiles"]');
+                    if (toggle) return toggle.classList.contains('active') || toggle.classList.contains('checked');
+                    return null;
+                }""")
+                observations.append(f"Shop with Miles checked: {miles_checked}")
+
+                if miles_checked is False:
+                    # Need to click it
+                    page.evaluate("""() => {
+                        const cb = document.querySelector('[id*="shopWithMiles"], input[name*="shopWithMiles"]');
+                        if (cb) { cb.click(); return; }
+                        const labels = Array.from(document.querySelectorAll('label, span'));
+                        const match = labels.find(l => /shop.*miles/i.test(l.textContent));
+                        if (match) match.click();
+                    }""")
+                    time.sleep(2)
+                    observations.append("Clicked Shop with Miles toggle")
+            except Exception as e:
+                observations.append(f"Miles toggle check error: {e}")
+
+            # Click Find Flights
+            try:
+                page.evaluate("""() => {
+                    const btns = Array.from(document.querySelectorAll('button'));
+                    const find = btns.find(b => /find.*flight/i.test(b.textContent));
+                    if (find) find.click();
+                }""")
+                observations.append("Clicked Find Flights")
+            except Exception as e:
+                observations.append(f"Find Flights click error: {e}")
+
+            # Wait for results - use longer wait since this is the heavy part
+            observations.append("Waiting 25s for results to load...")
+            time.sleep(25)
+
+            # Extract data via JS (no screenshots - avoids crash)
+            try:
+                data = page.evaluate(_extract_results_js())
+
+                observations.append(f"Page URL: {data.get('url', '?')}")
+                observations.append(f"Page title: {data.get('title', '?')}")
+                observations.append(f"Calendar entries: {len(data.get('calendar', []))}")
+                observations.append(f"Flight entries: {len(data.get('flights', []))}")
+                observations.append(f"Miles lines: {len(data.get('milesLines', []))}")
+                observations.append(f"Price elements: {len(data.get('fromPrices', []))}")
+
+                # Combine all text for parsing
+                for item in data.get("calendar", []):
+                    result_text_parts.append(f"CALENDAR: {item}")
+                for item in data.get("flights", []):
+                    result_text_parts.append(f"FLIGHT: {item}")
+                for item in data.get("milesLines", []):
+                    result_text_parts.append(item)
+                for item in data.get("fromPrices", []):
+                    result_text_parts.append(f"PRICE: {item}")
+
+            except Exception as e:
+                observations.append(f"JS extraction error: {e}")
+                errors.append(f"JS extraction: {e}")
+
+            # Try a second extraction after more time
+            if not result_text_parts:
+                observations.append("First extraction empty, waiting 15s more...")
+                time.sleep(15)
+                try:
+                    data = page.evaluate(_extract_results_js())
+                    for item in data.get("calendar", []):
+                        result_text_parts.append(f"CALENDAR: {item}")
+                    for item in data.get("flights", []):
+                        result_text_parts.append(f"FLIGHT: {item}")
+                    for item in data.get("milesLines", []):
+                        result_text_parts.append(item)
+                    observations.append(f"Second extraction: {len(result_text_parts)} lines")
+                except Exception as e:
+                    observations.append(f"Second extraction error: {e}")
+
+            # Save debug screenshot (safe since we're not rendering it in agent)
+            try:
+                page.screenshot(path="/tmp/delta_hybrid_results.png")
+            except Exception:
+                pass
+
+            # Clean up - close the page to free memory
+            try:
+                page.close()
+            except Exception:
+                pass
+
+    except Exception as exc:
+        errors.append(f"Playwright phase error: {exc}")
+        observations.append(f"Playwright error: {exc}")
+
+    # Parse results
+    combined_text = "\n".join(result_text_parts)
+    if combined_text:
+        matches = _parse_matches(combined_text, inputs)
+        observations.append(f"Parsed {len(matches)} matches from Playwright extraction")
+
+    book_url = _booking_url(origin, dest, depart_date, cabin, travelers)
+    for m in matches:
+        if "booking_url" not in m:
+            m["booking_url"] = book_url
+
+    summary_parts = [f"Delta hybrid search: {len(matches)} flight(s) found for {origin}-{dest}"]
+    if matches:
+        best = min(m["miles"] for m in matches)
+        summary_parts.append(f"Best: {best:,} miles")
+
+    return {
+        "mode": "live",
+        "real_data": True,
+        "matches": matches,
+        "booking_url": book_url,
+        "summary": ". ".join(summary_parts) + ".",
+        "raw_observations": observations,
+        "errors": errors,
+    }
+
+
+def _run_agent_only(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, Any]:
+    """Fallback: pure BrowserAgent approach."""
+    origin = inputs["from"]
+    dest = inputs["to"][0]
+    travelers = int(inputs["travelers"])
+    cabin = str(inputs.get("cabin", "economy"))
+    days_ahead = int(inputs["days_ahead"])
+    max_miles = int(inputs.get("max_miles", 999999))
+    depart_date = date.today() + timedelta(days=days_ahead)
+    search_url = _booking_url(origin, dest, depart_date, cabin, travelers)
+    book_url = search_url
+
+    cabin_display = CABIN_MAP.get(cabin, cabin.title())
+
+    goal = "\n".join([
         f"Search for Delta SkyMiles award flights {origin} to {dest} "
         f"on {depart_date.strftime('%B %-d, %Y')}, {cabin_display}.",
         "",
-        "=== ACTION SEQUENCE (follow EXACTLY, step by step) ===",
+        "STEP 1 - LOGIN:",
+        "If you see 'Log In' at top right, click it and use credentials for www.delta.com.",
+        "If already logged in, skip to STEP 2.",
         "",
-        "STEP 1 - LOGIN (IMPORTANT - logged-in state produces lighter results):",
-        "Look at the top right. If you see a name/greeting, you are already logged in — skip to STEP 2.",
-        "If you see 'Log In' or 'Sign Up':",
-        "  1a. Click 'Log In'",
-        "  1b. credentials for www.delta.com",
-        "  1c. Type username (SkyMiles number) into the SkyMiles/username field",
-        "  1d. Type password into password field",
-        "  1e. Click the 'Log In' submit button",
-        "  1f. wait 5",
-        "Login BEFORE navigating to the search URL.",
-        "",
-        "STEP 2 - NAVIGATE (ALWAYS DO THIS - DO NOT SKIP):",
-        f"Your VERY NEXT ACTION must be: navigate to {search_url}",
-        "This navigates to the booking form with pre-filled fields.",
-        "You MUST do this even if SFO-BOS is already visible in the search bar.",
-        "",
-        "STEP 3 - WAIT FOR FORM:",
-        "Your VERY NEXT ACTION must be: wait 3",
-        "",
-        "STEP 4 - VERIFY SHOP WITH MILES (CRITICAL):",
-        "Look at the 'Shop with Miles' checkbox.",
-        "If it is ALREADY checked/enabled (has a checkmark or is toggled on), DO NOT click it — skip to STEP 5.",
-        "If it is NOT checked, click it to enable it.",
-        "IMPORTANT: The URL should have pre-enabled this, so it is likely already checked. Only click if it is NOT checked.",
-        "DO NOT click 'Find Flights' yet.",
-        "",
-        "STEP 5 - SUBMIT SEARCH:",
-        "Your VERY NEXT ACTION must be: click the red 'Find Flights' button.",
-        "",
-        "STEP 6 - WAIT (CRITICAL - DO NOT SKIP):",
-        "Your VERY NEXT ACTION must be: wait 15",
-        "This is a separate action. The page needs time to load results.",
-        "",
-        "STEP 6.5 - RECOVERY (if needed):",
-        "If the page shows an error or crashes, try navigating to the URL again and repeat from STEP 3.",
-        "",
-        "STEP 7 - EXTRACT PRICES VIA JS (preferred over screenshot):",
-        "Your VERY NEXT ACTION must be: js_eval with this code:",
-        "(() => { const cells = document.querySelectorAll('[class*=calendar], [class*=Calendar], [class*=flex-date], [class*=FlexDate], .offering-cell, .flex-dates-cell, [data-testid*=calendar]'); if(cells.length) { return Array.from(cells).map(c => c.textContent.trim().replace(/\\s+/g, ' ')).filter(t => t.length > 3 && t.length < 200).join(' | '); } const all = document.body.innerText; const lines = all.split('\\n').filter(l => /\\d.*mile/i.test(l)); return lines.slice(0,20).join(' | '); })()",
-        "This extracts calendar/results text without needing a heavy screenshot.",
-        "",
-        "STEP 7b - SCREENSHOT (optional, only if js_eval returned empty):",
-        "If STEP 7 returned useful data, skip to STEP 8.",
-        "If STEP 7 returned empty/nothing, try: screenshot",
-        "",
-        "STEP 8 - REPORT AND DONE:",
-        "Your VERY NEXT ACTION must be: done",
-        "From the js_eval output (or screenshot), read the prices and report:",
-        "",
-        f"For {depart_date.strftime('%B %-d, %Y')} and nearby dates, report:",
-        "CALENDAR: [date] | [miles] miles | [Nonstop/1 Stop]",
-        "",
-        "Example:",
-        "CALENDAR: Mar 15 | 30,500 miles | Nonstop",
-        "CALENDAR: Mar 16 | 14,400 miles | Nonstop",
-        "",
-        "Also report the bottom bar info (e.g., 'From 30,500 miles +$6').",
+        f"STEP 2 - Navigate to: {search_url}",
+        "STEP 3 - wait 3",
+        "STEP 4 - Verify 'Shop with Miles' is checked. Do NOT click if already checked.",
+        "STEP 5 - Click 'Find Flights'.",
+        "STEP 6 - wait 15",
+        "STEP 7 - js_eval: extract calendar/miles data from page",
+        "STEP 8 - screenshot",
+        "STEP 9 - done. Report miles prices found.",
         f"Focus on fares under {max_miles:,} miles.",
         "",
-        "=== CRITICAL WARNINGS ===",
-        "- STEP 2 (navigate) is MANDATORY. Always navigate to the URL even if form looks filled.",
-        "- STEP 4 (Shop with Miles) MUST happen BEFORE STEP 5 (Find Flights).",
-        "- If you skip Shop with Miles, the search returns CASH prices and crashes Chrome.",
-        "- DO NOT click CONTINUE on the results. The individual flights page WILL crash Chrome.",
-        "- DO NOT scroll on results pages.",
-        "- The Flexible Dates calendar is safe. Just screenshot and report.",
-        "- Follow steps 1-8 EXACTLY in order. Each step is ONE action.",
-    ]
-    return "\n".join(lines)
+        "CRITICAL: Do NOT click into individual flight details. Stay on the calendar/list view.",
+    ])
+
+    agent_run = adaptive_run(
+        goal=goal,
+        url=DELTA_URL,
+        max_steps=60,
+        airline="delta",
+        inputs=inputs,
+        max_attempts=2,
+        trace=True,
+        use_vision=True,
+    )
+    if agent_run["ok"]:
+        run_result = agent_run.get("result") or {}
+        result_text = run_result.get("result", "") if isinstance(run_result, dict) else str(run_result)
+        observations.append(f"Agent-only status: {run_result.get('status', 'unknown')}")
+
+        live_matches = _parse_matches(result_text, inputs)
+        for m in live_matches:
+            if "booking_url" not in m:
+                m["booking_url"] = book_url
+
+        return {
+            "mode": "live",
+            "real_data": True,
+            "matches": live_matches,
+            "booking_url": book_url,
+            "summary": f"Delta agent-only: {len(live_matches)} match(es).",
+            "raw_observations": observations,
+            "errors": [],
+        }
+
+    observations.append(f"Agent-only failed: {agent_run['error']}")
+    return {
+        "mode": "live",
+        "real_data": False,
+        "matches": [],
+        "booking_url": book_url,
+        "summary": f"Delta search failed: {agent_run['error']}",
+        "raw_observations": observations,
+        "errors": [agent_run["error"]],
+    }
 
 
 def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
@@ -350,81 +541,42 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
     destinations = inputs["to"]
     max_miles = int(inputs["max_miles"])
     cabin = str(inputs.get("cabin", "economy"))
-
     travelers = int(inputs["travelers"])
     depart_date = today + timedelta(days=int(inputs["days_ahead"]))
-    dest_str = ", ".join(destinations)
     book_url = _booking_url(inputs["from"], destinations[0], depart_date, cabin, travelers)
 
     observations: List[str] = [
         "OpenClaw session expected",
         f"Range: {today.isoformat()}..{end.isoformat()}",
-        f"Destinations: {dest_str}",
+        f"Destinations: {', '.join(destinations)}",
         f"Cabin: {cabin}",
     ]
     if context.get("unresolved_credential_refs"):
         observations.append("Credential refs unresolved; run would require manual auth flow.")
 
     if browser_agent_enabled():
-        agent_run = adaptive_run(
-            goal=_goal(inputs),
-            url=DELTA_URL,
-            max_steps=60,
-            airline="delta",
-            inputs=inputs,
-            max_attempts=3,
-            trace=True,
-            use_vision=True,
-        )
-        if agent_run["ok"]:
-            run_result = agent_run.get("result") or {}
-            result_text = run_result.get("result", "") if isinstance(run_result, dict) else str(run_result)
-            observations.extend(
-                [
-                    "BrowserAgent run executed.",
-                    f"BrowserAgent status: {run_result.get('status', 'unknown') if isinstance(run_result, dict) else 'unknown'}",
-                    f"BrowserAgent steps: {run_result.get('steps', 'n/a') if isinstance(run_result, dict) else 'n/a'}",
-                    f"BrowserAgent trace_dir: {run_result.get('trace_dir', 'n/a') if isinstance(run_result, dict) else 'n/a'}",
-                ]
-            )
-
-            # Parse structured matches from agent's free-text result
-            live_matches = _parse_matches(result_text, inputs)
-            for m in live_matches:
-                if "booking_url" not in m:
-                    m["booking_url"] = book_url
-            return {
-                "mode": "live",
-                "real_data": True,
-                "matches": live_matches,
-                "booking_url": book_url,
-                "summary": (
-                    f"Delta award search: {len(live_matches)} flight(s) found "
-                    f"under {max_miles:,} miles. "
-                    + (f"Cheapest: {min(m['miles'] for m in live_matches):,} miles. "
-                       if live_matches else "No matching flights. ")
-                ),
-                "raw_observations": observations,
-                "errors": [],
-            }
-        observations.append(f"BrowserAgent adapter error: {agent_run['error']}")
+        # Try hybrid first (Playwright extraction avoids Chrome crash)
+        result = _run_hybrid(inputs, observations)
+        if result.get("matches"):
+            return result
+        # Fall back to agent-only
+        observations.append("Hybrid returned no matches, trying agent-only")
+        return _run_agent_only(inputs, observations)
 
     print(
         "WARNING: BrowserAgent not enabled. Results are placeholder data.",
         file=sys.stderr,
     )
-    matches = [
-        {
-            "route": f"{inputs['from']}-{destinations[0]}",
-            "date": today.isoformat(),
-            "miles": min(25000, max_miles),
-            "travelers": travelers,
-            "cabin": cabin,
-            "mixed_cabin": False,
-            "booking_url": book_url,
-            "notes": "placeholder result",
-        }
-    ]
+    matches = [{
+        "route": f"{inputs['from']}-{destinations[0]}",
+        "date": today.isoformat(),
+        "miles": min(25000, max_miles),
+        "travelers": travelers,
+        "cabin": cabin,
+        "mixed_cabin": False,
+        "booking_url": book_url,
+        "notes": "placeholder result",
+    }]
 
     return {
         "mode": "placeholder",
