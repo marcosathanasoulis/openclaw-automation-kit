@@ -13,10 +13,19 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 
 - **claude/daily-award-scan** (Claude Opus agent, Feb 16-17)
   - Task: Daily automated award search for June 2026 across 6 airlines
-  - Commits on main: 2ac377c (runners), e1527d1 (daily scan), 348652d (fix), f7e8f9f (lint)
-  - Status: IN PROGRESS — overnight scan running on Mac Mini CDP (ANA, SIA, JetBlue, AeroMexico, Delta)
+  - Commits on main: 2ac377c..c623020 (runners, daily scan, lint, multiple fixes)
+  - Status: PARTIALLY WORKING — 3 of 6 airlines producing results
+  - Results (Feb 17 overnight):
+    - SIA: 8 matches, best 44,000 miles SFO-SIN (WORKING)
+    - JetBlue: 5 matches SFO-NRT (WORKING)
+    - Delta: 7 matches earlier (13,500 best), but results page crashes Chrome on retest
+    - ANA: Login wall + site crashes Chrome (needs ANA-specific approach)
+    - AeroMexico: Form too complex, 0 matches (Spanish site with toggle)
+    - United: Rate limited from earlier testing, shows USD only
+  - Fixes applied: Delta login-first, ANA login, SIA agent-only fallback, js_eval extraction
+  - Known issues: Delta/ANA results pages crash Chrome (too heavy for CDP)
   - Launchd: `com.athanasoulis.daily-award-search` scheduled 6 AM daily on Mac Mini
-  - Note: PR #18 (codex lint fix) closed — superseded by f7e8f9f already on main
+  - Screenshots: `~/openclaw-automation-kit/debug_screenshots/` on Mac Mini
 
 - `codex/agent-ci-gate-rules`
   - Task: update agent instruction files to require branch isolation and mandatory CI fixes before handoff/merge.
