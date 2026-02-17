@@ -191,9 +191,54 @@ def extract_award_matches_from_text(
     if matches:
         return matches
 
+    # Pattern 3b: Money+Miles format — "$320 + 15k miles" or "$1,760 + 192k miles"
+    # United shows this in Money+Miles pricing mode. Cabin may be on same line or nearby.
+    # Also matches "Basic Economy: $250 + 9k miles" or "$984 + 96k miles (Economy)"
+    pattern3b = re.compile(
+        r"(?:(?P<cabin_prefix>Basic\s*Economy|Economy|Premium\s*Economy|Business|First|Polaris)"
+        r"[^:]*:\s*)?"
+        r"\$[\d,]+(?:\.\d{1,2})?\s*\+\s*(?P<miles>[\d,.]+)k?\s*miles",
+        re.IGNORECASE,
+    )
+
+    for parsed in pattern3b.finditer(text):
+        miles = _normalize_miles(parsed.group("miles"))
+        if miles > max_miles:
+            continue
+        detected_cabin = cabin
+        prefix = (parsed.group("cabin_prefix") or "").strip().lower()
+        if prefix:
+            if "polaris" in prefix:
+                detected_cabin = "business"
+            elif "premium" in prefix:
+                detected_cabin = "premium_economy"
+            elif "basic" in prefix:
+                detected_cabin = "economy"
+            elif "business" in prefix:
+                detected_cabin = "business"
+            elif "first" in prefix:
+                detected_cabin = "first"
+            else:
+                detected_cabin = prefix
+        matches.append({
+            "route": route,
+            "date": "unknown",
+            "date_label": "",
+            "miles": miles,
+            "taxes": "",
+            "travelers": travelers,
+            "cabin": detected_cabin,
+            "mixed_cabin": False,
+            "source": "parsed_money_plus_miles",
+        })
+
+    if matches:
+        return matches
+
     # Pattern 4: Summary lines — "Cheapest economy: 39.8k miles on Feb 22"
     pattern4 = re.compile(
-        r"(?:cheapest|best|lowest)\s+(?P<cabin_name>\w[\w\s]*?):\s*"
+        r"(?:cheapest|best|lowest)\s+(?P<cabin_name>[\w\s]*?):\s*"
+        r"(?:\$[\d,]+(?:\.\d{1,2})?\s*\+\s*)?"
         r"(?P<miles>[\d,.]+)k?\s*miles"
         r"(?:\s+on\s+(?P<date_text>[A-Za-z]+\s+\d{1,2}))?",
         re.IGNORECASE,
