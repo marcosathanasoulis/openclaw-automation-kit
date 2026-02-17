@@ -44,7 +44,7 @@ def _goal(inputs: Dict[str, Any]) -> str:
     cabin = str(inputs.get("cabin", "economy"))
     days_ahead = int(inputs["days_ahead"])
     max_miles = int(inputs["max_miles"])
-    mid_days = max(7, days_ahead // 2)
+    mid_days = days_ahead
     depart_date = date.today() + timedelta(days=mid_days)
 
     cash_url = _booking_url(origin, dest, depart_date, cabin, travelers, award=False)

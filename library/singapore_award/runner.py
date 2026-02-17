@@ -371,7 +371,7 @@ def _run_hybrid(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, An
     travelers = int(inputs["travelers"])
     cabin = str(inputs.get("cabin", "economy"))
     days_ahead = int(inputs["days_ahead"])
-    mid_days = max(7, days_ahead // 2)
+    mid_days = days_ahead
     depart_date = date.today() + timedelta(days=mid_days)
 
     # Phase 1: BrowserAgent login
@@ -544,7 +544,7 @@ def _goal(inputs: Dict[str, Any]) -> str:
     cabin = str(inputs.get("cabin", "economy"))
     cabin_display = CABIN_MAP.get(cabin, cabin.title())
     days_ahead = int(inputs["days_ahead"])
-    mid_days = max(7, days_ahead // 2)
+    mid_days = days_ahead
     depart_date = date.today() + timedelta(days=mid_days)
     range_end = date.today() + timedelta(days=days_ahead)
     travelers = int(inputs["travelers"])
