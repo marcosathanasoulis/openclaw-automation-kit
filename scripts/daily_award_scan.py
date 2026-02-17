@@ -267,8 +267,7 @@ def send_imessage(text: str):
         import requests
         resp = requests.post(
             IMESSAGE_URL,
-            json={"text": text, "address": MY_PHONE},
-            headers={"X-Bot-Token": IMESSAGE_TOKEN},
+            json={"text": text, "address": MY_PHONE, "chat_guid": f"iMessage;-;{MY_PHONE}"},
             timeout=15,
         )
         log.info("iMessage sent: %s", resp.status_code)
