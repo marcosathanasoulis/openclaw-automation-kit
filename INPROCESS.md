@@ -11,6 +11,11 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 
 ## Current Work
 
+- `codex/fix-main-ci-lint-20260217`
+  - Task: fix failing CI lint errors on `main` introduced by daily scan + aeromexico runner changes.
+  - Files: `library/aeromexico_award/runner.py`, `scripts/daily_award_scan.py`, `AGENTS.md`, `CLAUDE.md`, `codex.md`, `INPROCESS.md`
+  - Status: complete (`ruff check .` clean; CI-equivalent run passed with 30 tests on Python 3.11 env)
+
 - `codex/skill-confidence-v106`
   - Task: harden marketplace-facing skill docs for trust boundaries and safe defaults.
   - Files: `skills/openclaw-web-automation/SKILL.md`, `skills/openclaw-web-automation/setup.json`

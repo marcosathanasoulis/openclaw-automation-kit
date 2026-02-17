@@ -98,6 +98,11 @@ Located in `library/<airline>_award/runner.py`. Each has:
 - See individual runner.py files for details
 
 ## Git Workflow
-- **Branch**: work on `main` for kit changes
+- **Branch**: each agent must work on its own topic branch (`codex/*`, `claude/*`, `gemini/*`)
 - **Commit**: include what changed and test results
-- **Push**: `git push origin main` — both machines pull from GitHub
+- **Push**: push your branch and open/update a PR; do not commit directly to `main`
+
+## CI Gate (Required)
+- If CI fails on your branch or on `main` for your changes, fixing CI is blocking work.
+- Run lint/tests locally before handoff: `ruff check .` and `pytest`.
+- Do not hand off or merge while required CI checks are red.
