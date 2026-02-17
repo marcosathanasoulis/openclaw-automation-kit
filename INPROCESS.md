@@ -59,4 +59,4 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 - `codex/personal-repo-guardrails`
   - Task: align agent policy with personal allowlist and permit merging approved PRs in allowlisted repos.
   - Files: `AGENTS.md`, `HANDOFF.md`, `INPROCESS.md`
-  - Status: active
+  - Status: complete
