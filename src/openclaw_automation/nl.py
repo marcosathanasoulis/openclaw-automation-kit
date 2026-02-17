@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Dict, List
 
@@ -18,8 +19,17 @@ AIRLINE_TO_SCRIPT = {
     "singapore": "library/singapore_award",
     "singapore air": "library/singapore_award",
     "singapore airlines": "library/singapore_award",
+    "krisflyer": "library/singapore_award",
+    "sia": "library/singapore_award",
     "sq": "library/singapore_award",
     "ana": "library/ana_award",
+    "all nippon": "library/ana_award",
+    "delta": "library/delta_award",
+    "aeromexico": "library/aeromexico_award",
+    "aero mexico": "library/aeromexico_award",
+    "jetblue": "library/jetblue_award",
+    "jet blue": "library/jetblue_award",
+    "chase": "library/chase_balance",
     "bank of america": "library/bofa_alert",
     "bofa": "library/bofa_alert",
     "boa": "library/bofa_alert",
@@ -29,73 +39,34 @@ AIRLINE_TO_SCRIPT = {
 }
 
 KNOWN_AIRPORT_CODES = {
-    "AMS",
-    "ATH",
-    "BKK",
-    "CDG",
-    "EZE",
-    "FCO",
-    "FRA",
-    "GIG",
-    "GRU",
-    "HND",
-    "LHR",
-    "LIS",
-    "MEX",
-    "NRT",
-    "SFO",
-    "SIN",
+    "AMS", "ATH", "BKK", "BOS", "CDG", "DEN", "DFW", "EWR", "EZE",
+    "FCO", "FRA", "GIG", "GRU", "HKG", "HND", "IAD", "IAH", "ICN",
+    "JFK", "KIX", "LAX", "LHR", "LIS", "MEX", "MIA", "MSP", "NRT",
+    "ORD", "PEK", "PVG", "SEA", "SFO", "SIN", "SYD", "TPE", "YVR",
+    "YYZ", "ZRH",
 }
 
 COMMON_THREE_LETTER_WORDS = {
-    "ANA",
-    "THE",
-    "AND",
-    "FOR",
-    "ONE",
-    "TWO",
-    "ALL",
-    "ANY",
-    "NOT",
-    "BUT",
-    "HAS",
-    "HAD",
-    "HER",
-    "HIS",
-    "HOW",
-    "ITS",
-    "LET",
-    "MAY",
-    "NEW",
-    "NOW",
-    "OLD",
-    "OUR",
-    "OUT",
-    "OWN",
-    "SAY",
-    "SHE",
-    "TOO",
-    "USE",
-    "WAY",
-    "WHO",
-    "BOY",
-    "DID",
-    "GET",
-    "HIM",
-    "MAN",
-    "RUN",
-    "DAY",
-    "FLY",
-    "MAX",
-    "VIA",
+    "ANA", "THE", "AND", "FOR", "ONE", "TWO", "ALL", "ANY", "NOT",
+    "BUT", "HAS", "HAD", "HER", "HIS", "HOW", "ITS", "LET", "MAY",
+    "NEW", "NOW", "OLD", "OUR", "OUT", "OWN", "SAY", "SHE", "TOO",
+    "USE", "WAY", "WHO", "BOY", "DID", "GET", "HIM", "MAN", "RUN",
+    "DAY", "FLY", "MAX", "VIA",
+}
+
+MONTH_NAMES = {
+    "january": 1, "february": 2, "march": 3, "april": 4,
+    "may": 5, "june": 6, "july": 7, "august": 8,
+    "september": 9, "october": 10, "november": 11, "december": 12,
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4,
+    "jun": 6, "jul": 7, "aug": 8, "sep": 9,
+    "oct": 10, "nov": 11, "dec": 12,
 }
 
 
 def _detect_script_dir(query: str) -> str:
     q = query.lower()
     has_url = re.search(r"https?://", query) is not None
-    if "weather" in q and not has_url:
-        return "examples/weather_check"
     if has_url:
         return "examples/public_page_check"
     if "home page" in q or "homepage" in q:
@@ -133,34 +104,6 @@ def _extract_keyword(query: str, default: str = "news") -> str:
     return default
 
 
-def _extract_public_task(query: str) -> str:
-    q = query.lower()
-    if any(token in q for token in ["headline", "headlines", "top stories", "top news"]):
-        return "headlines"
-    if any(token in q for token in ["summarize", "summary", "what is this page about"]):
-        return "summary"
-    return "keyword_count"
-
-
-def _extract_weather_location(query: str) -> str:
-    match = re.search(r"\bweather\s+(?:in|for)\s+([a-zA-Z0-9,\-\s]{2,80})", query, flags=re.IGNORECASE)
-    if match:
-        location = re.sub(r"\s+", " ", match.group(1)).strip(" .,:;!?")
-        location = re.sub(r"\b(in\s+)?(celsius|fahrenheit|centigrade)\b$", "", location, flags=re.IGNORECASE).strip(
-            " .,:;!?"
-        )
-        if location:
-            return location
-    return "San Francisco, CA"
-
-
-def _extract_weather_unit(query: str) -> str:
-    q = query.lower()
-    if "celsius" in q or "centigrade" in q:
-        return "celsius"
-    return "fahrenheit"
-
-
 def _extract_airport_codes(query: str) -> List[str]:
     codes = re.findall(r"\b[A-Z]{3}\b", query)
     known = [code for code in codes if code in KNOWN_AIRPORT_CODES]
@@ -170,21 +113,44 @@ def _extract_airport_codes(query: str) -> List[str]:
 
 
 def _extract_travelers(query: str) -> int:
-    match = re.search(r"\b(\d+)\s*(people|traveler|travelers|adults?)\b", query.lower())
+    match = re.search(r"\b(\d+)\s*(people|traveler|travelers|adults?|pax|passengers?)\b", query.lower())
     if match:
         return int(match.group(1))
+    if "two" in query.lower():
+        return 2
     return 1
 
 
 def _extract_days_ahead(query: str) -> int:
+    # "next N days"
     m = re.search(r"(next|within)\s+(\d+)\s+days", query.lower())
     if m:
-        return max(1, min(int(m.group(2)), 90))
+        return max(1, min(int(m.group(2)), 365))
+
+    # "in June", "in March", month names
+    q = query.lower()
+    for month_name, month_num in MONTH_NAMES.items():
+        if f"in {month_name}" in q or f"for {month_name}" in q or f"during {month_name}" in q:
+            today = date.today()
+            target_year = today.year
+            # If the month is in the past, assume next year
+            if month_num < today.month:
+                target_year += 1
+            elif month_num == today.month and today.day > 15:
+                target_year += 1
+            target_date = date(target_year, month_num, 15)
+            days = (target_date - today).days
+            return max(1, min(days + 15, 365))  # cover the whole month
+
+    # "next week"
+    if "next week" in q:
+        return 14
+
     return 30
 
 
 def _extract_max_miles(query: str) -> int:
-    m = re.search(r"(?:<=|under|below|max)\s*(\d+)\s*k?\s*miles", query.lower())
+    m = re.search(r"(?:<=|under|below|max|at)\s*(\d+)\s*k?\s*miles", query.lower())
     if m:
         value = int(m.group(1))
         if value < 1000:
@@ -201,6 +167,8 @@ def _extract_cabin(query: str) -> str:
         return "business"
     if "first" in q:
         return "first"
+    if "premium" in q:
+        return "premium_economy"
     return "economy"
 
 
@@ -220,14 +188,8 @@ def parse_query_to_run(query: str) -> ParsedQuery:
     if script_dir == "examples/public_page_check":
         url = _extract_url(query) or "https://www.yahoo.com"
         keyword = _extract_keyword(query, default="news")
-        task = _extract_public_task(query)
-        inputs = {"url": url, "keyword": keyword, "task": task}
-        notes = [f"script={script_dir}", f"url={url}", f"keyword={keyword}", f"task={task}"]
-    elif script_dir == "examples/weather_check":
-        location = _extract_weather_location(query)
-        temperature_unit = _extract_weather_unit(query)
-        inputs = {"location": location, "temperature_unit": temperature_unit}
-        notes = [f"script={script_dir}", f"location={location}", f"temperature_unit={temperature_unit}"]
+        inputs = {"url": url, "keyword": keyword}
+        notes = [f"script={script_dir}", f"url={url}", f"keyword={keyword}"]
     elif "award" in script_dir:
         inputs = {
             "from": from_code,
