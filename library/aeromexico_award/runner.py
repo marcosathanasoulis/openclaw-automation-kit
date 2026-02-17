@@ -29,9 +29,8 @@ def _goal(inputs: Dict[str, Any]) -> str:
     origin = inputs["from"]
     destinations = inputs["to"]
     dest = destinations[0]
-    travelers = int(inputs["travelers"])
     cabin = str(inputs.get("cabin", "economy"))
-    cabin_display = CABIN_MAP_AM.get(cabin, cabin.title())
+    _cabin_display = CABIN_MAP_AM.get(cabin, cabin.title())
     days_ahead = int(inputs["days_ahead"])
     max_miles = int(inputs["max_miles"])
     depart_date = date.today() + timedelta(days=days_ahead)
@@ -62,7 +61,7 @@ def _goal(inputs: Dict[str, Any]) -> str:
         f"Click the 'Destino' field. Type '{dest}'. Select from dropdown.",
         "",
         "STEP 5 — SET DATE:",
-        f"Click the 'Fechas' / '¿Cuándo?' field.",
+        "Click the 'Fechas' / '¿Cuándo?' field.",
         f"Navigate the calendar to {month_spanish} {depart_date.year}.",
         f"Click day {day_num}.",
         "",

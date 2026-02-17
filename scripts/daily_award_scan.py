@@ -26,8 +26,6 @@ import importlib.util
 import json
 import logging
 import os
-import re
-import subprocess
 import sys
 import time
 from datetime import date, datetime
@@ -238,7 +236,6 @@ def compile_report(all_results: Dict[str, Dict]) -> str:
             # Group by cabin
             econ = [m for m in matches if m.get("cabin", "").lower() in ("economy", "coach", "main", "blue", "")]
             biz = [m for m in matches if m.get("cabin", "").lower() in ("business", "first", "delta_one", "polaris", "mint", "premier")]
-            other = [m for m in matches if m not in econ and m not in biz]
 
             if econ:
                 best_e = min(m["miles"] for m in econ if m.get("miles"))
