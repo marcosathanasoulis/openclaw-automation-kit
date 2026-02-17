@@ -11,6 +11,18 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 
 ## Current Work
 
+- **claude/daily-award-scan** (Claude Opus agent, Feb 16-17)
+  - Task: Daily automated award search for June 2026 across 6 airlines
+  - Commits on main: 2ac377c (runners), e1527d1 (daily scan), 348652d (fix), f7e8f9f (lint)
+  - Status: IN PROGRESS — overnight scan running on Mac Mini CDP (ANA, SIA, JetBlue, AeroMexico, Delta)
+  - Launchd: `com.athanasoulis.daily-award-search` scheduled 6 AM daily on Mac Mini
+  - Note: PR #18 (codex lint fix) closed — superseded by f7e8f9f already on main
+
+- `codex/agent-ci-gate-rules`
+  - Task: update agent instruction files to require branch isolation and mandatory CI fixes before handoff/merge.
+  - Files: `AGENTS.md`, `CLAUDE.md`, `codex.md`, `INPROCESS.md`
+  - Status: active
+
 - `codex/skill-confidence-v106`
   - Task: harden marketplace-facing skill docs for trust boundaries and safe defaults.
   - Files: `skills/openclaw-web-automation/SKILL.md`, `skills/openclaw-web-automation/setup.json`
