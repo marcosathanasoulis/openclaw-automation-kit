@@ -371,7 +371,6 @@ def _run_hybrid(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, An
     travelers = int(inputs["travelers"])
     cabin = str(inputs.get("cabin", "economy"))
     days_ahead = int(inputs["days_ahead"])
-    max_miles = int(inputs["max_miles"])
     mid_days = max(7, days_ahead // 2)
     depart_date = date.today() + timedelta(days=mid_days)
 

@@ -67,6 +67,8 @@ MONTH_NAMES = {
 def _detect_script_dir(query: str) -> str:
     q = query.lower()
     has_url = re.search(r"https?://", query) is not None
+    if "weather" in q and not has_url:
+        return "examples/weather_check"
     if has_url:
         return "examples/public_page_check"
     if "home page" in q or "homepage" in q:
@@ -102,6 +104,34 @@ def _extract_keyword(query: str, default: str = "news") -> str:
             if candidate:
                 return candidate
     return default
+
+
+def _extract_public_task(query: str) -> str:
+    q = query.lower()
+    if any(token in q for token in ["headline", "headlines", "top stories", "top news"]):
+        return "headlines"
+    if any(token in q for token in ["summarize", "summary", "what is this page about"]):
+        return "summary"
+    return "keyword_count"
+
+
+def _extract_weather_location(query: str) -> str:
+    match = re.search(r"\bweather\s+(?:in|for)\s+([a-zA-Z0-9,\-\s]{2,80})", query, flags=re.IGNORECASE)
+    if match:
+        location = re.sub(r"\s+", " ", match.group(1)).strip(" .,:;!?")
+        location = re.sub(
+            r"\b(in\s+)?(celsius|fahrenheit|centigrade)\b$", "", location, flags=re.IGNORECASE
+        ).strip(" .,:;!?")
+        if location:
+            return location
+    return "San Francisco, CA"
+
+
+def _extract_weather_unit(query: str) -> str:
+    q = query.lower()
+    if "celsius" in q or "centigrade" in q:
+        return "celsius"
+    return "fahrenheit"
 
 
 def _extract_airport_codes(query: str) -> List[str]:
@@ -188,8 +218,14 @@ def parse_query_to_run(query: str) -> ParsedQuery:
     if script_dir == "examples/public_page_check":
         url = _extract_url(query) or "https://www.yahoo.com"
         keyword = _extract_keyword(query, default="news")
-        inputs = {"url": url, "keyword": keyword}
-        notes = [f"script={script_dir}", f"url={url}", f"keyword={keyword}"]
+        task = _extract_public_task(query)
+        inputs = {"url": url, "keyword": keyword, "task": task}
+        notes = [f"script={script_dir}", f"url={url}", f"keyword={keyword}", f"task={task}"]
+    elif script_dir == "examples/weather_check":
+        location = _extract_weather_location(query)
+        temperature_unit = _extract_weather_unit(query)
+        inputs = {"location": location, "temperature_unit": temperature_unit}
+        notes = [f"script={script_dir}", f"location={location}", f"temperature_unit={temperature_unit}"]
     elif "award" in script_dir:
         inputs = {
             "from": from_code,
