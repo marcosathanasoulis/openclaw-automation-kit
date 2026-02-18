@@ -46,11 +46,14 @@ def _login_goal() -> str:
         "   g. Click 'Sign in'.",
         "   h. wait 8",
         "   i. If SMS 2FA requested: read_sms_code (sender 26266). Enter code and submit.",
-        "   j. wait 5",
-        "   k. Check 'Remember this device' if visible.",
-        "   l. Close any popups (X or 'No thanks').",
+        "   j. wait 8",
+        "   k. IMPORTANT: Look for a 'Remember this device' or 'Trust this device' checkbox.",
+        "      If visible, CHECK it before anything else. This avoids future 2FA prompts.",
+        "   l. Close any popups ('No thanks', 'Maybe later', X buttons).",
+        "   m. wait 3",
         "3. After login, report done.",
-        "4. If login fails, report done anyway (we'll search without login).",
+        "4. If login fails after ONE attempt, report done (search proceeds without login).",
+        "   Do NOT retry if you already consumed a 2FA code.",
     ])
 
 
