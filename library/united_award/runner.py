@@ -428,10 +428,13 @@ def _run_agent_only(inputs: Dict[str, Any], observations: List[str]) -> Dict[str
     )
     if agent_run["ok"]:
         run_result = agent_run.get("result") or {}
-        result_text = run_result.get("result", "") if isinstance(run_result, dict) else str(run_result)
         observations.append(f"Agent-only status: {run_result.get('status', 'unknown')}")
 
-        live_matches = _parse_matches(result_text, inputs)
+        # Use matches directly if BrowserAgent already extracted them
+        live_matches = list(run_result.get("matches") or [])
+        if not live_matches:
+            result_text = run_result.get("result", "") if isinstance(run_result, dict) else str(run_result)
+            live_matches = _parse_matches(result_text, inputs)
         if not live_matches:
             live_matches = extract_award_matches_from_text(
                 result_text, route=f"{origin}-{dest}", cabin=cabin,
@@ -488,13 +491,23 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
         observations.append("Hybrid returned no matches, trying agent-only")
         return _run_agent_only(inputs, observations)
 
-    print("WARNING: BrowserAgent not enabled.", file=sys.stderr)
+    print("WARNING: BrowserAgent not enabled. Results are placeholder data.", file=sys.stderr)
+    placeholder_matches = [{
+        "route": f"{inputs['from']}-{destinations[0]}",
+        "date": depart_date.isoformat(),
+        "miles": min(80000, int(inputs.get("max_miles", 80000))),
+        "travelers": travelers,
+        "cabin": cabin,
+        "mixed_cabin": False,
+        "booking_url": book_url,
+        "notes": "placeholder result",
+    }]
     return {
         "mode": "placeholder",
         "real_data": False,
-        "matches": [],
+        "matches": placeholder_matches,
         "booking_url": book_url,
-        "summary": "PLACEHOLDER: United search not available",
+        "summary": f"PLACEHOLDER: Found {len(placeholder_matches)} synthetic United match(es)",
         "raw_observations": observations,
         "errors": [],
     }

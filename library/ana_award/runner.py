@@ -388,11 +388,24 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
         observations.append("Credential refs unresolved.")
 
     if not browser_agent_enabled():
+        travelers = int(inputs.get("travelers", 1))
+        max_miles = int(inputs.get("max_miles", 999999))
+        depart_date = date.today() + timedelta(days=int(inputs["days_ahead"]))
+        placeholder_matches = [{
+            "route": f"{inputs['from']}-{destinations[0]}",
+            "date": depart_date.isoformat(),
+            "miles": min(75000, max_miles),
+            "travelers": travelers,
+            "cabin": cabin,
+            "mixed_cabin": False,
+            "booking_url": ANA_AWARD_URL,
+            "notes": "placeholder result",
+        }]
         return {
             "mode": "placeholder",
             "real_data": False,
-            "matches": [],
-            "summary": "PLACEHOLDER: ANA search not available (no browser agent)",
+            "matches": placeholder_matches,
+            "summary": f"PLACEHOLDER: Found {len(placeholder_matches)} synthetic ANA match(es)",
             "raw_observations": observations,
             "errors": [],
         }
