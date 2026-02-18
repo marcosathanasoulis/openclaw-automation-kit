@@ -162,9 +162,6 @@ def _run_hybrid(context: Dict[str, Any], inputs: Dict[str, Any], observations: L
 
     origin = inputs["from"]
     dest = inputs["to"][0]
-    travelers = int(inputs["travelers"])
-    cabin = str(inputs.get("cabin", "economy"))
-    cabin_display = CABIN_DISPLAY.get(cabin, cabin.title())
     days_ahead = int(inputs["days_ahead"])
     depart_date = date.today() + timedelta(days=days_ahead)
 
@@ -380,10 +377,7 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
     today = date.today()
     end = today + timedelta(days=int(inputs["days_ahead"]))
     destinations = inputs["to"]
-    max_miles = int(inputs["max_miles"])
     cabin = str(inputs.get("cabin", "economy"))
-    travelers = int(inputs["travelers"])
-    depart_date = today + timedelta(days=int(inputs["days_ahead"]))
 
     observations: List[str] = [
         "OpenClaw session expected",

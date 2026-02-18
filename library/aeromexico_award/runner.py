@@ -28,7 +28,6 @@ def _goal(inputs: Dict[str, Any]) -> str:
     cabin = str(inputs.get("cabin", "economy"))
     cabin_display = CABIN_MAP_AM.get(cabin, cabin.title())
     days_ahead = int(inputs["days_ahead"])
-    max_miles = int(inputs["max_miles"])
     depart_date = date.today() + timedelta(days=days_ahead)
 
     lines = [
@@ -119,10 +118,6 @@ def _parse_result(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, An
     )
 
     # Pattern 3: Generic "time range + number"
-    generic_pattern = re.compile(
-        r'(\d{1,2}:\d{2}(?:\s*[AP]M)?)\s*[-–]\s*(\d{1,2}:\d{2}(?:\s*[AP]M)?)',
-        re.IGNORECASE,
-    )
 
     for line in result_text.split("\n"):
         line = line.strip()
@@ -245,9 +240,7 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
     today = date.today()
     end = today + timedelta(days=int(inputs["days_ahead"]))
     destinations = inputs["to"]
-    max_miles = int(inputs["max_miles"])
     cabin = str(inputs.get("cabin", "economy"))
-    travelers = int(inputs["travelers"])
 
     observations: List[str] = [
         "OpenClaw session expected",

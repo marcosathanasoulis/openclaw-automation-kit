@@ -265,7 +265,6 @@ def _run_hybrid(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, An
     cabin = str(inputs.get("cabin", "economy"))
     days_ahead = int(inputs["days_ahead"])
     depart_date = date.today() + timedelta(days=days_ahead)
-    max_miles = int(inputs.get("max_miles", 999999))
 
     search_url = _booking_url(origin, dest, depart_date, cabin, travelers)
 
