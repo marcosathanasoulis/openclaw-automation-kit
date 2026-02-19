@@ -1,10 +1,18 @@
 {
-  "generated_at_utc": "2026-02-16 15:48:57",
-  "total": 12,
+  "generated_at_utc": "2026-02-19 15:56:02",
+  "total": 14,
   "pass": 6,
   "fail": 1,
-  "skip": 5,
+  "skip": 7,
   "results": [
+    {
+      "script_id": "aeromexico.award_search",
+      "location": "library/aeromexico_award",
+      "validate_ok": true,
+      "smoke_ok": false,
+      "status": "SKIP",
+      "notes": "no smoke input configured"
+    },
     {
       "script_id": "ana.award_search",
       "location": "library/ana_award",
@@ -20,6 +28,14 @@
       "smoke_ok": true,
       "status": "PASS",
       "notes": "ok"
+    },
+    {
+      "script_id": "delta.award_search",
+      "location": "library/delta_award",
+      "validate_ok": true,
+      "smoke_ok": false,
+      "status": "SKIP",
+      "notes": "no smoke input configured"
     },
     {
       "script_id": "github.signin_check",

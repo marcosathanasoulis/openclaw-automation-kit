@@ -506,12 +506,14 @@ See [`DISCLAIMER.md`](DISCLAIMER.md) and [`SECURITY.md`](SECURITY.md).
 <!-- AUTOMATION_STATUS:START -->
 ## Daily Automation Health
 
-_Last generated (UTC): 2026-02-16 15:48:57_
+_Last generated (UTC): 2026-02-19 15:56:02_
 
 | Automation | Location | Validate | Smoke | Status | Notes |
 |---|---|---|---|---|---|
+| `aeromexico.award_search` | `library/aeromexico_award` | pass | fail | ⚪ skip | no smoke input configured |
 | `ana.award_search` | `library/ana_award` | pass | pass | ✅ pass | ok |
 | `bofa.account_alerts` | `library/bofa_alert` | pass | pass | ✅ pass | ok |
+| `delta.award_search` | `library/delta_award` | pass | fail | ⚪ skip | no smoke input configured |
 | `github.signin_check` | `library/github_signin_check` | pass | pass | ✅ pass | ok |
 | `singapore.award_search` | `library/singapore_award` | pass | pass | ✅ pass | ok |
 | `web.site_headlines` | `library/site_headlines` | pass | fail | ⚪ skip | no smoke input configured |
