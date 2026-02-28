@@ -157,6 +157,41 @@ def extract_award_matches_from_text(
     if matches:
         return matches
 
+    # Pattern 2b: Month-name date strip — "Mar 1: 300,400 miles" or "Fri Mar 1: 499,900 miles"
+    # Delta shows dates in this format on its award search results calendar
+    _MONTH_NUMS = {"jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+                   "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12}
+    pattern2b = re.compile(
+        r"(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*[\s,]+)?"
+        r"(?P<month_name>Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+"
+        r"(?P<day>\d{1,2})"
+        r"[:\s,]+(?P<miles>[\d,.]+)k?\s*miles?",
+        re.IGNORECASE,
+    )
+    for parsed in pattern2b.finditer(text):
+        miles = _normalize_miles(parsed.group("miles"))
+        if miles > max_miles:
+            continue
+        month_key = parsed.group("month_name")[:3].lower()
+        month_num = _MONTH_NUMS.get(month_key, 0)
+        day = int(parsed.group("day"))
+        date_iso = f"{current_year:04d}-{month_num:02d}-{day:02d}" if month_num else ""
+        label = f"{parsed.group('month_name')[:3]} {day}"
+        matches.append({
+            "route": route,
+            "date": date_iso or label,
+            "date_label": label,
+            "miles": miles,
+            "taxes": "",
+            "travelers": travelers,
+            "cabin": cabin,
+            "mixed_cabin": False,
+            "source": "parsed_month_name_date",
+        })
+
+    if matches:
+        return matches
+
     # Pattern 3: Multi-line cabin entries — "Economy: 39.8k miles + $5.60"
     # or "Business: 250k miles + $21.50 (mixed cabin)"
     pattern3 = re.compile(
