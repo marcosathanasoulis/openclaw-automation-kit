@@ -618,12 +618,8 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
         observations.append("Credential refs unresolved; run would require manual auth flow.")
 
     if browser_agent_enabled():
-        # Try hybrid first (Playwright extraction avoids Chrome crash)
-        result = _run_hybrid(inputs, observations)
-        if result.get("matches"):
-            return result
-        # Fall back to agent-only
-        observations.append("Hybrid returned no matches, trying agent-only")
+        # Playwright Phase 2 is unreliable (page crashes, JS extraction fails).
+        # Go straight to agent-only which uses the improved multi-date calendar goal.
         return _run_agent_only(inputs, observations)
 
     print(

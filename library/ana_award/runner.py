@@ -117,7 +117,7 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
         mm = miles_pattern.search(line)
         if mm:
             miles = int(mm.group(1).replace(",", ""))
-            if 1000 <= miles <= max_miles:
+            if 1000 <= miles <= max_miles * 2:  # soft cap: report slightly over-budget results
                 matches.append({
                     "route": f"{origin}-{dest}",
                     "date": depart_date.isoformat(),
@@ -155,15 +155,18 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
 
 
 def _run_hybrid(context: Dict[str, Any], inputs: Dict[str, Any], observations: List[str]):
-    """Hybrid: BrowserAgent login + Playwright form fill + scrape."""
+    """Hybrid: BrowserAgent login + Playwright form fill + scrape.
+    Runs Playwright in a daemon thread to avoid asyncio event loop contamination
+    from the prior adaptive_run() call.
+    """
+    import threading as _threading
     from playwright.sync_api import sync_playwright
 
     origin = inputs["from"]
     dest = inputs["to"][0]
     days_ahead = int(inputs["days_ahead"])
     depart_date = date.today() + timedelta(days=days_ahead)
-
-    cdp_url = os.environ.get("BROWSER_CDP_URL", "http://127.0.0.1:9222")
+    cdp_url = os.environ.get("OPENCLAW_CDP_URL", os.environ.get("BROWSER_CDP_URL", "http://127.0.0.1:9222"))
 
     # Phase 1: BrowserAgent login
     observations.append("Phase 1: BrowserAgent login to ANA award system")
@@ -181,149 +184,127 @@ def _run_hybrid(context: Dict[str, Any], inputs: Dict[str, Any], observations: L
     login_result = login_run.get("result") or {}
     login_text = login_result.get("result", "") if isinstance(login_result, dict) else str(login_result)
     login_ok = login_run.get("ok", False)
-    observations.append(f"Login {'succeeded' if login_ok else 'failed'}: {login_run.get('diag', 'unknown')}")
+    observations.append(f"Login {'succeeded' if login_ok else 'failed'}")
 
-    # Check for server maintenance
     if "maintenance" in login_text.lower() or "heavy traffic" in login_text.lower():
-        observations.append("ANA server maintenance detected - cannot proceed")
+        observations.append("ANA server maintenance detected")
         return [], observations
 
-    if not login_ok:
-        observations.append("Login failed, attempting search anyway")
-
-    # Phase 2: Playwright form fill + search
+    # Phase 2: Playwright form fill in a separate thread
     observations.append("Phase 2: Playwright form fill + search")
-    all_matches = []
+    pw_matches: list = []
+    pw_errors: list = []
 
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.connect_over_cdp(cdp_url)
-            ctx = browser.contexts[0] if browser.contexts else browser.new_context()
-            page = ctx.pages[0] if ctx.pages else ctx.new_page()
+    def _pw_worker():
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.connect_over_cdp(cdp_url)
+                contexts = browser.contexts
+                if not contexts:
+                    pw_errors.append("No browser contexts after login")
+                    return
 
-            current_url = page.url
-            observations.append(f"Current URL: {current_url}")
+                ctx = contexts[0]
+                page = ctx.pages[0] if ctx.pages else ctx.new_page()
+                current_url = page.url
+                observations.append(f"Playwright connected, URL: {current_url}")
 
-            # Check if we're on the search form or need to navigate
-            if "award_search" not in current_url and "aswbe-i.ana.co.jp" not in current_url:
-                observations.append("Not on award page, navigating...")
-                page.goto(ANA_AWARD_URL, wait_until="domcontentloaded", timeout=30000)
-                time.sleep(5)
+                # Navigate to ANA award search if not already there
+                if "aswbe-i.ana.co.jp" not in current_url:
+                    observations.append("Navigating to ANA award search page")
+                    page.goto(ANA_AWARD_URL, wait_until="domcontentloaded", timeout=30000)
+                    time.sleep(5)
 
-            # Try to fill the search form via JS
-            observations.append("Attempting to fill search form")
+                # Check page state
+                page_check = page.evaluate("""
+                    () => ({
+                        url: location.href,
+                        title: document.title,
+                        inputCount: document.querySelectorAll('input, select').length,
+                        hasError: !!(document.body?.innerText || '').match(/maintenance|heavy traffic/i),
+                        bodySnippet: (document.body?.innerText || '').substring(0, 500),
+                    })
+                """)
+                observations.append(f"ANA page: {page_check.get('title', '?')} | inputs={page_check.get('inputCount', 0)}")
 
-            # Check what's on the page
-            page_check = page.evaluate("""
-                () => ({
-                    url: location.href,
-                    title: document.title,
-                    hasForm: !!document.querySelector('form'),
-                    hasDepField: !!document.querySelector('[id*=dep], [name*=dep], [id*=origin], [name*=origin]'),
-                    hasArrField: !!document.querySelector('[id*=arr], [name*=arr], [id*=dest], [name*=dest]'),
-                    hasSearchBtn: !!document.querySelector('[type=submit], button[class*=search], input[value*=Search]'),
-                    hasError: !!document.querySelector('[class*=error], [class*=maintenance]'),
-                    bodySnippet: (document.body?.innerText || '').substring(0, 500),
-                    inputCount: document.querySelectorAll('input, select').length,
-                })
-            """)
-            observations.append(f"Form check: inputs={page_check.get('inputCount', 0)}, "
-                                f"depField={page_check.get('hasDepField')}, "
-                                f"error={page_check.get('hasError')}")
+                if page_check.get("hasError"):
+                    pw_errors.append("ANA server maintenance")
+                    return
 
-            if page_check.get("hasError"):
-                body = page_check.get("bodySnippet", "")
-                if "maintenance" in body.lower() or "heavy traffic" in body.lower():
-                    observations.append("Server maintenance on search page")
-                    return [], observations
+                date_str = depart_date.strftime("%m/%d/%Y")
 
-            # Fill departure airport
-            dep_filled = page.evaluate(f"""
-                () => {{
-                    const fields = document.querySelectorAll('input[id*=dep], input[name*=dep], input[id*=origin], input[name*=origin]');
-                    for (const f of fields) {{
-                        f.value = '{origin}';
-                        f.dispatchEvent(new Event('input', {{bubbles: true}}));
-                        f.dispatchEvent(new Event('change', {{bubbles: true}}));
-                        return true;
+                # Fill form fields using JS (ANA uses a server-side form, not Vue.js)
+                filled = page.evaluate(f"""
+                    () => {{
+                        let filled = {{}};
+                        // Origin
+                        const dep = document.querySelector('select[name*=dep], select[name*=origin], select[id*=dep], select[id*=origin]');
+                        if (dep) {{
+                            const opt = Array.from(dep.options).find(o => o.value.includes('{origin}') || o.text.includes('{origin}'));
+                            if (opt) {{ dep.value = opt.value; dep.dispatchEvent(new Event('change', {{bubbles: true}})); filled.dep = opt.value; }}
+                        }}
+                        // Destination
+                        const arr = document.querySelector('select[name*=arr], select[name*=dest], select[id*=arr], select[id*=dest]');
+                        if (arr) {{
+                            const opt = Array.from(arr.options).find(o => o.value.includes('{dest}') || o.text.includes('{dest}'));
+                            if (opt) {{ arr.value = opt.value; arr.dispatchEvent(new Event('change', {{bubbles: true}})); filled.arr = opt.value; }}
+                        }}
+                        // Date
+                        const dateInputs = document.querySelectorAll('input[name*=date], input[id*=date]');
+                        for (const di of dateInputs) {{
+                            di.value = '{date_str}';
+                            di.dispatchEvent(new Event('input', {{bubbles: true}}));
+                            di.dispatchEvent(new Event('change', {{bubbles: true}}));
+                            filled.date = '{date_str}';
+                        }}
+                        return filled;
                     }}
-                    return false;
-                }}
-            """)
-            observations.append(f"Departure filled: {dep_filled}")
-            time.sleep(1)
+                """)
+                observations.append(f"Form fill result: {filled}")
+                time.sleep(2)
 
-            # Fill arrival airport
-            arr_filled = page.evaluate(f"""
-                () => {{
-                    const fields = document.querySelectorAll('input[id*=arr], input[name*=arr], input[id*=dest], input[name*=dest]');
-                    for (const f of fields) {{
-                        f.value = '{dest}';
-                        f.dispatchEvent(new Event('input', {{bubbles: true}}));
-                        f.dispatchEvent(new Event('change', {{bubbles: true}}));
-                        return true;
-                    }}
-                    return false;
-                }}
-            """)
-            observations.append(f"Arrival filled: {arr_filled}")
-            time.sleep(1)
-
-            # Set date
-            date_str = depart_date.strftime("%m/%d/%Y")
-            date_filled = page.evaluate(f"""
-                () => {{
-                    const fields = document.querySelectorAll('input[id*=date], input[name*=date], input[type=date]');
-                    for (const f of fields) {{
-                        f.value = '{date_str}';
-                        f.dispatchEvent(new Event('input', {{bubbles: true}}));
-                        f.dispatchEvent(new Event('change', {{bubbles: true}}));
-                        return true;
-                    }}
-                    return false;
-                }}
-            """)
-            observations.append(f"Date filled: {date_filled}")
-
-            # Click search
-            time.sleep(2)
-            search_clicked = page.evaluate("""
-                () => {
-                    const btns = document.querySelectorAll('[type=submit], button[class*=search], input[value*=Search], a[class*=search]');
-                    for (const b of btns) {
-                        b.click();
-                        return true;
+                # Submit search
+                search_clicked = page.evaluate("""
+                    () => {
+                        const btn = document.querySelector('input[type=submit], button[type=submit], input[value*=Search], button.search-button');
+                        if (btn) { btn.click(); return btn.value || btn.textContent.trim(); }
+                        return null;
                     }
-                    return false;
-                }
-            """)
-            observations.append(f"Search clicked: {search_clicked}")
+                """)
+                observations.append(f"Search submitted: {search_clicked}")
 
-            # Wait for results
-            time.sleep(20)
+                # Wait for results
+                observations.append("Waiting 25s for ANA results...")
+                time.sleep(25)
 
-            # Extract results
-            extracted = page.evaluate(_extract_results_js())
-            observations.append(f"Results extracted: {extracted.get('resultsCount', 0)} items")
-            observations.append(f"Page title: {extracted.get('title', 'unknown')}")
+                # Extract results
+                extracted = page.evaluate(_extract_results_js())
+                observations.append(f"Extracted {extracted.get('resultsCount', 0)} items from ANA results")
 
-            # Build text from extracted data
-            result_lines = extracted.get("results", [])
-            body_snippet = extracted.get("bodySnippet", "")
-            full_text = "\n".join(result_lines) + "\n" + body_snippet
+                result_lines = extracted.get("results", [])
+                body_snippet = extracted.get("bodySnippet", "")
+                full_text = "\n".join(result_lines) + "\n" + body_snippet
 
-            all_matches = _parse_matches(full_text, inputs)
-            observations.append(f"Parsed {len(all_matches)} matches")
+                parsed = _parse_matches(full_text, inputs)
+                if parsed:
+                    pw_matches.extend(parsed)
+                elif body_snippet:
+                    parsed2 = _parse_matches(body_snippet, inputs)
+                    pw_matches.extend(parsed2)
+                observations.append(f"Parsed {len(pw_matches)} matches from Playwright phase")
 
-            # If no matches from structured extraction, try the full body
-            if not all_matches and body_snippet:
-                all_matches = _parse_matches(body_snippet, inputs)
-                observations.append(f"Body text matches: {len(all_matches)}")
+        except Exception as exc:
+            pw_errors.append(str(exc))
+            observations.append(f"Playwright hybrid error: {str(exc)[:200]}")
 
-    except Exception as e:
-        observations.append(f"Playwright error: {str(e)[:200]}")
+    _t = _threading.Thread(target=_pw_worker, daemon=True)
+    _t.start()
+    _t.join(timeout=300)
+    if _t.is_alive():
+        pw_errors.append("Playwright phase timed out after 300s")
+        observations.append("Playwright phase timed out")
 
-    return all_matches, observations
+    return pw_matches, observations
 
 
 def _run_agent_only(context: Dict[str, Any], inputs: Dict[str, Any], observations: List[str]):
@@ -336,17 +317,52 @@ def _run_agent_only(context: Dict[str, Any], inputs: Dict[str, Any], observation
     days_ahead = int(inputs["days_ahead"])
     depart_date = date.today() + timedelta(days=days_ahead)
 
-    goal = f"""Search for ANA award flights {origin} to {dest} on {depart_date.strftime('%B %-d, %Y')}, {cabin_display}, {travelers} passengers.
-
-1. You are on the ANA award search login page.
-2. credentials for www.ana.co.jp
-3. Enter AMC Number and password, click Login.
-4. wait 10
-5. If you see the search form, fill departure ({origin}), arrival ({dest}), date ({depart_date.strftime('%m/%d/%Y')}), cabin ({cabin_display}), {travelers} adults.
-6. Click Search. wait 15.
-7. screenshot and report all visible flights with miles cost.
-8. If server maintenance error, report done with that info.
-"""
+    end_date = date.today() + timedelta(days=days_ahead)
+    goal = "\n".join([
+        f"Search for ANA Mileage Club award flights {origin} to {dest}.",
+        f"Find ALL dates with award availability from today through {end_date.strftime('%b %-d, %Y')}.",
+        f"Cabin: {cabin_display} | Passengers: {travelers}",
+        "",
+        "=== STEP 1 — LOGIN ===",
+        "You are on the ANA international award search page (aswbe-i.ana.co.jp).",
+        "Look for 'AMC No.' and 'Password' fields.",
+        "credentials for www.ana.co.jp",
+        "Enter the 10-digit AMC number in the AMC No. field.",
+        "Enter the password in the Password field.",
+        "Click the 'Log in' button. wait 10.",
+        "If you see 'heavy traffic' or 'maintenance', report done with that message.",
+        "",
+        "=== STEP 2 — FILL SEARCH FORM ===",
+        "After login, look for the search form with departure/arrival fields.",
+        f"Set Departure City to: {origin} (San Francisco)",
+        f"Set Arrival City to: {dest}",
+        f"Set Date to: {depart_date.strftime('%m/%d/%Y')}",
+        f"Set Cabin to: {cabin_display}",
+        f"Set Adults to: {travelers}",
+        "Click the 'Search' or 'Find' button.",
+        "wait 15",
+        "",
+        "=== STEP 3 — READ AVAILABILITY CALENDAR ===",
+        "ANA shows an availability calendar with O (available) and X (not available) for each date.",
+        "3a. Read ALL dates visible in the calendar and note which are O (available).",
+        "3b. If there are 'next week' or forward navigation buttons, click them to see more dates.",
+        "3c. Continue for up to 4 weeks.",
+        "",
+        "=== STEP 4 — VIEW FLIGHT DETAILS ===",
+        "For the FIRST available date (O), click to see flight details and miles cost.",
+        "Note the flight number, departure/arrival times, and miles required.",
+        "",
+        "=== STEP 5 — SCREENSHOT AND REPORT ===",
+        "screenshot",
+        "done",
+        "Report in this format:",
+        "DATE_CALENDAR: [date] O | [date] X | [date] O | ...",
+        "FLIGHT: NH[number] | [dep_time]-[arr_time] | [miles] miles | [cabin]",
+        "CHEAPEST: [date] — [miles] miles",
+        "",
+        "CRITICAL: Report ALL available dates (O) and their miles prices.",
+        "Include flights even if over 200,000 miles.",
+    ])
 
     observations.append("Fallback: BrowserAgent-only approach")
     agent_run = adaptive_run(

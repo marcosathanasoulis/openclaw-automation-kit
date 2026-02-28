@@ -82,7 +82,6 @@ def _fill_form_and_search(
     origin_name = CITY_NAMES.get(origin, origin)
     dest_name = CITY_NAMES.get(dest, dest)
     cabin_display = CABIN_MAP.get(cabin, cabin.title())
-    month_display = depart_date.strftime("%B %Y")
     date_str = depart_date.strftime("%Y-%m-%d")
     errors: List[str] = []
 
@@ -176,43 +175,96 @@ def _fill_form_and_search(
             time.sleep(1)
 
         # --- Calendar / Date ---
-        date_input = page.locator("input[name='departDate']")
-        date_input.click()
-        time.sleep(2)
+        # Try direct fill first (Vue.js native setter trick)
+        date_iso = depart_date.strftime("%Y-%m-%d")
+        try:
+            date_set = page.evaluate(f"""
+                () => {{
+                    // Try Vue.js reactive setter (React/Vue pattern)
+                    const inp = document.querySelector("input[name='departDate']");
+                    if (!inp) return false;
+                    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                    nativeSetter.call(inp, '{date_iso}');
+                    inp.dispatchEvent(new Event('input', {{bubbles: true}}));
+                    inp.dispatchEvent(new Event('change', {{bubbles: true}}));
+                    return true;
+                }}
+            """)
+            time.sleep(1)
+            if date_set:
+                errors.append(f"Date set via JS setter to {date_iso}")
+        except Exception as e:
+            errors.append(f"JS date setter error: {e}")
 
+        # Open the calendar to validate/confirm the date
+        date_input = page.locator("input[name='departDate']")
+        try:
+            date_input.click(timeout=5000)
+            time.sleep(2)
+        except Exception:
+            pass
+
+        # Try oneway toggle
         oneway_label = page.locator(".calendar-root label[for='oneway_id']")
         if oneway_label.count() > 0:
-            oneway_label.first.click()
-            time.sleep(1)
-
-        month_input = page.locator(".calendar-root .vue-simple-suggest input")
-        if month_input.count() > 0:
-            month_input.first.click()
-            time.sleep(1)
-            month_suggest = page.locator(f".suggest-item:has-text('{month_display}')")
-            if month_suggest.count() > 0:
-                month_suggest.first.click()
+            try:
+                oneway_label.first.click()
                 time.sleep(1)
-            else:
-                errors.append(f"Month '{month_display}' not found in calendar dropdown")
+            except Exception:
+                pass
 
-        day_cell = page.locator(f".calendar_days li[date-data='{date_str}']")
-        if day_cell.count() > 0:
-            day_cell.first.click()
-            time.sleep(1)
-        else:
-            avail_days = page.locator(".calendar_days li:not(.disabled):not(.past)")
-            if avail_days.count() > 0:
-                avail_days.nth(min(6, avail_days.count() - 1)).click()
-                time.sleep(1)
-                errors.append(f"Day cell for {date_str} not found, clicked alternate date")
-            else:
-                errors.append("No available day cells found in calendar")
+        # Try clicking the target day by date-data attribute (both formats)
+        day_clicked = False
+        for attr in [f"[date-data='{date_str}']", f"[data-date='{date_str}']"]:
+            day_cell = page.locator(f".calendar_days li{attr}")
+            if day_cell.count() > 0:
+                try:
+                    day_cell.first.click()
+                    time.sleep(1)
+                    day_clicked = True
+                    break
+                except Exception:
+                    pass
 
-        done_btn = page.locator(".calendar-root .btn-primary:not([disabled])")
-        if done_btn.count() > 0:
-            done_btn.first.click()
-            time.sleep(2)
+        # If attribute selector failed, try clicking by visible text (day number)
+        if not day_clicked:
+            day_num = str(depart_date.day)
+            day_cells = page.locator(".calendar_days li:not(.disabled):not(.past)")
+            count = day_cells.count()
+            for i in range(count):
+                try:
+                    cell = day_cells.nth(i)
+                    text = cell.inner_text()
+                    if text.strip() == day_num:
+                        cell.click()
+                        day_clicked = True
+                        time.sleep(1)
+                        break
+                except Exception:
+                    pass
+
+            if not day_clicked:
+                # Fall back to 7th available day
+                if count > 0:
+                    try:
+                        day_cells.nth(min(6, count - 1)).click()
+                        time.sleep(1)
+                        errors.append(f"Day {day_num} not found, clicked alternate")
+                    except Exception:
+                        errors.append("Could not click any day cell")
+                else:
+                    errors.append("No available day cells found in calendar")
+
+        # Click Done/Confirm button in calendar
+        for btn_sel in [".calendar-root .btn-primary:not([disabled])", ".calendar-root button.confirm", ".calendar-root .done-btn"]:
+            done_btn = page.locator(btn_sel)
+            if done_btn.count() > 0:
+                try:
+                    done_btn.first.click()
+                    time.sleep(2)
+                    break
+                except Exception:
+                    pass
 
         # --- Click Search ---
         time.sleep(3)
@@ -528,7 +580,7 @@ def _run_agent_only(inputs: Dict[str, Any], observations: List[str]) -> Dict[str
         _agent_result[0] = run_browser_agent_goal(
             goal=_goal(inputs),
             url=SIA_URL,
-            max_steps=60,
+            max_steps=90,
             trace=True,
             use_vision=True,
         )
@@ -590,8 +642,10 @@ def _goal(inputs):
         "If already logged in, skip to STEP 2.",
         "",
         "STEP 2 - NAVIGATE TO REDEEM FLIGHTS:",
-        "Navigate to https://www.singaporeair.com/en_UK/us/home#/book/redeemflight",
-        "Wait 5 seconds for the form to load.",
+        "Navigate to https://www.singaporeair.com/en_UK/us/home",
+        "wait 4",
+        "Then navigate to https://www.singaporeair.com/en_UK/us/home#/book/redeemflight",
+        "Wait 6 seconds for the Angular app to load and show the form.",
         "",
         "STEP 3 - FILL ORIGIN:",
         f"Click the origin/departure field and type '{origin_name}' or '{origin}'.",
