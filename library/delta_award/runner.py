@@ -286,7 +286,7 @@ def _run_hybrid(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, An
 
     _t1 = threading.Thread(target=_phase1_worker, daemon=True)
     _t1.start()
-    _t1.join(timeout=300)
+    _t1.join(timeout=600)
     login_result = _phase1_result[0] or {"ok": False, "error": "Phase 1 thread timed out"}
 
     if not login_result["ok"]:
