@@ -4,6 +4,7 @@ import json
 import os
 import re
 import sys
+import threading
 import time
 from datetime import date, timedelta
 from typing import Any, Dict, List
@@ -415,77 +416,86 @@ def _run_hybrid(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, An
     matches: List[Dict[str, Any]] = []
     errors: List[str] = []
 
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.connect_over_cdp(cdp_url)
-            contexts = browser.contexts
-            if not contexts:
-                errors.append("No browser contexts found after login")
-                return {
-                    "mode": "live",
-                    "real_data": False,
-                    "matches": [],
-                    "summary": "No browser context available after BrowserAgent login",
-                    "raw_observations": observations,
-                    "errors": errors,
-                }
+    # Run sync_playwright in a separate thread to avoid asyncio loop conflicts
+    def _pw_worker():
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.connect_over_cdp(cdp_url)
+                contexts = browser.contexts
+                if not contexts:
+                    errors.append("No browser contexts found after login")
+                    return {
+                        "mode": "live",
+                        "real_data": False,
+                        "matches": [],
+                        "summary": "No browser context available after BrowserAgent login",
+                        "raw_observations": observations,
+                        "errors": errors,
+                    }
 
-            context = contexts[0]
-            page = None
-            for p_page in context.pages:
-                if "singaporeair" in p_page.url:
-                    page = p_page
-                    break
+                context = contexts[0]
+                page = None
+                for p_page in context.pages:
+                    if "singaporeair" in p_page.url:
+                        page = p_page
+                        break
 
-            if page is None:
-                page = context.new_page()
+                if page is None:
+                    page = context.new_page()
 
-            # Two-step navigation: homepage first (loads Angular), then redeem hash
-            homepage = "https://www.singaporeair.com/en_UK/us/home"
-            page.goto(homepage, wait_until="domcontentloaded", timeout=30000)
-            time.sleep(6)
-            page.goto(SIA_REDEEM_URL, wait_until="domcontentloaded", timeout=30000)
-            time.sleep(5)
+                # Two-step navigation: homepage first (loads Angular), then redeem hash
+                homepage = "https://www.singaporeair.com/en_UK/us/home"
+                page.goto(homepage, wait_until="domcontentloaded", timeout=30000)
+                time.sleep(6)
+                page.goto(SIA_REDEEM_URL, wait_until="domcontentloaded", timeout=30000)
+                time.sleep(5)
 
-            observations.append(f"Playwright connected, page URL: {page.url}")
+                observations.append(f"Playwright connected, page URL: {page.url}")
 
-            form_result = _fill_form_and_search(
-                page, origin, dest, cabin, travelers, depart_date,
-            )
-            if form_result.get("errors"):
-                errors.extend(form_result["errors"])
-                for e in form_result["errors"]:
-                    observations.append(f"Form note: {e}")
+                form_result = _fill_form_and_search(
+                    page, origin, dest, cabin, travelers, depart_date,
+                )
+                if form_result.get("errors"):
+                    errors.extend(form_result["errors"])
+                    for e in form_result["errors"]:
+                        observations.append(f"Form note: {e}")
 
-            if form_result["ok"]:
-                observations.append("Form filled and search submitted")
+                if form_result["ok"]:
+                    observations.append("Form filled and search submitted")
 
-                # Phase 3: Scrape results
-                observations.append("Phase 3: Scraping results")
-                raw_results = _scrape_results(page, depart_date.month, depart_date.year)
-                observations.append(f"Scraped {len(raw_results)} date entries")
+                    # Phase 3: Scrape results
+                    observations.append("Phase 3: Scraping results")
+                    raw_results = _scrape_results(page, depart_date.month, depart_date.year)
+                    observations.append(f"Scraped {len(raw_results)} date entries")
 
-                book_url = _booking_url(origin, dest, depart_date)
-                for r in raw_results:
-                    if r["miles"] > 0:
-                        matches.append({
-                            "route": f"{origin}-{dest}",
-                            "date": r["date"],
-                            "miles": r["miles"],
-                            "travelers": travelers,
-                            "cabin": cabin,
-                            "mixed_cabin": False,
-                            "booking_url": book_url,
-                            "notes": f"raw: {r['raw']}",
-                        })
+                    book_url = _booking_url(origin, dest, depart_date)
+                    for r in raw_results:
+                        if r["miles"] > 0:
+                            matches.append({
+                                "route": f"{origin}-{dest}",
+                                "date": r["date"],
+                                "miles": r["miles"],
+                                "travelers": travelers,
+                                "cabin": cabin,
+                                "mixed_cabin": False,
+                                "booking_url": book_url,
+                                "notes": f"raw: {r['raw']}",
+                            })
 
-                observations.append(f"Found {len(matches)} date entries with availability")
-            else:
-                observations.append(f"Form fill failed: {form_result.get('error', 'unknown')}")
+                    observations.append(f"Found {len(matches)} date entries with availability")
+                else:
+                    observations.append(f"Form fill failed: {form_result.get('error', 'unknown')}")
 
-    except Exception as exc:
-        errors.append(f"Playwright phase error: {exc}")
-        observations.append(f"Playwright error: {exc}")
+        except Exception as exc:
+            errors.append(f"Playwright phase error: {exc}")
+            observations.append(f"Playwright error: {exc}")
+
+    _pw_thread = threading.Thread(target=_pw_worker, daemon=True)
+    _pw_thread.start()
+    _pw_thread.join(timeout=300)
+    if _pw_thread.is_alive():
+        errors.append("Playwright phase timed out after 300s")
+        observations.append("Playwright phase timed out")
 
     book_url_final = _booking_url(origin, dest, depart_date)
     summary_parts = [f"SIA hybrid search: {len(matches)} flights found for {origin}-{dest}"]
@@ -505,13 +515,21 @@ def _run_hybrid(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, An
 
 def _run_agent_only(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, Any]:
     """Fallback: agent-only approach."""
-    agent_run = run_browser_agent_goal(
-        goal=_goal(inputs),
-        url=SIA_URL,
-        max_steps=60,
-        trace=True,
-        use_vision=True,
-    )
+    _agent_result = [None]
+
+    def _agent_worker():
+        _agent_result[0] = run_browser_agent_goal(
+            goal=_goal(inputs),
+            url=SIA_URL,
+            max_steps=60,
+            trace=True,
+            use_vision=True,
+        )
+
+    _t = threading.Thread(target=_agent_worker, daemon=True)
+    _t.start()
+    _t.join(timeout=600)
+    agent_run = _agent_result[0] or {"ok": False, "error": "Agent thread timed out"}
     if agent_run["ok"]:
         run_result = agent_run.get("result") or {}
         observations.extend([

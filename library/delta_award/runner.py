@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+import threading
 import time
 from datetime import date, timedelta
 from typing import Any, Dict, List
@@ -302,132 +303,136 @@ def _run_hybrid(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, An
     errors: List[str] = []
     result_text_parts: List[str] = []
 
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.connect_over_cdp(cdp_url)
-            contexts = browser.contexts
-            if not contexts:
-                errors.append("No browser contexts")
-                return _run_agent_only(inputs, observations)
+    # Run sync_playwright in a separate thread to avoid asyncio loop conflicts
+    def _pw_worker():
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.connect_over_cdp(cdp_url)
+                contexts = browser.contexts
+                if not contexts:
+                    errors.append("No browser contexts")
+                    return _run_agent_only(inputs, observations)
 
-            context = contexts[0]
+                context = contexts[0]
 
-            # Find existing Delta page or create new one
-            page = None
-            for pg in context.pages:
-                if "delta.com" in pg.url:
-                    page = pg
-                    break
-            if page is None:
+                # Always create a new page to avoid using pages closed by Phase 1
                 page = context.new_page()
 
-            # Navigate to search URL
-            observations.append(f"Navigating to: {search_url}")
-            try:
-                page.goto(search_url, wait_until="domcontentloaded", timeout=30000)
-            except Exception as e:
-                observations.append(f"Nav warning: {e}")
 
-            # Wait for form to load
-            time.sleep(5)
+                # Navigate to search URL
+                observations.append(f"Navigating to: {search_url}")
+                try:
+                    page.goto(search_url, wait_until="domcontentloaded", timeout=30000)
+                except Exception as e:
+                    observations.append(f"Nav warning: {e}")
 
-            # Verify Shop with Miles is enabled via JS (don't click - URL should set it)
-            try:
-                miles_checked = page.evaluate("""() => {
-                    const cb = document.querySelector('[id*="shopWithMiles"], input[name*="shopWithMiles"]');
-                    if (cb) return cb.checked;
-                    // Check for toggle state
-                    const toggle = document.querySelector('[class*="shopWithMiles"]');
-                    if (toggle) return toggle.classList.contains('active') || toggle.classList.contains('checked');
-                    return null;
-                }""")
-                observations.append(f"Shop with Miles checked: {miles_checked}")
+                # Wait for form to load
+                time.sleep(5)
 
-                if miles_checked is False:
-                    # Need to click it
-                    page.evaluate("""() => {
+                # Verify Shop with Miles is enabled via JS (don't click - URL should set it)
+                try:
+                    miles_checked = page.evaluate("""() => {
                         const cb = document.querySelector('[id*="shopWithMiles"], input[name*="shopWithMiles"]');
-                        if (cb) { cb.click(); return; }
-                        const labels = Array.from(document.querySelectorAll('label, span'));
-                        const match = labels.find(l => /shop.*miles/i.test(l.textContent));
-                        if (match) match.click();
+                        if (cb) return cb.checked;
+                        // Check for toggle state
+                        const toggle = document.querySelector('[class*="shopWithMiles"]');
+                        if (toggle) return toggle.classList.contains('active') || toggle.classList.contains('checked');
+                        return null;
                     }""")
-                    time.sleep(2)
-                    observations.append("Clicked Shop with Miles toggle")
-            except Exception as e:
-                observations.append(f"Miles toggle check error: {e}")
+                    observations.append(f"Shop with Miles checked: {miles_checked}")
 
-            # Click Find Flights
-            try:
-                page.evaluate("""() => {
-                    const btns = Array.from(document.querySelectorAll('button'));
-                    const find = btns.find(b => /find.*flight/i.test(b.textContent));
-                    if (find) find.click();
-                }""")
-                observations.append("Clicked Find Flights")
-            except Exception as e:
-                observations.append(f"Find Flights click error: {e}")
+                    if miles_checked is False:
+                        # Need to click it
+                        page.evaluate("""() => {
+                            const cb = document.querySelector('[id*="shopWithMiles"], input[name*="shopWithMiles"]');
+                            if (cb) { cb.click(); return; }
+                            const labels = Array.from(document.querySelectorAll('label, span'));
+                            const match = labels.find(l => /shop.*miles/i.test(l.textContent));
+                            if (match) match.click();
+                        }""")
+                        time.sleep(2)
+                        observations.append("Clicked Shop with Miles toggle")
+                except Exception as e:
+                    observations.append(f"Miles toggle check error: {e}")
 
-            # Wait for results - use longer wait since this is the heavy part
-            observations.append("Waiting 25s for results to load...")
-            time.sleep(25)
+                # Click Find Flights
+                try:
+                    page.evaluate("""() => {
+                        const btns = Array.from(document.querySelectorAll('button'));
+                        const find = btns.find(b => /find.*flight/i.test(b.textContent));
+                        if (find) find.click();
+                    }""")
+                    observations.append("Clicked Find Flights")
+                except Exception as e:
+                    observations.append(f"Find Flights click error: {e}")
 
-            # Extract data via JS (no screenshots - avoids crash)
-            try:
-                data = page.evaluate(_extract_results_js())
+                # Wait for results - use longer wait since this is the heavy part
+                observations.append("Waiting 25s for results to load...")
+                time.sleep(25)
 
-                observations.append(f"Page URL: {data.get('url', '?')}")
-                observations.append(f"Page title: {data.get('title', '?')}")
-                observations.append(f"Calendar entries: {len(data.get('calendar', []))}")
-                observations.append(f"Flight entries: {len(data.get('flights', []))}")
-                observations.append(f"Miles lines: {len(data.get('milesLines', []))}")
-                observations.append(f"Price elements: {len(data.get('fromPrices', []))}")
-
-                # Combine all text for parsing
-                for item in data.get("calendar", []):
-                    result_text_parts.append(f"CALENDAR: {item}")
-                for item in data.get("flights", []):
-                    result_text_parts.append(f"FLIGHT: {item}")
-                for item in data.get("milesLines", []):
-                    result_text_parts.append(item)
-                for item in data.get("fromPrices", []):
-                    result_text_parts.append(f"PRICE: {item}")
-
-            except Exception as e:
-                observations.append(f"JS extraction error: {e}")
-                errors.append(f"JS extraction: {e}")
-
-            # Try a second extraction after more time
-            if not result_text_parts:
-                observations.append("First extraction empty, waiting 15s more...")
-                time.sleep(15)
+                # Extract data via JS (no screenshots - avoids crash)
                 try:
                     data = page.evaluate(_extract_results_js())
+
+                    observations.append(f"Page URL: {data.get('url', '?')}")
+                    observations.append(f"Page title: {data.get('title', '?')}")
+                    observations.append(f"Calendar entries: {len(data.get('calendar', []))}")
+                    observations.append(f"Flight entries: {len(data.get('flights', []))}")
+                    observations.append(f"Miles lines: {len(data.get('milesLines', []))}")
+                    observations.append(f"Price elements: {len(data.get('fromPrices', []))}")
+
+                    # Combine all text for parsing
                     for item in data.get("calendar", []):
                         result_text_parts.append(f"CALENDAR: {item}")
                     for item in data.get("flights", []):
                         result_text_parts.append(f"FLIGHT: {item}")
                     for item in data.get("milesLines", []):
                         result_text_parts.append(item)
-                    observations.append(f"Second extraction: {len(result_text_parts)} lines")
+                    for item in data.get("fromPrices", []):
+                        result_text_parts.append(f"PRICE: {item}")
+
                 except Exception as e:
-                    observations.append(f"Second extraction error: {e}")
+                    observations.append(f"JS extraction error: {e}")
+                    errors.append(f"JS extraction: {e}")
 
-            # Save debug screenshot (safe since we're not rendering it in agent)
-            try:
-                page.screenshot(path="/tmp/delta_hybrid_results.png")
-            except Exception:
-                pass
+                # Try a second extraction after more time
+                if not result_text_parts:
+                    observations.append("First extraction empty, waiting 15s more...")
+                    time.sleep(15)
+                    try:
+                        data = page.evaluate(_extract_results_js())
+                        for item in data.get("calendar", []):
+                            result_text_parts.append(f"CALENDAR: {item}")
+                        for item in data.get("flights", []):
+                            result_text_parts.append(f"FLIGHT: {item}")
+                        for item in data.get("milesLines", []):
+                            result_text_parts.append(item)
+                        observations.append(f"Second extraction: {len(result_text_parts)} lines")
+                    except Exception as e:
+                        observations.append(f"Second extraction error: {e}")
 
-            # Clean up - close the page to free memory
-            try:
-                page.close()
-            except Exception:
-                pass
+                # Save debug screenshot (safe since we're not rendering it in agent)
+                try:
+                    page.screenshot(path="/tmp/delta_hybrid_results.png")
+                except Exception:
+                    pass
 
-    except Exception as exc:
-        errors.append(f"Playwright phase error: {exc}")
-        observations.append(f"Playwright error: {exc}")
+                # Clean up - close the page to free memory
+                try:
+                    page.close()
+                except Exception:
+                    pass
+
+        except Exception as exc:
+            errors.append(f"Playwright phase error: {exc}")
+            observations.append(f"Playwright error: {exc}")
+
+    _pw_thread = threading.Thread(target=_pw_worker, daemon=True)
+    _pw_thread.start()
+    _pw_thread.join(timeout=300)
+    if _pw_thread.is_alive():
+        errors.append("Playwright phase timed out after 300s")
+        observations.append("Playwright phase timed out")
 
     # Parse results
     combined_text = "\n".join(result_text_parts)
@@ -491,16 +496,24 @@ def _run_agent_only(inputs: Dict[str, Any], observations: List[str]) -> Dict[str
         "CRITICAL: Do NOT click into individual flight details. Stay on the calendar/list view.",
     ])
 
-    agent_run = adaptive_run(
-        goal=goal,
-        url=DELTA_URL,
-        max_steps=60,
-        airline="delta",
-        inputs=inputs,
-        max_attempts=2,
-        trace=True,
-        use_vision=True,
-    )
+    _agent_result = [None]
+
+    def _agent_worker():
+        _agent_result[0] = adaptive_run(
+            goal=goal,
+            url=DELTA_URL,
+            max_steps=60,
+            airline="delta",
+            inputs=inputs,
+            max_attempts=2,
+            trace=True,
+            use_vision=True,
+        )
+
+    _t = threading.Thread(target=_agent_worker, daemon=True)
+    _t.start()
+    _t.join(timeout=600)
+    agent_run = _agent_result[0] or {"ok": False, "error": "Agent thread timed out"}
     if agent_run["ok"]:
         run_result = agent_run.get("result") or {}
         result_text = run_result.get("result", "") if isinstance(run_result, dict) else str(run_result)
