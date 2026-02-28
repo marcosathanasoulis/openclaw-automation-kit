@@ -374,19 +374,26 @@ def _run_hybrid(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, An
     days_ahead = int(inputs["days_ahead"])
     mid_days = days_ahead
     depart_date = date.today() + timedelta(days=mid_days)
-
-    # Phase 1: BrowserAgent login
+    # Phase 1: BrowserAgent login (in thread to avoid asyncio loop contamination)
     observations.append("Phase 1: BrowserAgent login")
-    login_result = adaptive_run(
-        goal=_login_goal(),
-        url=SIA_LOGIN_URL,
-        max_steps=20,
-        airline="singapore",
-        inputs=inputs,
-        max_attempts=1,
-        trace=True,
-        use_vision=True,
-    )
+    _phase1_result = [None]
+
+    def _phase1_worker():
+        _phase1_result[0] = adaptive_run(
+            goal=_login_goal(),
+            url=SIA_LOGIN_URL,
+            max_steps=20,
+            airline="singapore",
+            inputs=inputs,
+            max_attempts=1,
+            trace=True,
+            use_vision=True,
+        )
+
+    _t1 = threading.Thread(target=_phase1_worker, daemon=True)
+    _t1.start()
+    _t1.join(timeout=300)
+    login_result = _phase1_result[0] or {"ok": False, "error": "Phase 1 thread timed out"}
 
     if not login_result["ok"]:
         observations.append(f"Login failed: {login_result['error']}")
