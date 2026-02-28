@@ -11,6 +11,11 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 
 ## Current Work
 
+- `codex/smoke-audit-20260217`
+  - Task: run full no-login smoke suite and fix breakages (excluding live airline flow ownership).
+  - Files: `scripts/e2e_no_login_smoke.sh`, `INPROCESS.md`
+  - Status: complete (`bash scripts/e2e_no_login_smoke.sh` passed)
+
 - **claude/daily-award-scan** (Claude Opus agent, Feb 16-17)
   - Task: Daily automated award search for June 2026 across 6 airlines
   - Commits on main: 2ac377c..c623020 (runners, daily scan, lint, multiple fixes)
