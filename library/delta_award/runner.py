@@ -551,13 +551,15 @@ def _run_agent_only(inputs: Dict[str, Any], observations: List[str]) -> Dict[str
     _agent_result = [None]
 
     def _agent_worker():
+        # max_attempts=1 to avoid asyncio loop contamination on retry
+        # (sync_playwright leaves event loop state after first run)
         _agent_result[0] = adaptive_run(
             goal=goal,
             url=DELTA_URL,
             max_steps=60,
             airline="delta",
             inputs=inputs,
-            max_attempts=2,
+            max_attempts=1,
             trace=True,
             use_vision=True,
         )

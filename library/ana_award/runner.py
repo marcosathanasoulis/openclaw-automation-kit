@@ -176,7 +176,7 @@ def _run_hybrid(context: Dict[str, Any], inputs: Dict[str, Any], observations: L
         max_steps=20,
         airline="ana_login",
         inputs=inputs,
-        max_attempts=2,
+        max_attempts=1,
         trace=True,
         use_vision=True,
     )
