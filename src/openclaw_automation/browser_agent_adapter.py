@@ -15,20 +15,18 @@ def browser_agent_enabled() -> bool:
 
 
 def _restart_chrome(cdp_url: str) -> None:
-    """Kill and restart Chrome when CDP protocol is frozen.
-
-    Uses /tmp/launch_chrome_cdp.sh if it exists, otherwise platform-specific fallback.
-    Waits up to 30s for Chrome to become responsive.
+    """Kill and restart Chrome. Uses /tmp/launch_chrome_cdp.sh (macOS) or
+    /tmp/start_chrome_real.sh (Linux). Waits up to 35s for responsiveness.
     """
-    print("[browser_agent_adapter] Chrome appears frozen — restarting...", file=sys.stderr)
+    print("[browser_agent_adapter] Restarting Chrome...", file=sys.stderr)
 
     launch_script = Path("/tmp/launch_chrome_cdp.sh")
     if sys.platform == "darwin" and launch_script.exists():
         subprocess.run(["pkill", "-f", "Google Chrome"], capture_output=True)
         time.sleep(3)
-        subprocess.Popen(["bash", str(launch_script)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.Popen(["bash", str(launch_script)],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     elif sys.platform == "darwin":
-        # Fallback: restart Chrome directly
         port = cdp_url.rstrip("/").rsplit(":", 1)[-1]
         user_data = str(Path.home() / "Library/Application Support/Google Chrome")
         subprocess.run(["pkill", "-f", "Google Chrome"], capture_output=True)
@@ -40,15 +38,14 @@ def _restart_chrome(cdp_url: str) -> None:
             "--no-first-run", "--no-default-browser-check",
         ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     else:
-        # Linux (home-mind)
         subprocess.run(["pkill", "-f", "google-chrome"], capture_output=True)
         subprocess.run(["pkill", "-f", "chromium"], capture_output=True)
         time.sleep(3)
         start_script = Path("/tmp/start_chrome_real.sh")
         if start_script.exists():
-            subprocess.Popen(["bash", str(start_script)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.Popen(["bash", str(start_script)],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    # Wait for Chrome to become responsive (up to 35s)
     version_url = cdp_url.rstrip("/") + "/json/version"
     for _ in range(35):
         time.sleep(1)
@@ -58,8 +55,46 @@ def _restart_chrome(cdp_url: str) -> None:
             return
         except Exception:
             pass
-    print("[browser_agent_adapter] Warning: Chrome may not be fully ready after restart.", file=sys.stderr)
+    print("[browser_agent_adapter] Warning: Chrome may not be fully ready.", file=sys.stderr)
     time.sleep(3)
+
+
+def _chrome_is_healthy(cdp_url: str) -> bool:
+    """Quick CDP health check via subprocess (isolated Playwright state).
+
+    Uses a short 8s timeout. Returns True if Chrome is responsive, False if frozen.
+    """
+    check_code = (
+        "import sys\n"
+        "from playwright.sync_api import sync_playwright\n"
+        "with sync_playwright() as p:\n"
+        "    try:\n"
+        f"        b = p.chromium.connect_over_cdp({repr(cdp_url)}, timeout=8000)\n"
+        "        b.close()\n"
+        "        sys.exit(0)\n"
+        "    except Exception:\n"
+        "        sys.exit(1)\n"
+    )
+    try:
+        r = subprocess.run(
+            [sys.executable, "-c", check_code],
+            capture_output=True,
+            timeout=15,
+        )
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
+def _ensure_chrome_ready(cdp_url: str) -> None:
+    """If Chrome is frozen, restart it before running BrowserAgent.
+
+    Uses a subprocess health check so Playwright state in the main process
+    is never contaminated by a failed CDP connection.
+    """
+    if not _chrome_is_healthy(cdp_url):
+        print("[browser_agent_adapter] Chrome health check failed — restarting.", file=sys.stderr)
+        _restart_chrome(cdp_url)
 
 
 def run_browser_agent_goal(
@@ -99,24 +134,20 @@ def run_browser_agent_goal(
     if agent_cls is None:
         return {"ok": False, "error": f"BrowserAgent not found in module '{module_name}'", "result": None}
 
-    for attempt in range(2):
-        try:
-            agent = agent_cls(
-                goal=goal,
-                url=url,
-                cdp_url=cdp_url,
-                max_steps=max_steps,
-                use_vision=use_vision,
-                trace=trace,
-            )
-            result = agent.run()
-            return {"ok": True, "error": None, "result": result}
-        except Exception as exc:  # noqa: BLE001
-            err_str = str(exc)
-            # Detect frozen Chrome: WebSocket connects but protocol hangs
-            if attempt == 0 and "connect_over_cdp" in err_str and "Timeout" in err_str:
-                _restart_chrome(cdp_url)
-                continue
-            return {"ok": False, "error": f"run failed: {exc}", "result": None}
+    # Pre-flight: ensure Chrome is healthy before connecting (uses subprocess to
+    # avoid contaminating this process's Playwright state on failure)
+    _ensure_chrome_ready(cdp_url)
 
-    return {"ok": False, "error": "run failed: max retries exceeded", "result": None}
+    try:
+        agent = agent_cls(
+            goal=goal,
+            url=url,
+            cdp_url=cdp_url,
+            max_steps=max_steps,
+            use_vision=use_vision,
+            trace=trace,
+        )
+        result = agent.run()
+        return {"ok": True, "error": None, "result": result}
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "error": f"run failed: {exc}", "result": None}
