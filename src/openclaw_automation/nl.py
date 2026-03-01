@@ -191,6 +191,7 @@ def _extract_max_miles(query: str) -> int:
 
 _AIRLINE_DEFAULT_CABIN: Dict[str, str] = {
     "ana_award": "business",
+    "singapore_award": "business",
 }
 
 
