@@ -192,7 +192,13 @@ def _extract_max_miles(query: str) -> int:
 _AIRLINE_DEFAULT_CABIN: Dict[str, str] = {
     "ana_award": "business",
     "singapore_award": "business",
+    "delta_award": "business",
+    "united_award": "business",
+    "jetblue_award": "business",
 }
+
+# Major European airports Delta actually operates to / has SkyMiles awards on
+_DELTA_EUROPE_AIRPORTS = ["CDG", "LHR", "AMS", "FCO", "ZRH", "ATH", "LIS"]
 
 
 def _extract_cabin(query: str, script_dir: str = "") -> str:
@@ -221,7 +227,13 @@ def parse_query_to_run(query: str) -> ParsedQuery:
     cabin = _extract_cabin(query, script_dir)
 
     from_code = airports[0] if airports else "SFO"
-    to_codes = airports[1:] if len(airports) > 1 else ["AMS"]
+    q_lower = query.lower()
+    if len(airports) > 1:
+        to_codes = airports[1:]
+    elif "europe" in q_lower and "delta" in q_lower:
+        to_codes = _DELTA_EUROPE_AIRPORTS
+    else:
+        to_codes = ["AMS"]
     notes = [f"script={script_dir}", f"cabin={cabin}"]
 
     inputs: Dict[str, object]

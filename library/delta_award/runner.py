@@ -137,7 +137,7 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
         return []
 
     origin = inputs["from"]
-    dest = inputs["to"][0]
+    dest = inputs["to"][0]  # default dest
     cabin = inputs.get("cabin", "economy")
     travelers = int(inputs.get("travelers", 1))
     max_miles = int(inputs.get("max_miles", 999999))
@@ -170,9 +170,19 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
         re.IGNORECASE,
     )
 
+    # Track current destination context from "DEST: XXX" lines
+    current_dest = dest
+    dest_pattern = re.compile(r'^DEST:\s*([A-Z]{3})\b', re.IGNORECASE)
+
     for line in result_text.split("\n"):
         line = line.strip()
         if not line:
+            continue
+
+        # Update current destination when we see a DEST: line
+        dm = dest_pattern.match(line)
+        if dm:
+            current_dest = dm.group(1).upper()
             continue
 
         # Try flight pattern first
@@ -184,7 +194,7 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
                 if key not in seen:
                     seen.add(key)
                     matches.append({
-                        "route": f"{origin}-{dest}",
+                        "route": f"{origin}-{current_dest}",
                         "date": depart_date.isoformat(),
                         "miles": miles,
                         "travelers": travelers,
@@ -204,7 +214,7 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
                 if key not in seen:
                     seen.add(key)
                     matches.append({
-                        "route": f"{origin}-{dest}",
+                        "route": f"{origin}-{current_dest}",
                         "date": depart_date.isoformat(),
                         "miles": miles,
                         "travelers": travelers,
@@ -225,7 +235,7 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
                 if key not in seen:
                     seen.add(key)
                     matches.append({
-                        "route": f"{origin}-{dest}",
+                        "route": f"{origin}-{current_dest}",
                         "date": depart_date.isoformat(),
                         "miles": miles,
                         "travelers": travelers,
@@ -243,7 +253,7 @@ def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, A
                 miles = int(mm.group(1).replace(",", ""))
                 if 1000 <= miles <= max_miles:
                     matches.append({
-                        "route": f"{origin}-{dest}",
+                        "route": f"{origin}-{current_dest}",
                         "date": depart_date.isoformat(),
                         "miles": miles,
                         "travelers": travelers,
@@ -470,25 +480,36 @@ def _run_hybrid(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, An
 
 
 def _run_agent_only(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, Any]:
-    """Fallback: pure BrowserAgent approach."""
+    """Fallback: pure BrowserAgent approach. Supports multiple destinations."""
     origin = inputs["from"]
-    dest = inputs["to"][0]
+    destinations = inputs["to"]  # may be a list of airports
+    dest = destinations[0]
     travelers = int(inputs["travelers"])
     cabin = str(inputs.get("cabin", "economy"))
     days_ahead = int(inputs["days_ahead"])
     max_miles = int(inputs.get("max_miles", 999999))
-    depart_date = date.today() + timedelta(days=days_ahead)
-    search_url = _booking_url(origin, dest, depart_date, cabin, travelers)
-    book_url = search_url
 
     cabin_display = CABIN_MAP.get(cabin, cabin.title())
 
     # Use day 5 as start so we get actual results, not just near-term sold-out
     start_date = date.today() + timedelta(days=5)
     end_date = date.today() + timedelta(days=days_ahead)
-    search_url = _booking_url(origin, dest, start_date, cabin, travelers)
+
+    # Build destination list and search URLs for the goal
+    dest_list = ", ".join(destinations)
+    first_search_url = _booking_url(origin, dest, start_date, cabin, travelers)
+    book_url = first_search_url
+
+    # For multi-destination: build a list of search URLs to try in sequence
+    dest_steps = []
+    for i, d in enumerate(destinations, 1):
+        url = _booking_url(origin, d, start_date, cabin, travelers)
+        dest_steps.append(f"  {i}. {origin}→{d}: navigate to {url} — wait 5 — enable Shop with Miles — Find Flights — wait 30 — screenshot — read calendar dates and prices.")
+
+    multi_dest_section = "\n".join(dest_steps) if len(destinations) > 1 else ""
+
     goal = "\n".join([
-        f"Search for Delta SkyMiles {cabin_display} award flights {origin} to {dest}, {travelers} pax.",
+        f"Search for Delta SkyMiles {cabin_display} award flights {origin} to {dest_list}, {travelers} pax.",
         f"Find ALL available dates with award pricing from {start_date.strftime(chr(37)+chr(98)+chr(32)+chr(37)+chr(45)+chr(100))} through {end_date.strftime(chr(37)+chr(98)+chr(32)+chr(37)+chr(45)+chr(100)+chr(44)+chr(32)+chr(37)+chr(89))}.",
         "",
         "=== STEP 1 - VERIFY LOGIN ===",
@@ -496,53 +517,36 @@ def _run_agent_only(inputs: Dict[str, Any], observations: List[str]) -> Dict[str
         "If you see your name or miles balance: already logged in, skip to STEP 2.",
         "If you see Log In: click it, use credentials for www.delta.com, wait 5.",
         "",
-        "=== STEP 2 - NAVIGATE TO AWARD SEARCH ===",
-        f"Navigate to: {search_url}",
-        "wait 5",
+        "=== STEP 2 - SEARCH EACH DESTINATION ===",
+        f"You will search {len(destinations)} destination(s): {dest_list}",
+        "For EACH destination, follow these sub-steps:",
+        multi_dest_section if multi_dest_section else f"  1. {origin}→{dest}: navigate to {first_search_url} — wait 5 — enable Shop with Miles — Find Flights — wait 30 — screenshot — read calendar dates and prices.",
         "",
-        "=== STEP 3 - ENABLE SHOP WITH MILES ===",
-        "Look for 'Shop with Miles' toggle/checkbox. If NOT checked/active, click it once. wait 2.",
+        "HOW TO READ EACH DESTINATION'S RESULTS:",
+        "After 'Find Flights' + 30s wait + screenshot:",
+        "  - Delta shows a Flexible Dates calendar (7-day grid at top of page).",
+        "  - TRUST THE SCREENSHOT — even if accessibility tree is empty, screenshot shows prices.",
+        "  - Each column is a date; each cell shows miles price like 108,200.",
+        "  - Read ALL 7 visible dates and their prices from the screenshot.",
+        "  - Look in accessibility tree for aria-label 'next'/'forward' button to advance calendar.",
+        "    If found: click it, wait 5, screenshot, read new dates. Repeat up to 2 more times.",
+        "    DO NOT scroll the page to find the next button.",
+        "  - If calendar still loading after 45s: note 'loading' and move to next destination.",
+        "  - If 'No award availability': note it and move to next destination.",
         "",
-        "=== STEP 4 - FIND FLIGHTS ===",
-        "Click the 'Find Flights' button.",
-        "After clicking, wait 30 seconds for the page to load.",
-        "wait 30",
-        "",
-        "=== STEP 5 - READ THE FLEXIBLE DATES CALENDAR ===",
-        "Take a screenshot now.",
-        "Delta shows a Flexible Dates calendar (7-day grid at top of page).",
-        "  - Each column is a date like Mon Mar 2, Tue Mar 3, etc.",
-        "  - Each cell shows LOWEST and a miles price like 108,200 or 112,700.",
-        "  - TRUST THE SCREENSHOT: even if the accessibility snapshot is empty,",
-        "    the screenshot WILL show the calendar. Read dates and prices from it.",
-        "",
-        "If still loading (no calendar visible), wait 15 more seconds and screenshot again.",
-        "If still loading after 60 total seconds, do done.",
-        "",
-        "=== STEP 6 - RECORD DATES ===",
-        "Read ALL 7 visible dates and their exact miles prices from the screenshot.",
-        "Note them in format: Mon Mar 2: 108,200 miles.",
-        "",
-        "To advance to next 7 dates: look in the accessibility tree for a button",
-        "with aria-label 'next', 'forward', or similar. If found, click it. wait 5.",
-        "Screenshot. Read new dates. Repeat up to 3 more times.",
-        "If you CANNOT find the next button in the accessibility tree,",
-        "skip advancing and call done with whatever dates you read.",
-        "DO NOT scroll the page trying to find a next button.",
-        "",
-        "=== STEP 7 - DONE ===",
+        "=== STEP 3 - DONE ===",
         "done",
-        "Report ALL dates and prices you saw:",
-        "DATE_STRIP: Mon Mar 2: 108200 miles | Tue Mar 3: 108200 miles | ...",
-        "CHEAPEST: date - miles miles",
+        "Report results per destination:",
+        "DEST: CDG  DATE_STRIP: Mon Mar 2: 108200 miles | Tue Mar 3: 112700 miles | ...",
+        "DEST: LHR  DATE_STRIP: ...",
+        "CHEAPEST_OVERALL: destination - date - miles miles",
         "",
         "CRITICAL RULES:",
         "  - Only report exact prices you SAW in screenshots.",
         "  - Do NOT round, estimate, or make up numbers.",
         "  - Report EXACT miles shown (108,200 NOT 108k NOT 108000).",
         f"  - Report all dates found, even above {max_miles:,} miles.",
-        "  - If no dates have award availability: No award availability found.",
-        "  - If you cannot advance the calendar, the first 7 dates are enough.",
+        "  - If a destination shows no availability: DEST: XX  No award availability found.",
     ])
 
     _agent_result = [None]
@@ -550,10 +554,11 @@ def _run_agent_only(inputs: Dict[str, Any], observations: List[str]) -> Dict[str
     def _agent_worker():
         # max_attempts=1 to avoid asyncio loop contamination on retry
         # (sync_playwright leaves event loop state after first run)
+        n_dests = len(destinations)
         _agent_result[0] = adaptive_run(
             goal=goal,
             url=DELTA_URL,
-            max_steps=60,
+            max_steps=max(60, n_dests * 12),
             airline="delta",
             inputs=inputs,
             max_attempts=1,
