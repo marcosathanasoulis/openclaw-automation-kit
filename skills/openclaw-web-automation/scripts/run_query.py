@@ -31,7 +31,10 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--notify-imessage",
         default="",
-        help="Optional phone/chat GUID for BlueBubbles notification",
+        help=(
+            "Optional phone/chat GUID for BlueBubbles notification. "
+            "If omitted, uses OPENCLAW_IMESSAGE_DEFAULT_RECIPIENT when set."
+        ),
     )
     parser.add_argument(
         "--send-notification",
@@ -152,15 +155,17 @@ def main() -> int:
         "notification": "not requested",
     }
 
-    if args.notify_imessage:
+    notify_target = args.notify_imessage or os.getenv("OPENCLAW_IMESSAGE_DEFAULT_RECIPIENT", "").strip()
+
+    if notify_target:
         if args.send_notification:
             try:
-                _notify_imessage(args.notify_imessage, summary)
-                status["notification"] = f"sent to {args.notify_imessage}"
+                _notify_imessage(notify_target, summary)
+                status["notification"] = f"sent to {notify_target}"
             except Exception as exc:  # noqa: BLE001
                 status["notification"] = f"failed: {exc}"
         else:
-            status["notification"] = f"dry-run to {args.notify_imessage} (pass --send-notification to send)"
+            status["notification"] = f"dry-run to {notify_target} (pass --send-notification to send)"
 
     print(json.dumps({"status": status, "result": result}, indent=2))
     return 0

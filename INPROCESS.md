@@ -11,6 +11,31 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 
 ## Current Work
 
+- `codex/google-workspace-bridge`
+  - Task: route calendar/email queries to Google Workspace bridge using existing refresh tokens on Mac Mini/home-mind.
+  - Files: `INPROCESS.md`, `src/openclaw_automation/nl.py`, `examples/google_workspace_brief/*`, `.env.example`, `docs/CONFIGURATION.md`, `tests/test_nl_workspace_bridge.py`
+  - Status: COMPLETE
+  - Validation:
+    - `pytest -q tests/test_imessage_guardrails.py tests/test_nl_workspace_bridge.py` (7 passed)
+    - `python -m openclaw_automation.cli validate --script-dir examples/google_workspace_brief`
+    - `python -m openclaw_automation.cli run-query --query \"Tell me my meetings on Monday\"` routes to `examples/google_workspace_brief` and fails closed when token file is missing locally.
+  - Security:
+    - Read-only Gmail/Calendar API usage only.
+    - Enforced Google account allowlist (`OPENCLAW_GOOGLE_ALLOWED_ACCOUNTS`).
+  - Follow-up:
+    - Default behavior now checks all allowlisted accounts when `account_email` is not provided.
+    - Meetings/emails now include `account_email` per result row.
+    - Live validation on `home-mind` succeeded for:
+      - `what meetings do I have monday`
+      - `when was the last time deryk emailed me`
+
+- `codex/imessage-allowlist-identity`
+  - Task: enforce iMessage recipient allowlist and add explicit OpenClaw sender tag for parallel agent separation.
+  - Files: `INPROCESS.md`, `connectors/imessage_bluebubbles/webhook_example.py`, `skills/openclaw-web-automation/scripts/run_query.py`, `docs/CONFIGURATION.md`, `.env.example`
+  - Status: COMPLETE
+  - Validation: `pytest -q tests/test_imessage_guardrails.py` (2 passed)
+  - Note: Restrict outbound to Marcos only (`+14152268266`, `marcos@athanasoulis.net`) unless explicitly expanded.
+
 - **claude/daily-award-scan** (Claude Opus agent, Feb 16-17)
   - Task: Daily automated award search for June 2026 across 6 airlines
   - Commits on main: 2ac377c (runners), e1527d1 (daily scan), 348652d (fix), f7e8f9f (lint)

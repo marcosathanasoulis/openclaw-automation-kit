@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Dict, List
 
@@ -67,6 +67,8 @@ MONTH_NAMES = {
 def _detect_script_dir(query: str) -> str:
     q = query.lower()
     has_url = re.search(r"https?://", query) is not None
+    if not has_url and any(token in q for token in ["meeting", "meetings", "calendar", "gmail", "email", "emails", "inbox"]):
+        return "examples/google_workspace_brief"
     if "weather" in q and not has_url:
         return "examples/weather_check"
     if has_url:
@@ -132,6 +134,89 @@ def _extract_weather_unit(query: str) -> str:
     if "celsius" in q or "centigrade" in q:
         return "celsius"
     return "fahrenheit"
+
+
+def _extract_workspace_task(query: str) -> str:
+    q = query.lower()
+    wants_meetings = any(token in q for token in ["meeting", "meetings", "calendar", "schedule"])
+    wants_emails = any(token in q for token in ["email", "emails", "gmail", "inbox"])
+    if wants_meetings and wants_emails:
+        return "brief"
+    if wants_emails:
+        return "emails"
+    return "meetings"
+
+
+def _extract_workspace_email_query(query: str) -> str:
+    q = query.lower().strip()
+    skip_sender_terms = {"gmail", "email", "emails", "inbox", "mail"}
+
+    explicit_from = re.search(r"\bfrom\s+([a-z0-9._%+\-@]+)\b", q)
+    if explicit_from:
+        sender = explicit_from.group(1).strip(" .,:;!?")
+        if sender and sender not in skip_sender_terms:
+            return f"from:{sender}"
+
+    last_time = re.search(r"last time\s+([a-z0-9._%+\-\s]+?)\s+email(?:ed)?\s+me", q)
+    if last_time:
+        sender = re.sub(r"\s+", " ", last_time.group(1)).strip(" .,:;!?")
+        if sender and sender not in skip_sender_terms:
+            return f"from:{sender}"
+
+    return "newer_than:7d"
+
+
+def _extract_workspace_max_results(query: str, task: str) -> int:
+    q = query.lower()
+    if task == "emails" and "last time" in q:
+        return 1
+    m = re.search(r"\b(last|latest)\s+(\d+)\s+(emails?|messages?)\b", q)
+    if m:
+        return max(1, min(int(m.group(2)), 50))
+    return 10
+
+
+def _next_or_same_weekday(target_weekday: int) -> date:
+    today = date.today()
+    delta = (target_weekday - today.weekday()) % 7
+    return today + timedelta(days=delta)
+
+
+def _next_weekday(target_weekday: int) -> date:
+    today = date.today()
+    delta = (target_weekday - today.weekday()) % 7
+    if delta == 0:
+        delta = 7
+    return today + timedelta(days=delta)
+
+
+def _extract_workspace_date(query: str) -> str:
+    q = query.lower()
+    if "tomorrow" in q:
+        return (date.today() + timedelta(days=1)).isoformat()
+    if "today" in q:
+        return date.today().isoformat()
+
+    explicit = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", q)
+    if explicit:
+        return explicit.group(1)
+
+    weekdays = {
+        "monday": 0,
+        "tuesday": 1,
+        "wednesday": 2,
+        "thursday": 3,
+        "friday": 4,
+        "saturday": 5,
+        "sunday": 6,
+    }
+    for day_name, weekday_num in weekdays.items():
+        if f"next {day_name}" in q:
+            return _next_weekday(weekday_num).isoformat()
+        if day_name in q:
+            return _next_or_same_weekday(weekday_num).isoformat()
+
+    return date.today().isoformat()
 
 
 def _extract_airport_codes(query: str) -> List[str]:
@@ -226,6 +311,25 @@ def parse_query_to_run(query: str) -> ParsedQuery:
         temperature_unit = _extract_weather_unit(query)
         inputs = {"location": location, "temperature_unit": temperature_unit}
         notes = [f"script={script_dir}", f"location={location}", f"temperature_unit={temperature_unit}"]
+    elif script_dir == "examples/google_workspace_brief":
+        task = _extract_workspace_task(query)
+        target_date = _extract_workspace_date(query)
+        gmail_query = _extract_workspace_email_query(query)
+        max_results = _extract_workspace_max_results(query, task)
+        inputs = {
+            "task": task,
+            "date": target_date,
+            "max_results": max_results,
+            "gmail_query": gmail_query,
+        }
+        notes = [
+            f"script={script_dir}",
+            f"task={task}",
+            f"date={target_date}",
+            "account_scope=all_allowlisted",
+            f"gmail_query={gmail_query}",
+            f"max_results={max_results}",
+        ]
     elif "award" in script_dir:
         inputs = {
             "from": from_code,

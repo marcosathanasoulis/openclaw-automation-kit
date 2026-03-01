@@ -74,10 +74,39 @@ To use the mock agent:
 ### BlueBubbles (iMessage bridge)
 - `BLUEBUBBLES_WEBHOOK_URL`
 - `BLUEBUBBLES_TOKEN`
+- `OPENCLAW_IMESSAGE_DEFAULT_RECIPIENT`
+  - Optional default recipient used by helper scripts when `--notify-imessage` is omitted.
+- `OPENCLAW_IMESSAGE_ALLOWED_RECIPIENTS`
+  - Comma-separated allowlist enforced before any send.
+  - Recommended: `+14152268266,marcos@athanasoulis.net`
+- `OPENCLAW_IMESSAGE_AGENT_LABEL`
+  - Prefix added to outbound messages to distinguish this agent (default: `[OpenClaw Parallel]`).
 
 ### WhatsApp Cloud API
 - `WHATSAPP_PHONE_NUMBER_ID`
 - `WHATSAPP_ACCESS_TOKEN`
+
+### Google Workspace Bridge (Calendar/Gmail)
+- `OPENCLAW_GOOGLE_CONNECTOR_ROOT`
+  - Path to existing `athanasoulis-ai-assistant` checkout containing OAuth files.
+- `OPENCLAW_GOOGLE_ACCOUNT`
+  - Account email to select the token file (default `marcos@athanasoulis.net`).
+- `OPENCLAW_GOOGLE_ALLOWED_ACCOUNTS`
+  - Comma-separated account allowlist enforced at runtime.
+  - Default: `marcos@athanasoulis.net`
+- `OPENCLAW_GOOGLE_CLIENT_SECRET_PATH`
+  - Existing OAuth client secret path (for token refresh only).
+- `OPENCLAW_GOOGLE_TOKEN_DIR`
+  - Directory containing existing refresh token files.
+- `OPENCLAW_GOOGLE_TOKEN_FILE` (optional override)
+  - Explicit token file path if not using account-derived filename.
+- `OPENCLAW_GOOGLE_CALENDAR_ID`
+  - Calendar ID for meetings (`primary` by default).
+
+Security notes:
+- The bridge reuses existing token permissions and does not request new scopes.
+- API calls are read-only (`calendar.readonly`, `gmail.readonly`).
+- Missing token/client files fail closed with explicit errors.
 
 ## Recommended setup flow
 
