@@ -709,7 +709,7 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
     if browser_agent_enabled():
         # Try hybrid first, fall back to agent-only if it fails
         result = _run_hybrid(inputs, observations)
-        if result.get("errors") or not result.get("matches"):
+        if not result.get("matches"):
             observations.append("Hybrid approach failed or returned no matches, trying agent-only")
             return _run_agent_only(inputs, observations)
         return result

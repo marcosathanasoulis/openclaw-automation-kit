@@ -322,8 +322,13 @@ def _run_agent_only(context: Dict[str, Any], inputs: Dict[str, Any], observation
         f"Check award availability on {depart_date.strftime(chr(37)+chr(109)+chr(47)+chr(37)+chr(100)+chr(47)+chr(37)+chr(89))}.",
         f"Cabin: {cabin_display} | Passengers: {travelers}",
         "",
+        "=== STEP 0 - NAVIGATE TO ENGLISH AWARD SEARCH ===",
+        f"navigate {ANA_AWARD_URL}",
+        "wait 5",
+        "",
         "=== STEP 1 - LOGIN ===",
         "You are on the ANA international award search page (aswbe-i.ana.co.jp).",
+        "If the page is in Japanese, you are in the right place - the form labels may be Japanese but use English values.",
         "Look for AMC No. and Password fields.",
         "credentials for www.ana.co.jp",
         "Enter the AMC number in the AMC No. field.",
@@ -364,7 +369,7 @@ def _run_agent_only(context: Dict[str, Any], inputs: Dict[str, Any], observation
     observations.append("Fallback: BrowserAgent-only approach")
     agent_run = adaptive_run(
         goal=goal,
-        url=ANA_AWARD_URL,
+        url=ANA_URL,
         max_steps=35,
         airline="ana",
         inputs=inputs,
