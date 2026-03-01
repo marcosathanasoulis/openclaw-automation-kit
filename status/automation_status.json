@@ -1,9 +1,9 @@
 {
-  "generated_at_utc": "2026-02-28 15:29:40",
-  "total": 14,
+  "generated_at_utc": "2026-03-01 15:30:24",
+  "total": 15,
   "pass": 6,
   "fail": 1,
-  "skip": 7,
+  "skip": 8,
   "results": [
     {
       "script_id": "aeromexico.award_search",
@@ -44,6 +44,14 @@
       "smoke_ok": true,
       "status": "PASS",
       "notes": "ok"
+    },
+    {
+      "script_id": "jetblue.award_search",
+      "location": "library/jetblue_award",
+      "validate_ok": true,
+      "smoke_ok": false,
+      "status": "SKIP",
+      "notes": "no smoke input configured"
     },
     {
       "script_id": "singapore.award_search",
