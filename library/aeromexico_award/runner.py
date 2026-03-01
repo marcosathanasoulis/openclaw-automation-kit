@@ -260,7 +260,7 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
             max_steps=35,
             airline="aeromexico",
             inputs=inputs,
-            max_attempts=2,
+            max_attempts=1,
             trace=True,
             use_vision=True,
         )
