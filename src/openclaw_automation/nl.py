@@ -42,8 +42,8 @@ KNOWN_AIRPORT_CODES = {
     "AMS", "ATH", "BKK", "BOS", "CDG", "DEN", "DFW", "EWR", "EZE",
     "FCO", "FRA", "GIG", "GRU", "HKG", "HND", "IAD", "IAH", "ICN",
     "JFK", "KIX", "LAX", "LHR", "LIS", "MEX", "MIA", "MSP", "NRT",
-    "ORD", "PEK", "PVG", "SEA", "SFO", "SIN", "SYD", "TPE", "YVR",
-    "YYZ", "ZRH",
+    "LGA", "ORD", "PEK", "PVG", "SEA", "SFO", "SIN", "SYD", "TPE",
+    "TYO", "YVR", "YYZ", "ZRH",
 }
 
 COMMON_THREE_LETTER_WORDS = {
@@ -189,7 +189,12 @@ def _extract_max_miles(query: str) -> int:
     return 120000
 
 
-def _extract_cabin(query: str) -> str:
+_AIRLINE_DEFAULT_CABIN: Dict[str, str] = {
+    "ana_award": "business",
+}
+
+
+def _extract_cabin(query: str, script_dir: str = "") -> str:
     q = query.lower()
     if "economy" in q:
         return "economy"
@@ -199,6 +204,10 @@ def _extract_cabin(query: str) -> str:
         return "first"
     if "premium" in q:
         return "premium_economy"
+    # Airline-specific defaults when no cabin specified
+    for key, default in _AIRLINE_DEFAULT_CABIN.items():
+        if key in script_dir:
+            return default
     return "economy"
 
 
@@ -208,7 +217,7 @@ def parse_query_to_run(query: str) -> ParsedQuery:
     travelers = _extract_travelers(query)
     days_ahead = _extract_days_ahead(query)
     max_miles = _extract_max_miles(query)
-    cabin = _extract_cabin(query)
+    cabin = _extract_cabin(query, script_dir)
 
     from_code = airports[0] if airports else "SFO"
     to_codes = airports[1:] if len(airports) > 1 else ["AMS"]
