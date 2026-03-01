@@ -317,50 +317,47 @@ def _run_agent_only(context: Dict[str, Any], inputs: Dict[str, Any], observation
     days_ahead = int(inputs["days_ahead"])
     depart_date = date.today() + timedelta(days=days_ahead)
 
-    end_date = date.today() + timedelta(days=days_ahead)
     goal = "\n".join([
         f"Search for ANA Mileage Club award flights {origin} to {dest}.",
-        f"Find ALL dates with award availability from today through {end_date.strftime('%b %-d, %Y')}.",
+        f"Check award availability on {depart_date.strftime(chr(37)+chr(109)+chr(47)+chr(37)+chr(100)+chr(47)+chr(37)+chr(89))}.",
         f"Cabin: {cabin_display} | Passengers: {travelers}",
         "",
-        "=== STEP 1 — LOGIN ===",
+        "=== STEP 1 - LOGIN ===",
         "You are on the ANA international award search page (aswbe-i.ana.co.jp).",
-        "Look for 'AMC No.' and 'Password' fields.",
+        "Look for AMC No. and Password fields.",
         "credentials for www.ana.co.jp",
-        "Enter the 10-digit AMC number in the AMC No. field.",
+        "Enter the AMC number in the AMC No. field.",
         "Enter the password in the Password field.",
-        "Click the 'Log in' button. wait 10.",
-        "If you see 'heavy traffic' or 'maintenance', report done with that message.",
+        "Click the Log in button. wait 10.",
+        "If you see heavy traffic or maintenance, report done with that message.",
         "",
-        "=== STEP 2 — FILL SEARCH FORM ===",
-        "After login, look for the search form with departure/arrival fields.",
-        f"Set Departure City to: {origin} (San Francisco)",
+        "=== STEP 2 - FILL SEARCH FORM ===",
+        "Look for the search form with departure/arrival fields.",
+        f"Set Departure City to: {origin}",
         f"Set Arrival City to: {dest}",
-        f"Set Date to: {depart_date.strftime('%m/%d/%Y')}",
+        f"Set Date to: {depart_date.strftime(chr(37)+chr(109)+chr(47)+chr(37)+chr(100)+chr(47)+chr(37)+chr(89))}",
         f"Set Cabin to: {cabin_display}",
         f"Set Adults to: {travelers}",
-        "Click the 'Search' or 'Find' button.",
+        "Click the Search or Find button.",
         "wait 15",
         "",
-        "=== STEP 3 — READ AVAILABILITY CALENDAR ===",
-        "ANA shows an availability calendar with O (available) and X (not available) for each date.",
-        "3a. Read ALL dates visible in the calendar and note which are O (available).",
-        "3b. If there are 'next week' or forward navigation buttons, click them to see more dates.",
-        "3c. Continue for up to 4 weeks.",
+        "=== STEP 3 - READ RESULTS ===",
+        "If you see the award results page:",
+        "  - Read the Required mileage shown (e.g. 205,000 Miles)",
+        "  - Read the flight details (flight number, departure time, arrival time)",
+        "  - Take a screenshot",
+        "  - Call done immediately",
         "",
-        "=== STEP 4 — VIEW FLIGHT DETAILS ===",
-        "For the FIRST available date (O), click to see flight details and miles cost.",
-        "Note the flight number, departure/arrival times, and miles required.",
+        "If you see a CAPTCHA or error: report done with that message.",
+        "DO NOT navigate to other dates. Just read what is shown for this date.",
         "",
-        "=== STEP 5 — SCREENSHOT AND REPORT ===",
+        "=== STEP 4 - DONE ===",
         "screenshot",
         "done",
-        "Report in this format:",
-        "DATE_CALENDAR: [date] O | [date] X | [date] O | ...",
+        "Report:",
         "FLIGHT: NH[number] | [dep_time]-[arr_time] | [miles] miles | [cabin]",
-        "CHEAPEST: [date] — [miles] miles",
+        "REQUIRED: [miles] miles for [travelers] passengers",
         "",
-        "CRITICAL: Report ALL available dates (O) and their miles prices.",
         "Include flights even if over 200,000 miles.",
     ])
 
@@ -426,12 +423,11 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
             "errors": [],
         }
 
-    # Try hybrid approach first
-    all_matches, observations = _run_hybrid(context, inputs, observations)
-
-    # If hybrid fails, try agent-only as fallback
-    if not all_matches:
-        observations.append("Hybrid approach returned no matches, trying agent-only fallback")
+    # Use agent-only approach (hybrid caused CAPTCHA from double form submission)
+    all_matches, observations = [], observations
+    observations.append("Hybrid approach skipped (CAPTCHA risk)")
+    if True:  # always use agent-only
+        observations.append("Using agent-only approach")
         all_matches, observations = _run_agent_only(context, inputs, observations)
 
     return {
