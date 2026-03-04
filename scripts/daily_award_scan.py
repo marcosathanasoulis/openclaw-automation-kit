@@ -265,9 +265,11 @@ def send_imessage(text: str):
         text = text[:2900] + "\n\n... (truncated)"
     try:
         import requests
+        headers = {"X-Bot-Token": IMESSAGE_TOKEN} if IMESSAGE_TOKEN else {}
         resp = requests.post(
             IMESSAGE_URL,
             json={"text": text, "address": MY_PHONE, "chat_guid": f"iMessage;-;{MY_PHONE}"},
+            headers=headers,
             timeout=15,
         )
         log.info("iMessage sent: %s", resp.status_code)
