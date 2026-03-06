@@ -1,0 +1,48 @@
+{
+  "timestamp": "2026-02-13T20:16:10.069436",
+  "mode": "agent",
+  "results": {
+    "united": {
+      "status": "pass",
+      "matches": 0,
+      "elapsed_s": 263,
+      "error": null,
+      "reply_snippet": "I searched United award flights from SFO to NRT in business class for the next 30 days, but unfortunately **no award availability** was found during this period.\n\nThis means United is not showing any business class saver award seats on this route for the next 30 days. The tool would have also shown economy availability if it was visible on the results page, but none appeared.\n\nA few things you could try:\n- **Expand the search window** - availability often opens up further out (try 60-90 days)\n- ",
+      "fare_summary": "No award availability found"
+    },
+    "delta": {
+      "status": "pass",
+      "matches": 2,
+      "elapsed_s": 140,
+      "error": null,
+      "reply_snippet": "Based on the Delta award search results for SFO to BOS over the next 30 days:\n\n**Business Class Availability:**\n- **March 15, 2026**: 11,700 miles + $6 in fees\n- Also available on **March 12**: 11,700 miles + $6\n\nThe search focused on business class availability as requested. Unfortunately, the results don't show economy class pricing in this view - Delta's award search tool typically only displays the cabin class you're searching for. If you'd like to see economy options, I can run a separate s",
+      "fare_summary": "From 11,700 mi"
+    },
+    "singapore": {
+      "status": "pass",
+      "matches": 0,
+      "elapsed_s": 128,
+      "error": null,
+      "reply_snippet": "Unfortunately, the search didn't find any Singapore Airlines award availability from SFO to BKK over the next 30 days. This could mean:\n\n1. No award seats are available in business or economy class on this route for the dates searched\n2. Singapore Airlines may not operate direct flights on this route, or award space is extremely limited\n3. The route might require connections that aren't showing availability\n\nSingapore Airlines typically flies SFO to Singapore (SIN), and then you'd connect to Ban",
+      "fare_summary": "No award availability found"
+    },
+    "aeromexico": {
+      "status": "pass",
+      "matches": 1,
+      "elapsed_s": 160,
+      "error": null,
+      "reply_snippet": "Based on the search results for AeroMexico awards from SFO to MEX over the next 30 days:\n\n**Economy Availability (March 15, 2026):**\n- Direct flights available for **18,000 miles** (Main cabin)\n- Flight times: 1:36 PM or 11:27 AM (with stop in GDL)\n- One late-night option at 53,300 miles\n\n**Business Class:** The search shows the fare classes as \"Main\", \"AM+\", and \"Premier\" - these appear to be AeroMexico's economy fare tiers rather than traditional economy vs. business cabin classes. The \"Premie",
+      "fare_summary": "From 18,000 mi"
+    },
+    "ana": {
+      "status": "pass",
+      "matches": 0,
+      "elapsed_s": 169,
+      "error": null,
+      "reply_snippet": "Unfortunately, the search didn't find any ANA award availability from SFO to Tokyo in the next 30 days. This could mean:\n\n1. **No award seats available** - ANA releases very limited award space, especially in business class\n2. **Wrong airport codes** - TYO is a general code; you might need to specify NRT (Narita) or HND (Haneda)\n3. **Search window** - ANA may not have released seats in this timeframe yet\n\nWould you like me to:\n- Try searching to NRT (Narita) specifically?\n- Search HND (Haneda) i",
+      "fare_summary": "No award availability found"
+    }
+  },
+  "summary": "5/5 passing",
+  "total_elapsed_s": 875
+}

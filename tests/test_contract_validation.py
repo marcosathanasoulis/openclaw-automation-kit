@@ -14,6 +14,8 @@ def test_library_and_example_manifests_validate() -> None:
         root / "library" / "ana_award",
         root / "library" / "bofa_alert",
         root / "library" / "github_signin_check",
+        root / "skills" / "openclaw-award-search",
+        root / "skills" / "openclaw-web-automation-basic",
     ]:
         manifest = engine.validate_script(script_dir)
         assert manifest["id"]

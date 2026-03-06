@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "check_type": { "type": "string", "enum": ["ur_points", "all_balances"] },
+    "credential_refs": { "type": "object" }
+  },
+  "required": ["check_type"]
+}

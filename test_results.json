@@ -1,0 +1,119 @@
+{
+  "timestamp": "2026-02-12T23:10:44.187360",
+  "total": 14,
+  "passed": 13,
+  "results": [
+    {
+      "name": "Public page check (Yahoo)",
+      "ok": true,
+      "mode": "live",
+      "status": "unknown",
+      "elapsed_s": 0.6,
+      "error": null
+    },
+    {
+      "name": "GitHub signin check (placeholder)",
+      "ok": false,
+      "mode": "error",
+      "status": "exception",
+      "elapsed_s": 0.0,
+      "error": "'username' is a required property\n\nFailed validating 'required' in schema:\n    {'$schema': 'https://json-schema.org/draft/2020-12/schema',\n     'type': 'object',\n     'required': ['username', 'credential_refs'],\n     'additionalProperties': False,\n     'properties': {'username': {'type': 'string'},\n                    'credential_refs': {'type': 'object',\n                                        'required': ['password'],\n                                        'additionalProperties': {'type': 'string'}},\n                    'messaging_target': {'type': 'object',\n                                         'description': 'Connector-specific '\n                                                        'destination info',\n                                         'additionalProperties': True}}}\n\nOn instance:\n    {'url': 'https://github.com/login',\n     'expected_element': 'login_field',\n     'credential_refs': {'username': 'openclaw/github/username',\n                         'password': 'openclaw/github/password'}}"
+    },
+    {
+      "name": "United award (placeholder)",
+      "ok": true,
+      "mode": "placeholder",
+      "status": "unknown",
+      "elapsed_s": 0.0,
+      "error": null
+    },
+    {
+      "name": "SIA award (placeholder)",
+      "ok": true,
+      "mode": "placeholder",
+      "status": "unknown",
+      "elapsed_s": 0.0,
+      "error": null
+    },
+    {
+      "name": "ANA award (placeholder)",
+      "ok": true,
+      "mode": "placeholder",
+      "status": "unknown",
+      "elapsed_s": 0.0,
+      "error": null
+    },
+    {
+      "name": "AeroMexico award (placeholder)",
+      "ok": true,
+      "mode": "placeholder",
+      "status": "unknown",
+      "elapsed_s": 0.0,
+      "error": null
+    },
+    {
+      "name": "BofA alert (placeholder)",
+      "ok": true,
+      "mode": "placeholder",
+      "status": "unknown",
+      "elapsed_s": 0.0,
+      "error": null
+    },
+    {
+      "name": "Chase balance (placeholder)",
+      "ok": true,
+      "mode": "placeholder",
+      "status": "unknown",
+      "elapsed_s": 0.0,
+      "error": null
+    },
+    {
+      "name": "United award (BROWSER)",
+      "ok": true,
+      "mode": "live",
+      "status": "success",
+      "elapsed_s": 104.8,
+      "error": null
+    },
+    {
+      "name": "BofA alert (BROWSER)",
+      "ok": true,
+      "mode": "live",
+      "status": "unknown",
+      "elapsed_s": 33.4,
+      "error": null
+    },
+    {
+      "name": "ANA award (BROWSER)",
+      "ok": true,
+      "mode": "live",
+      "status": "success",
+      "elapsed_s": 98.8,
+      "error": null
+    },
+    {
+      "name": "AeroMexico award (BROWSER)",
+      "ok": true,
+      "mode": "live",
+      "status": "max_steps",
+      "elapsed_s": 443.8,
+      "error": null
+    },
+    {
+      "name": "Chase balance (BROWSER)",
+      "ok": true,
+      "mode": "live",
+      "status": "max_steps",
+      "elapsed_s": 405.9,
+      "error": null
+    },
+    {
+      "name": "SIA award (BROWSER)",
+      "ok": true,
+      "mode": "live",
+      "status": "max_steps",
+      "elapsed_s": 445.0,
+      "error": null
+    }
+  ]
+}
