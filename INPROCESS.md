@@ -15,6 +15,15 @@ Use this file for short-lived cross-agent coordination so parallel work does not
   - Task: remove embedded iMessage token/recipient from automation scripts and require env-based secure config.
   - Files: `INPROCESS.md`, `scripts/daily_award_scan.py`, `.env.example`, `docs/CONFIGURATION.md`
   - Status: COMPLETE
+  - Deployment:
+    - Applied to `marcoss-mac-mini.local` and `home-mind.local`.
+    - Added required env keys in `~/openclaw-automation-kit/.env`:
+      - `OPENCLAW_IMESSAGE_SEND_URL`
+      - `OPENCLAW_IMESSAGE_BOT_TOKEN`
+      - `OPENCLAW_IMESSAGE_DEFAULT_RECIPIENT`
+      - `OPENCLAW_IMESSAGE_ALLOWED_RECIPIENTS`
+    - Dry-run validation on mac mini:
+      - `scripts/daily_award_scan.py --dry-run --only united`
   - Validation:
     - `python3 -m py_compile scripts/daily_award_scan.py`
     - `pytest -q tests/test_imessage_guardrails.py` (2 passed)
