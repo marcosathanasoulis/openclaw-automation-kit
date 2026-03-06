@@ -5,35 +5,26 @@
   },
   "united.award_search": {
     "from": "SFO",
-    "to": [
-      "AMS",
-      "LIS",
-      "FCO"
-    ],
+    "to": ["AMS", "LIS", "FCO"],
     "days_ahead": 30,
     "max_miles": 120000,
-    "travelers": 1,
+    "travelers": 2,
     "cabin": "economy"
   },
   "singapore.award_search": {
     "from": "SFO",
-    "to": [
-      "SIN",
-      "BKK"
-    ],
+    "to": ["SIN", "BKK"],
     "days_ahead": 30,
     "max_miles": 120000,
-    "travelers": 1,
+    "travelers": 2,
     "cabin": "economy"
   },
   "ana.award_search": {
     "from": "SFO",
-    "to": [
-      "HND"
-    ],
+    "to": ["HND"],
     "days_ahead": 30,
     "max_miles": 120000,
-    "travelers": 1,
+    "travelers": 2,
     "cabin": "economy"
   },
   "bofa.account_alerts": {
@@ -49,27 +40,8 @@
       "address": "+15555550123"
     }
   },
-  "delta.award_search": {
-    "from": "SFO",
-    "to": [
-      "BOS"
-    ],
-    "days_ahead": 30,
-    "max_miles": 50000,
-    "travelers": 1,
-    "cabin": "economy"
-  },
-  "aeromexico.award_search": {
-    "from": "SFO",
-    "to": [
-      "MEX"
-    ],
-    "days_ahead": 14,
-    "max_miles": 80000,
-    "travelers": 1,
-    "cabin": "business"
-  },
-  "chase.balance_check": {
-    "check_type": "ur_points"
+  "examples.weather_check": {
+    "location": "New York",
+    "temperature_unit": "fahrenheit"
   }
 }

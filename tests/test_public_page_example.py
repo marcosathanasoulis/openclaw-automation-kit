@@ -36,3 +36,17 @@ def test_headline_query_maps_to_headlines_task() -> None:
 def test_fallback_without_airline_uses_public_page_check() -> None:
     parsed = parse_query_to_run("Look at yahoo.com home page and tell me what it says about news")
     assert parsed.script_dir == "examples/public_page_check"
+
+
+def test_weather_query_maps_to_weather_script() -> None:
+    parsed = parse_query_to_run("Check weather in New York in celsius")
+    assert parsed.script_dir == "examples/weather_check"
+    assert parsed.inputs["location"] == "New York"
+    assert parsed.inputs["temperature_unit"] == "celsius"
+
+
+def test_weather_manifest_validates() -> None:
+    root = Path(__file__).resolve().parents[1]
+    engine = AutomationEngine(root)
+    manifest = engine.validate_script(root / "examples" / "weather_check")
+    assert manifest["id"] == "examples.weather_check"

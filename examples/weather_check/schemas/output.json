@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "location": {
+      "type": "string"
+    },
+    "temperature": {
+      "type": "string"
+    },
+    "conditions": {
+      "type": "string"
+    },
+    "feels_like": {
+      "type": "string"
+    }
+  },
+  "required": ["location", "temperature", "conditions"]
+}

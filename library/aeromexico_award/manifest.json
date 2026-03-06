@@ -4,10 +4,11 @@
   "entrypoint": "runner.py",
   "inputs_schema": "schemas/input.json",
   "outputs_schema": "schemas/output.json",
+  "description": "Search AeroMexico award availability",
   "execution_mode": "exclusive",
   "permissions": {
     "browser": true,
-    "network_domains": ["aeromexico.com", "clubpremier.com"]
+    "network_domains": ["aeromexico.com"]
   },
   "requires_human_steps": ["login_mfa_if_required"]
 }

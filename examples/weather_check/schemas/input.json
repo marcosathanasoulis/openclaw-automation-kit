@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "location": {
+      "type": "string",
+      "description": "The city or zip code for which to get weather information."
+    }
+  },
+  "required": ["location"]
+}

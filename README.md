@@ -38,6 +38,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 pip install -e .
 python -m openclaw_automation.cli run-query --query "Check yahoo.com and tell me the top headlines"
+python -m openclaw_automation.cli run-query --query "Check weather in New York in fahrenheit"
 ```
 
 For a chat UI demo:
@@ -223,12 +224,14 @@ PROJECT_ID=your-gcp-project REGION=us-central1 SERVICE=openclaw-demo-chat ./depl
 ### 3. Validate example automation specs
 
 ```bash
+python -m openclaw_automation.cli doctor --json
 python -m openclaw_automation.cli validate --script-dir examples/public_page_check
 python -m openclaw_automation.cli validate --script-dir library/united_award
 python -m openclaw_automation.cli validate --script-dir library/singapore_award
 python -m openclaw_automation.cli validate --script-dir library/ana_award
 python -m openclaw_automation.cli validate --script-dir library/bofa_alert
 python -m openclaw_automation.cli validate --script-dir library/github_signin_check
+python -m openclaw_automation.cli validate --script-dir examples/weather_check
 ```
 
 ### 4. Run an award example
@@ -312,6 +315,20 @@ Recommended pattern:
 
 See `library/united_award/runner.py` for the starter structure.
 
+## How this kit extends the OpenClaw Browser Tool
+
+The `openclaw-automation-kit` builds upon and significantly extends the foundational [`openclaw browser` tool](https://docs.openclaw.ai/tools/browser). While the `openclaw browser` provides the low-level primitives for programmatic browser control, this kit transforms those primitives into a robust framework for building, organizing, and executing advanced browser automations.
+
+Here’s how this kit leverages and adds to the native functionality:
+
+*   **Standardized Automation Specification:** Provides a declarative way (via `manifest.json` and input/output schemas) to define complex automation workflows, enabling consistent structure and easier understanding compared to raw browser commands.
+*   **Intelligent Execution Engine:** Offers an execution layer that orchestrates the browser actions, handles data flow, validates inputs/outputs against schemas, and abstracts away the direct interaction with the low-level `openclaw browser` CLI.
+*   **Human-in-the-Loop Patterns:** Provides documented event contracts and connector scaffolding for 2FA/CAPTCHA checkpoints (pause, collect user input, resume). Core end-to-end orchestration remains implementation-specific by deployment.
+*   **Extensible AI-Driven Control:** Supports integration with external `BrowserAgent` implementations (which can leverage advanced AI models like Claude Vision or other agents) to perform complex UI reasoning and navigation that goes beyond deterministic scripting. This enables the automation of highly dynamic and challenging web interfaces.
+*   **Reusable "Skills" and Marketplace Readiness:** Transforms individual automations into packaged, shareable "skills" with defined contracts, ready for publication and discovery, fostering a community of reusable browser automations.
+*   **Simplified Credential Management:** Provides a structured approach for referencing user-owned credentials securely, integrating with OS-level secret stores (like macOS Keychain), rather than requiring credentials to be hardcoded or passed insecurely.
+*   **Comprehensive Testing and Validation Framework:** Includes built-in tools for validating automation manifests and schemas, alongside smoke tests, ensuring the reliability and correctness of developed automations.
+
 ## Human-in-the-loop CAPTCHA
 
 Read [`docs/CAPTCHA_HUMAN_LOOP.md`](docs/CAPTCHA_HUMAN_LOOP.md).
@@ -330,6 +347,26 @@ Also see:
 ## Security and credentials
 
 Read [`docs/CREDENTIALS_AND_2FA.md`](docs/CREDENTIALS_AND_2FA.md) before deploying.
+
+### Optional gate, recommended for sensitive use
+
+The recent-verification security gate is optional by default.
+
+- For demos/no-credential checks: optional.
+- For real credentialed or state-changing automations: strongly recommended.
+- If not enabled, risky runs can execute without recent verified-user proof.
+- On shared hosts or compromised runtimes, this increases unauthorized-action risk.
+
+Recommended minimum for sensitive deployments:
+
+```bash
+export OPENCLAW_SECURITY_GATE_ENABLED=true
+export OPENCLAW_SECURITY_SIGNING_KEY="<long-random-secret>"
+export OPENCLAW_SECURITY_EXPECTED_USER_ID="<your phone/email>"
+export OPENCLAW_SECURITY_MAX_AGE_SECONDS=604800   # 7 days
+export OPENCLAW_SECURITY_REQUIRED_METHOD=totp
+export OPENCLAW_SECURITY_EXPECTED_SESSION_BINDING="<device-or-session-id>"
+```
 
 ### Shared-responsibility warning
 
@@ -433,8 +470,7 @@ This keeps shared automations trustworthy while still allowing fast community it
 ## Marketplace skills
 
 This repository ships publishable OpenClaw skill folders:
-- `skills/openclaw-web-automation-basic` (public sites, no credentials)
-- `skills/openclaw-award-search` (airline award queries, credentials + 2FA)
+- `skills/openclaw-web-automation` (unified skill: basic + advanced)
 
 Publishing and release steps are documented in:
 - [`docs/OPENCLAW_MARKETPLACE.md`](docs/OPENCLAW_MARKETPLACE.md)
@@ -461,6 +497,10 @@ To keep automations from stepping on each other, use:
 See:
 - [`docs/QUEUE_AND_LOCKING.md`](docs/QUEUE_AND_LOCKING.md)
 
+## Getting Help
+
+If you have questions, find a bug, or have a feature request, please [open an issue](https://github.com/marcosathanasoulis/openclaw-automation-kit/issues/new/choose) on GitHub.
+
 ## Contribution
 
 Read:
@@ -486,49 +526,24 @@ See [`DISCLAIMER.md`](DISCLAIMER.md) and [`SECURITY.md`](SECURITY.md).
 <!-- AUTOMATION_STATUS:START -->
 ## Daily Automation Health
 
-_Last generated (UTC): 2026-02-13 15:21:32_
+_Last generated (UTC): 2026-03-05 15:55:59_
 
 | Automation | Location | Validate | Smoke | Status | Notes |
 |---|---|---|---|---|---|
-| `aeromexico.award_search` | `library/aeromexico_award` | pass | pass | ✅ pass | ok |
+| `aeromexico.award_search` | `library/aeromexico_award` | pass | fail | ⚪ skip | no smoke input configured |
 | `ana.award_search` | `library/ana_award` | pass | pass | ✅ pass | ok |
 | `bofa.account_alerts` | `library/bofa_alert` | pass | pass | ✅ pass | ok |
-| `chase.balance_check` | `library/chase_balance` | pass | pass | ✅ pass | ok |
+| `delta.award_search` | `library/delta_award` | pass | fail | ⚪ skip | no smoke input configured |
 | `github.signin_check` | `library/github_signin_check` | pass | pass | ✅ pass | ok |
+| `jetblue.award_search` | `library/jetblue_award` | pass | fail | ⚪ skip | no smoke input configured |
 | `singapore.award_search` | `library/singapore_award` | pass | pass | ✅ pass | ok |
+| `web.site_headlines` | `library/site_headlines` | pass | fail | ⚪ skip | no smoke input configured |
+| `web.site_text_watch` | `library/site_text_watch` | pass | fail | ⚪ skip | no smoke input configured |
 | `united.award_search` | `library/united_award` | pass | pass | ✅ pass | ok |
+| `examples.calculator` | `examples/calculator` | pass | fail | ⚪ skip | no smoke input configured |
 | `web.public_page_check` | `examples/public_page_check` | pass | pass | ✅ pass | ok |
+| `examples.stock_price_check` | `examples/stock_price_check` | pass | fail | ⚪ skip | no smoke input configured |
+| `examples.weather_check` | `examples/weather_check` | pass | fail | ❌ fail | run failed |
+| `examples.website_status` | `examples/website_status` | pass | fail | ⚪ skip | no smoke input configured |
 
 <!-- AUTOMATION_STATUS:END -->
-
-## Live Browser Test Results
-
-_Last run: 2026-02-12 (Mac Mini, Chrome CDP :9222)_
-
-These tests use a real browser via BrowserAgent (Playwright + Claude vision + Chrome CDP).
-
-| Automation | Browser Status | Time | Notes |
-|---|---|---|---|
-| `united.award_search` | ✅ success | 104.8s | Full award search completed, found flights |
-| `bofa.account_alerts` | ✅ pass | 33.4s | Login + read all account balances |
-| `ana.award_search` | ✅ success | 98.8s | Full award search completed, found flights |
-| `aeromexico.award_search` | ⚠️ max_steps | 443.8s | Pipeline works; passenger selector needs goal tuning |
-| `singapore.award_search` | ⚠️ max_steps | 445.0s | Login works; Vue.js form needs hybrid approach |
-| `chase.balance_check` | ⏸️ skipped | — | Requires push 2FA (user must be present) |
-
-**5/6 pipelines working end-to-end. 3/6 complete within step budget.**
-
-## Daily Health Check Results
-
-_Tested via: AI Assistant (full pipeline)_
-
-| Airline | Route | Status | Matches | Fares | Time | Last Run |
-|---------|-------|--------|---------|-------|------|----------|
-| United | SFO→BKK | ⏸️ skip | skipped | - | 0s | 2026-02-14 00:53 |
-| United-Sao | SFO→GRU | ⏸️ skip | skipped | - | 0s | 2026-02-14 00:53 |
-| Singapore | SFO→SIN | ✅ pass | 3 | - | 204s | 2026-02-14 00:53 |
-| Ana | SFO→HND | ⏸️ skip | skipped | - | 0s | 2026-02-14 00:53 |
-| Aeromexico | SFO→MEX | ⏸️ skip | skipped | - | 0s | 2026-02-14 00:53 |
-| Jetblue | NRT→SFO | ⏸️ skip | skipped | - | 0s | 2026-02-14 00:53 |
-
-**Summary**: 1/1 passing | Last run: 2026-02-14 00:53 PST

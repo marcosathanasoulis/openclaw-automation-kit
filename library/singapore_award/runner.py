@@ -4,6 +4,7 @@ import json
 import os
 import re
 import sys
+import threading
 import time
 from datetime import date, timedelta
 from typing import Any, Dict, List
@@ -22,7 +23,6 @@ CABIN_MAP = {
     "premium_economy": "Premium Economy",
 }
 
-# City display names for autocomplete matching
 CITY_NAMES = {
     "SFO": "San Francisco",
     "SIN": "Singapore",
@@ -31,6 +31,12 @@ CITY_NAMES = {
     "HND": "Tokyo Haneda",
     "LAX": "Los Angeles",
     "JFK": "New York",
+    "LHR": "London",
+    "CDG": "Paris",
+    "FRA": "Frankfurt",
+    "ICN": "Seoul",
+    "HKG": "Hong Kong",
+    "TPE": "Taipei",
 }
 
 
@@ -54,7 +60,7 @@ def _login_goal() -> str:
 
 
 def _click_suggest_item(page: Any, text: str, timeout: int = 5000) -> bool:
-    """Click a suggest-item containing the given text. Returns True if clicked."""
+    """Click a suggest-item containing the given text."""
     try:
         suggest = page.locator(f".suggest-item:has-text('{text}')")
         suggest.first.wait_for(state="visible", timeout=timeout)
@@ -76,7 +82,6 @@ def _fill_form_and_search(
     origin_name = CITY_NAMES.get(origin, origin)
     dest_name = CITY_NAMES.get(dest, dest)
     cabin_display = CABIN_MAP.get(cabin, cabin.title())
-    month_display = depart_date.strftime("%B %Y")
     date_str = depart_date.strftime("%Y-%m-%d")
     errors: List[str] = []
 
@@ -85,13 +90,11 @@ def _fill_form_and_search(
     except Exception:
         return {"ok": False, "error": "Form not found after login", "errors": ["form.redeem-flight not found"]}
 
-    # Dismiss cookie popup aggressively via JS (blocks form interaction)
+    # Dismiss cookie popup
     try:
         page.evaluate("""() => {
-            // Click Accept button if exists
             let btn = document.querySelector('button.dwc--SiaCookie__PopupClose, button:has-text("ACCEPT"), .cookie-accept-btn');
             if (btn) btn.click();
-            // Remove cookie overlay entirely if still present
             let overlay = document.querySelector('.dwc--SiaCookie__Popup, .cookie-overlay, .cookie-banner');
             if (overlay) overlay.remove();
         }""")
@@ -99,7 +102,6 @@ def _fill_form_and_search(
     except Exception:
         pass
 
-    # Also try clicking the ACCEPT button directly
     try:
         accept_btn = page.locator("text=ACCEPT").first
         if accept_btn.is_visible(timeout=2000):
@@ -108,7 +110,6 @@ def _fill_form_and_search(
     except Exception:
         pass
 
-    # Close any open overlays/modals
     try:
         page.keyboard.press("Escape")
         time.sleep(0.5)
@@ -117,16 +118,11 @@ def _fill_form_and_search(
 
     try:
         # --- Origin field ---
-        # Check if origin is already set correctly (from login phase)
         origin_input = page.locator("input[name='flightOrigin']")
         current_origin = origin_input.input_value(timeout=10000)
-        if origin.upper() in current_origin.upper():
-            # Origin already filled, skip
-            pass
-        else:
+        if origin.upper() not in current_origin.upper():
             origin_input.click()
             time.sleep(0.5)
-            # Triple-click to select all, then type
             origin_input.click(click_count=3)
             time.sleep(0.3)
             origin_input.type(origin_name[:8], delay=120)
@@ -137,7 +133,6 @@ def _fill_form_and_search(
                 page.keyboard.press("Enter")
             time.sleep(1)
 
-        # Close any open autocomplete by pressing Escape
         page.keyboard.press("Escape")
         time.sleep(0.5)
 
@@ -145,7 +140,6 @@ def _fill_form_and_search(
         dest_input = page.locator("input[name='redeemFlightDestination']")
         dest_input.click(timeout=10000)
         time.sleep(0.5)
-        # Clear and type
         dest_input.click(click_count=3)
         time.sleep(0.3)
         dest_input.type(dest_name, delay=100)
@@ -181,48 +175,96 @@ def _fill_form_and_search(
             time.sleep(1)
 
         # --- Calendar / Date ---
-        date_input = page.locator("input[name='departDate']")
-        date_input.click()
-        time.sleep(2)
+        # Try direct fill first (Vue.js native setter trick)
+        date_iso = depart_date.strftime("%Y-%m-%d")
+        try:
+            date_set = page.evaluate(f"""
+                () => {{
+                    // Try Vue.js reactive setter (React/Vue pattern)
+                    const inp = document.querySelector("input[name='departDate']");
+                    if (!inp) return false;
+                    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                    nativeSetter.call(inp, '{date_iso}');
+                    inp.dispatchEvent(new Event('input', {{bubbles: true}}));
+                    inp.dispatchEvent(new Event('change', {{bubbles: true}}));
+                    return true;
+                }}
+            """)
+            time.sleep(1)
+            if date_set:
+                errors.append(f"Date set via JS setter to {date_iso}")
+        except Exception as e:
+            errors.append(f"JS date setter error: {e}")
 
-        # Check one-way
+        # Open the calendar to validate/confirm the date
+        date_input = page.locator("input[name='departDate']")
+        try:
+            date_input.click(timeout=5000)
+            time.sleep(2)
+        except Exception:
+            pass
+
+        # Try oneway toggle
         oneway_label = page.locator(".calendar-root label[for='oneway_id']")
         if oneway_label.count() > 0:
-            oneway_label.first.click()
-            time.sleep(1)
-
-        # Select month from dropdown
-        month_input = page.locator(".calendar-root .vue-simple-suggest input")
-        if month_input.count() > 0:
-            month_input.first.click()
-            time.sleep(1)
-            month_suggest = page.locator(f".suggest-item:has-text('{month_display}')")
-            if month_suggest.count() > 0:
-                month_suggest.first.click()
+            try:
+                oneway_label.first.click()
                 time.sleep(1)
-            else:
-                errors.append(f"Month '{month_display}' not found in calendar dropdown")
+            except Exception:
+                pass
 
-        # Click the target day
-        day_cell = page.locator(f".calendar_days li[date-data='{date_str}']")
-        if day_cell.count() > 0:
-            day_cell.first.click()
-            time.sleep(1)
-        else:
-            # Try clicking first available date
-            avail_days = page.locator(".calendar_days li:not(.disabled):not(.past)")
-            if avail_days.count() > 0:
-                avail_days.nth(min(6, avail_days.count() - 1)).click()
-                time.sleep(1)
-                errors.append(f"Day cell for {date_str} not found, clicked alternate date")
-            else:
-                errors.append("No available day cells found in calendar")
+        # Try clicking the target day by date-data attribute (both formats)
+        day_clicked = False
+        for attr in [f"[date-data='{date_str}']", f"[data-date='{date_str}']"]:
+            day_cell = page.locator(f".calendar_days li{attr}")
+            if day_cell.count() > 0:
+                try:
+                    day_cell.first.click()
+                    time.sleep(1)
+                    day_clicked = True
+                    break
+                except Exception:
+                    pass
 
-        # Click Done in calendar
-        done_btn = page.locator(".calendar-root .btn-primary:not([disabled])")
-        if done_btn.count() > 0:
-            done_btn.first.click()
-            time.sleep(2)
+        # If attribute selector failed, try clicking by visible text (day number)
+        if not day_clicked:
+            day_num = str(depart_date.day)
+            day_cells = page.locator(".calendar_days li:not(.disabled):not(.past)")
+            count = day_cells.count()
+            for i in range(count):
+                try:
+                    cell = day_cells.nth(i)
+                    text = cell.inner_text()
+                    if text.strip() == day_num:
+                        cell.click()
+                        day_clicked = True
+                        time.sleep(1)
+                        break
+                except Exception:
+                    pass
+
+            if not day_clicked:
+                # Fall back to 7th available day
+                if count > 0:
+                    try:
+                        day_cells.nth(min(6, count - 1)).click()
+                        time.sleep(1)
+                        errors.append(f"Day {day_num} not found, clicked alternate")
+                    except Exception:
+                        errors.append("Could not click any day cell")
+                else:
+                    errors.append("No available day cells found in calendar")
+
+        # Click Done/Confirm button in calendar
+        for btn_sel in [".calendar-root .btn-primary:not([disabled])", ".calendar-root button.confirm", ".calendar-root .done-btn"]:
+            done_btn = page.locator(btn_sel)
+            if done_btn.count() > 0:
+                try:
+                    done_btn.first.click()
+                    time.sleep(2)
+                    break
+                except Exception:
+                    pass
 
         # --- Click Search ---
         time.sleep(3)
@@ -233,10 +275,8 @@ def _fill_form_and_search(
             errors.append("Search button not found")
             return {"ok": False, "error": "Search button not found", "errors": errors}
 
-        # Wait for results to load
         time.sleep(15)
 
-        # Take a debug screenshot
         try:
             page.screenshot(path="/tmp/sia_after_search.png")
         except Exception:
@@ -246,7 +286,6 @@ def _fill_form_and_search(
 
     except Exception as exc:
         errors.append(str(exc))
-        # Take debug screenshot on error
         try:
             page.screenshot(path="/tmp/sia_error.png")
         except Exception:
@@ -255,16 +294,10 @@ def _fill_form_and_search(
 
 
 def _scrape_results(page: Any, target_month: int, target_year: int) -> List[Dict[str, Any]]:
-    """Scrape 7-day calendar and flight results using Playwright.
-
-    Uses a two-pronged approach:
-    1. JS extraction of viewcell data (handles async loading)
-    2. Text-based parsing of the full results section as fallback
-    """
+    """Scrape 7-day calendar and flight results using Playwright."""
     results: List[Dict[str, Any]] = []
 
     def _extract_via_js():
-        """Use JS to extract all loaded viewcell data at once."""
         try:
             js = """() => {
                 let cells = document.querySelectorAll('.viewcell:not(.loading)');
@@ -280,13 +313,11 @@ def _scrape_results(page: Any, target_month: int, target_year: int) -> List[Dict
                         }
                     }
                 });
-                // Also get flight list
                 let flights = document.querySelectorAll('.FlightDisplay');
                 flights.forEach(f => {
                     let text = f.textContent.trim();
                     let mMatch = text.match(/(\\d[\\d,]+)\\s*miles/);
                     if (mMatch) {
-                        let tMatch = text.match(/(\\d{2}:\\d{2})/g);
                         data.push({
                             date_text: 'flight',
                             miles_text: mMatch[1],
@@ -302,7 +333,6 @@ def _scrape_results(page: Any, target_month: int, target_year: int) -> List[Dict
             return []
 
     try:
-        # Wait for results to fully load
         try:
             page.locator(".viewcell:not(.loading)").first.wait_for(
                 state="visible", timeout=15000
@@ -311,14 +341,11 @@ def _scrape_results(page: Any, target_month: int, target_year: int) -> List[Dict
             pass
         time.sleep(3)
 
-        # Extract current view via JS
         results.extend(_extract_via_js())
 
-        # Navigate the calendar strip to see more dates
         right_btn = page.locator(".SevenDayCalendar button.flip.right")
         left_btn = page.locator(".SevenDayCalendar button.flip.left")
 
-        # Go left first to see earlier dates
         if left_btn.count() > 0:
             for _ in range(3):
                 try:
@@ -328,7 +355,6 @@ def _scrape_results(page: Any, target_month: int, target_year: int) -> List[Dict
                 except Exception:
                     break
 
-        # Go right to cover the full range
         if right_btn.count() > 0:
             for _ in range(7):
                 try:
@@ -341,13 +367,12 @@ def _scrape_results(page: Any, target_month: int, target_year: int) -> List[Dict
     except Exception:
         pass
 
-    # Fallback: parse the entire results section text
+    # Fallback: parse entire results section text
     if not results:
         try:
             section = page.locator(".FlightSelections, .SevenDayCalendar")
             if section.count() > 0:
                 text = section.first.inner_text()
-                # Pattern: "Wed 25 Feb\nfrom\n185,000\nmiles"
                 day_pattern = re.compile(
                     r'(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)'
                     r'.*?(\d[\d,]+)\s*miles',
@@ -380,10 +405,7 @@ def _scrape_results(page: Any, target_month: int, target_year: int) -> List[Dict
         miles = 0
         if miles_match:
             val = int(miles_match.group(1))
-            if val < 1000:
-                miles = val * 1000
-            else:
-                miles = val
+            miles = val * 1000 if val < 1000 else val
 
         parsed.append({
             "date": r["date_text"],
@@ -402,22 +424,28 @@ def _run_hybrid(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, An
     travelers = int(inputs["travelers"])
     cabin = str(inputs.get("cabin", "economy"))
     days_ahead = int(inputs["days_ahead"])
-    max_miles = int(inputs["max_miles"])
-    mid_days = max(7, days_ahead // 2)
+    mid_days = days_ahead
     depart_date = date.today() + timedelta(days=mid_days)
-
-    # Phase 1: BrowserAgent login
+    # Phase 1: BrowserAgent login (in thread to avoid asyncio loop contamination)
     observations.append("Phase 1: BrowserAgent login")
-    login_result = adaptive_run(
-        goal=_login_goal(),
-        url=SIA_LOGIN_URL,
-        max_steps=20,
-        airline="singapore",
-        inputs=inputs,
-        max_attempts=1,  # Don't retry login — just one attempt
-        trace=True,
-        use_vision=True,
-    )
+    _phase1_result = [None]
+
+    def _phase1_worker():
+        _phase1_result[0] = adaptive_run(
+            goal=_login_goal(),
+            url=SIA_LOGIN_URL,
+            max_steps=20,
+            airline="singapore",
+            inputs=inputs,
+            max_attempts=1,
+            trace=True,
+            use_vision=True,
+        )
+
+    _t1 = threading.Thread(target=_phase1_worker, daemon=True)
+    _t1.start()
+    _t1.join(timeout=300)
+    login_result = _phase1_result[0] or {"ok": False, "error": "Phase 1 thread timed out"}
 
     if not login_result["ok"]:
         observations.append(f"Login failed: {login_result['error']}")
@@ -447,92 +475,98 @@ def _run_hybrid(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, An
     matches: List[Dict[str, Any]] = []
     errors: List[str] = []
 
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.connect_over_cdp(cdp_url)
-            contexts = browser.contexts
-            if not contexts:
-                errors.append("No browser contexts found after login")
-                return {
-                    "mode": "live",
-                    "real_data": False,
-                    "matches": [],
-                    "summary": "No browser context available after BrowserAgent login",
-                    "raw_observations": observations,
-                    "errors": errors,
-                }
+    # Run sync_playwright in a separate thread to avoid asyncio loop conflicts
+    def _pw_worker():
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.connect_over_cdp(cdp_url)
+                contexts = browser.contexts
+                if not contexts:
+                    errors.append("No browser contexts found after login")
+                    return {
+                        "mode": "live",
+                        "real_data": False,
+                        "matches": [],
+                        "summary": "No browser context available after BrowserAgent login",
+                        "raw_observations": observations,
+                        "errors": errors,
+                    }
 
-            context = contexts[0]
-            page = None
-            for p_page in context.pages:
-                if "singaporeair" in p_page.url:
-                    page = p_page
-                    break
+                context = contexts[0]
+                page = None
+                for p_page in context.pages:
+                    if "singaporeair" in p_page.url:
+                        page = p_page
+                        break
 
-            if page is None:
-                page = context.new_page()
+                if page is None:
+                    page = context.new_page()
 
-            # ALWAYS do two-step navigation: homepage first (loads Angular app),
-            # then redeem hash. Even if URL already has "redeemflight", the Angular
-            # app may not be bootstrapped from a login redirect — so always go
-            # through homepage to ensure the form loads.
-            homepage = "https://www.singaporeair.com/en_UK/us/home"
-            page.goto(homepage, wait_until="domcontentloaded", timeout=30000)
-            time.sleep(6)
-            page.goto(SIA_REDEEM_URL, wait_until="domcontentloaded", timeout=30000)
-            time.sleep(5)
+                # Two-step navigation: homepage first (loads Angular), then redeem hash
+                homepage = "https://www.singaporeair.com/en_UK/us/home"
+                page.goto(homepage, wait_until="domcontentloaded", timeout=30000)
+                time.sleep(6)
+                page.goto(SIA_REDEEM_URL, wait_until="domcontentloaded", timeout=30000)
+                time.sleep(5)
 
-            observations.append(f"Playwright connected, page URL: {page.url}")
+                observations.append(f"Playwright connected, page URL: {page.url}")
 
-            # Fill form and search
-            form_result = _fill_form_and_search(
-                page, origin, dest, cabin, travelers, depart_date,
-            )
-            if form_result.get("errors"):
-                errors.extend(form_result["errors"])
-                for e in form_result["errors"]:
-                    observations.append(f"Form note: {e}")
+                form_result = _fill_form_and_search(
+                    page, origin, dest, cabin, travelers, depart_date,
+                )
+                if form_result.get("errors"):
+                    errors.extend(form_result["errors"])
+                    for e in form_result["errors"]:
+                        observations.append(f"Form note: {e}")
 
-            if form_result["ok"]:
-                observations.append("Form filled and search submitted")
+                if form_result["ok"]:
+                    observations.append("Form filled and search submitted")
 
-                # Phase 3: Scrape results
-                observations.append("Phase 3: Scraping results")
-                raw_results = _scrape_results(page, depart_date.month, depart_date.year)
-                observations.append(f"Scraped {len(raw_results)} date entries")
+                    # Phase 3: Scrape results
+                    observations.append("Phase 3: Scraping results")
+                    raw_results = _scrape_results(page, depart_date.month, depart_date.year)
+                    observations.append(f"Scraped {len(raw_results)} date entries")
 
-                book_url = _booking_url(origin, dest, depart_date)
-                for r in raw_results:
-                    if r["miles"] > 0:
-                        matches.append({
-                            "route": f"{origin}-{dest}",
-                            "date": r["date"],
-                            "miles": r["miles"],
-                            "travelers": travelers,
-                            "cabin": cabin,
-                            "mixed_cabin": False,
-                            "booking_url": book_url,
-                            "notes": f"raw: {r['raw']}",
-                        })
+                    book_url = _booking_url(origin, dest, depart_date)
+                    for r in raw_results:
+                        if r["miles"] > 0:
+                            matches.append({
+                                "route": f"{origin}-{dest}",
+                                "date": r["date"],
+                                "miles": r["miles"],
+                                "travelers": travelers,
+                                "cabin": cabin,
+                                "mixed_cabin": False,
+                                "booking_url": book_url,
+                                "notes": f"raw: {r['raw']}",
+                            })
 
-                observations.append(f"Found {len(matches)} date entries with availability")
-            else:
-                observations.append(f"Form fill failed: {form_result.get('error', 'unknown')}")
+                    observations.append(f"Found {len(matches)} date entries with availability")
+                else:
+                    observations.append(f"Form fill failed: {form_result.get('error', 'unknown')}")
 
-    except Exception as exc:
-        errors.append(f"Playwright phase error: {exc}")
-        observations.append(f"Playwright error: {exc}")
+        except Exception as exc:
+            errors.append(f"Playwright phase error: {exc}")
+            observations.append(f"Playwright error: {exc}")
+
+    _pw_thread = threading.Thread(target=_pw_worker, daemon=True)
+    _pw_thread.start()
+    _pw_thread.join(timeout=300)
+    if _pw_thread.is_alive():
+        errors.append("Playwright phase timed out after 300s")
+        observations.append("Playwright phase timed out")
 
     book_url_final = _booking_url(origin, dest, depart_date)
+    summary_parts = [f"SIA hybrid search: {len(matches)} flights found for {origin}-{dest}"]
+    if matches:
+        best = min(m["miles"] for m in matches)
+        summary_parts.append(f"Best: {best:,} miles")
     return {
         "mode": "live",
         "real_data": True,
         "matches": matches,
         "booking_url": book_url_final,
-        "summary": (
-            f"SIA hybrid search completed. "
-            f"Found {len(matches)} flights under {max_miles:,} miles for {origin}-{dest}."
-        ),
+        "summary": ". ".join(summary_parts) + ".",
         "raw_observations": observations,
         "errors": errors,
     }
@@ -540,13 +574,21 @@ def _run_hybrid(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, An
 
 def _run_agent_only(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, Any]:
     """Fallback: agent-only approach."""
-    agent_run = run_browser_agent_goal(
-        goal=_goal(inputs),
-        url=SIA_URL,
-        max_steps=60,
-        trace=True,
-        use_vision=True,
-    )
+    _agent_result = [None]
+
+    def _agent_worker():
+        _agent_result[0] = run_browser_agent_goal(
+            goal=_goal(inputs),
+            url=SIA_URL,
+            max_steps=90,
+            trace=True,
+            use_vision=True,
+        )
+
+    _t = threading.Thread(target=_agent_worker, daemon=True)
+    _t.start()
+    _t.join(timeout=600)
+    agent_run = _agent_result[0] or {"ok": False, "error": "Agent thread timed out"}
     if agent_run["ok"]:
         run_result = agent_run.get("result") or {}
         observations.extend([
@@ -572,57 +614,78 @@ def _run_agent_only(inputs: Dict[str, Any], observations: List[str]) -> Dict[str
     }
 
 
-def _goal(inputs: Dict[str, Any]) -> str:
+def _goal(inputs):
     """Build goal for agent-only fallback mode."""
     origin = inputs["from"]
     dest = inputs["to"][0]
     cabin = str(inputs.get("cabin", "economy"))
     cabin_display = CABIN_MAP.get(cabin, cabin.title())
     days_ahead = int(inputs["days_ahead"])
-    mid_days = max(7, days_ahead // 2)
-    depart_date = date.today() + timedelta(days=mid_days)
-    range_end = date.today() + timedelta(days=days_ahead)
-    month_display = depart_date.strftime("%B %Y")
+    depart_date = date.today() + timedelta(days=days_ahead)
     travelers = int(inputs["travelers"])
     max_miles = int(inputs["max_miles"])
 
+    origin_name = CITY_NAMES.get(origin, origin)
+    dest_name = CITY_NAMES.get(dest, dest)
+
     lines = [
         f"Search for Singapore Airlines KrisFlyer award flights {origin} to {dest}, "
-        f"{cabin_display} class. Check availability from now through "
-        f"{range_end.strftime('%B %-d, %Y')} (starting around {month_display}).",
+        f"{cabin_display} class, {travelers} adults, on {depart_date.strftime('%B %-d, %Y')}.",
+        "",
+        "=== ACTION SEQUENCE (follow EXACTLY) ===",
         "",
         "STEP 1 - LOGIN:",
-        "Login with KrisFlyer number: 8814147288.",
+        "Navigate to https://www.singaporeair.com/en_UK/us/ppsclub-krisflyer/login/",
+        "KrisFlyer number: 8814147288",
         "Get password from keychain for www.singaporeair.com.",
-        "If already logged in, skip login.",
+        "Enter credentials and click login.",
+        "If already logged in, skip to STEP 2.",
         "",
-        "STEP 2 - NAVIGATE TO REDEMPTION SEARCH:",
-        "Click 'Redeem flights' or navigate to the redemption form.",
+        "STEP 2 - NAVIGATE TO REDEEM FLIGHTS:",
+        "Navigate to https://www.singaporeair.com/en_UK/us/home",
+        "wait 4",
+        "Then navigate to https://www.singaporeair.com/en_UK/us/home#/book/redeemflight",
+        "Wait 6 seconds for the Angular app to load and show the form.",
         "",
-        "STEP 3 - FILL FORM AND SEARCH:",
-        f"Set origin to {origin}, destination to {dest}.",
-        f"Set cabin to {cabin_display}, passengers to {travelers}.",
-        f"Set date to {depart_date.isoformat()}.",
-        "Click Search.",
+        "STEP 3 - FILL ORIGIN:",
+        f"Click the origin/departure field and type '{origin_name}' or '{origin}'.",
+        "Select the matching airport from suggestions.",
         "",
-        "STEP 4 - SCAN CALENDAR:",
-        "After results load, look at the 7-day calendar strip.",
-        "Click RIGHT arrow to see more dates.",
-        "Note ALL dates with availability.",
+        "STEP 4 - FILL DESTINATION:",
+        f"Click the destination field and type '{dest_name}' or '{dest}'.",
+        "Select the matching airport from suggestions.",
         "",
-        "STEP 5 - TAKE SCREENSHOT:",
-        "Your VERY NEXT ACTION must be: screenshot",
+        "STEP 5 - SET DATE:",
+        f"Click the date field and navigate to {depart_date.strftime('%B %Y')}.",
+        f"Select day {depart_date.day}.",
+        "Use forward arrows to navigate months.",
         "",
-        "STEP 6 - REPORT AND DONE:",
-        "Your VERY NEXT ACTION must be: done",
-        "Report:",
-        "A) CALENDAR DATES:",
-        "DATE: Mar 10 | XX,XXX miles",
-        "B) SUMMARY:",
-        f"- Cheapest {cabin_display}: [miles] on [date]",
-        f"Focus on fares under {max_miles:,} miles ({max_miles // travelers:,} per person).",
+        "STEP 6 - SET CABIN:",
+        f"Set cabin class to {cabin_display} if not already set.",
+        "",
+        "STEP 7 - SET PASSENGERS:",
+        f"Set passengers to {travelers} adults.",
+        "",
+        "STEP 8 - SEARCH:",
+        "Click the Search button.",
+        "wait 10",
+        "",
+        "STEP 9 - SCREENSHOT AND REPORT:",
+        "screenshot",
+        "Then: done",
+        "Report ALL visible availability with miles costs.",
+        "Format: DATE: [date] | [miles] miles | [cabin]",
+        f"Focus on results under {max_miles:,} miles.",
+        "",
+        "=== CRITICAL NOTES ===",
+        "- SIA uses Angular/Vue.js -- wait for dropdowns to appear",
+        "- If cookie popup appears, dismiss it first",
+        "- The form may have autocomplete dropdowns -- wait and click the right option",
+        "- Do NOT use form.submit() or fetch() -- they trigger CAPTCHA",
+        "- Only click real buttons",
     ]
     return "\n".join(lines)
+
 
 
 def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
@@ -632,11 +695,10 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
     max_miles = int(inputs["max_miles"])
     cabin = str(inputs.get("cabin", "economy"))
 
-    dest_str = ", ".join(destinations)
     observations: List[str] = [
         "OpenClaw session expected",
         f"Range: {today.isoformat()}..{end.isoformat()}",
-        f"Destinations: {dest_str}",
+        f"Destinations: {', '.join(destinations)}",
         f"Cabin: {cabin}",
     ]
 
@@ -645,7 +707,12 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
     book_url = _booking_url(inputs["from"], destinations[0], depart_date)
 
     if browser_agent_enabled():
-        return _run_hybrid(inputs, observations)
+        # Try hybrid first, fall back to agent-only if it fails
+        result = _run_hybrid(inputs, observations)
+        if not result.get("matches"):
+            observations.append("Hybrid approach failed or returned no matches, trying agent-only")
+            return _run_agent_only(inputs, observations)
+        return result
 
     print(
         "WARNING: BrowserAgent not enabled. Results are placeholder data.",

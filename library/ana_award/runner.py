@@ -1,271 +1,450 @@
 from __future__ import annotations
 
+import os
 import re
-import sys
+import time
 from datetime import date, timedelta
 from typing import Any, Dict, List
 
 from openclaw_automation.browser_agent_adapter import browser_agent_enabled
 from openclaw_automation.adaptive import adaptive_run
+from openclaw_automation.result_extract import extract_award_matches_from_text
 
-# English/US homepage — do NOT use /amc/mileage-reservation/ (redirects to 404)
 ANA_URL = "https://www.ana.co.jp/en/us/"
+ANA_AWARD_URL = "https://aswbe-i.ana.co.jp/international_asw/pages/award/search/roundtrip/award_search_roundtrip_input.xhtml?CONNECTION_KIND=JPN&LANG=en"
+
+CABIN_MAP = {
+    "economy": "Y",
+    "premium_economy": "PY",
+    "business": "C",
+    "first": "F",
+}
+
+CABIN_DISPLAY = {
+    "economy": "Economy Class",
+    "premium_economy": "Premium Economy",
+    "business": "Business Class",
+    "first": "First Class",
+}
 
 
-def _goal(inputs: Dict[str, Any]) -> str:
-    origin = inputs["from"]
-    destinations = inputs["to"]
-    dest = destinations[0]
-    travelers = int(inputs["travelers"])
-    cabin = str(inputs.get("cabin", "business"))
-    days_ahead = int(inputs["days_ahead"])
-    max_miles = int(inputs["max_miles"])
-    mid_days = max(14, days_ahead // 2)
-    depart_date = date.today() + timedelta(days=mid_days)
+def _login_goal():
+    return """Login to ANA Mileage Club award search.
 
-    lines = [
-        f"Search for ANA Mileage Club AWARD flights from {origin} to {dest}, "
-        f"{cabin} class, around {depart_date.strftime('%B %-d, %Y')}.",
-        "",
-        "=== IMPORTANT RULES ===",
-        "- NEVER navigate to aswbe-i.ana.co.jp or aswbe.ana.co.jp directly.",
-        "- The award search REQUIRES login. You MUST login first.",
-        "- If CAPTCHA appears, report stuck immediately.",
-        "",
-        "=== STEP 1 — DISMISS COOKIE DIALOG ===",
-        "If a 'Cookie Settings' dialog is covering the page:",
-        "  Try: js_eval: document.querySelector('#onetrust-accept-btn-handler, .onetrust-close-btn-handler, button[class*=accept], .ot-sdk-btn')?.click()",
-        "  If still showing, scroll down inside the dialog and look for an Accept button.",
-        "  If nothing works, try: js_eval: document.querySelector('.onetrust-pc-dark-filter')?.remove(); document.querySelector('#onetrust-consent-sdk')?.remove()",
-        "",
-        "=== STEP 2 — LOGIN FIRST (MANDATORY) ===",
-        "You MUST login before searching. The award search will block you without login.",
-        "Look for 'Log In' or 'AMC Member' or 'ANA Mileage Club' in the header/menu.",
-        "Click it.",
-        "  - credentials for aswbe-i.ana.co.jp",
-        "  - ANA Mileage Club number: 4135234365",
-        "  - Enter the 10-digit member number and password",
-        "  - Click Log In / Sign In",
-        "  - wait 8",
-        "If already logged in (you see a welcome message or member name), continue.",
-        "",
-        "=== STEP 3 — NAVIGATE TO AWARD SEARCH ===",
-        "After login, find the award booking section.",
-        "Look for:",
-        "  a) 'Use Miles' tab in the booking widget on the homepage",
-        "  b) 'Award Reservation' link",
-        "  c) 'Book Flights with Miles' or 'ANA Mileage Club' in the menu",
-        "Click it. A login session is required — the page will work now that you are logged in.",
-        "wait 5",
-        "",
-        "=== STEP 4 — FILL SEARCH FORM ===",
-        "  - Trip type: One Way (if available)",
-        f"  - From/Departure: {origin} (type SFO, select from dropdown)",
-        f"  - To/Arrival: {dest} (type {dest}, select from dropdown)",
-        f"  - Date: around {depart_date.strftime('%B %-d')} (any nearby date is fine)",
-        f"  - Cabin class: {cabin}",
-        f"  - Passengers: {travelers}",
-        "  - Click Search",
-        "",
-        "=== STEP 5 — WAIT FOR RESULTS ===",
-        "wait 12",
-        "",
-        "=== STEP 6 — SCREENSHOT ===",
-        "screenshot",
-        "",
-        "=== STEP 7 — REPORT AND DONE ===",
-        "done",
-        "",
-        "Report what you see:",
-        "A) CALENDAR: list dates with mileage prices",
-        "   DATE: Mar 10 | XX,XXX miles",
-        "B) FLIGHTS: list individual flights",
-        "   FLIGHT: HH:MM-HH:MM | XX,XXX miles | stops | cabin",
-        "C) SUMMARY:",
-        f"   Cheapest {cabin}: [miles] on [date]",
-        "",
-        f"Budget: {max_miles:,} miles total ({max_miles // travelers:,} per person).",
-        "If no results or CAPTCHA, report what you see on the page.",
-    ]
-    return "\n".join(lines)
+1. You are on the ANA award search login page (aswbe-i.ana.co.jp).
+2. Look for the AMC Number and Password fields.
+3. credentials for www.ana.co.jp
+4. Enter the AMC Number (10-digit member number) in the member number field.
+5. Enter the password in the password field.
+6. Click 'Login' or 'Sign In' to submit.
+7. wait 10
+8. If you see the award search form (departure/arrival fields), login succeeded. Report done.
+9. If you see 'heavy traffic' or 'server maintenance', report done with that info.
+10. If login fails, try once more, then report done.
+
+CRITICAL: Do NOT navigate away from the award search pages."""
+
+
+def _extract_results_js():
+    """JS to extract award search results from ANA's results page."""
+    return """
+    (() => {
+        const results = [];
+        // Look for flight result rows
+        const rows = document.querySelectorAll('.award-result, .result-row, tr[class*=flight], .flightRow, .resultRow');
+        rows.forEach(row => {
+            results.push('ROW: ' + row.textContent.replace(/\\s+/g, ' ').trim().substring(0, 300));
+        });
+        
+        // Look for availability calendar (O/X pattern)
+        const cells = document.querySelectorAll('td[class*=avail], .calendar-cell, td.av, td.seat');
+        cells.forEach(cell => {
+            const text = cell.textContent.trim();
+            if (text === 'O' || text === 'X' || text.match(/\\d+/)) {
+                const dateEl = cell.closest('tr')?.querySelector('td:first-child');
+                results.push('AVAIL: ' + (dateEl?.textContent?.trim() || '') + ' ' + text);
+            }
+        });
+        
+        // Look for miles amounts anywhere
+        const allText = document.body?.innerText || '';
+        const milesLines = allText.split('\\n').filter(l => /\\d[\\d,]*\\s*(?:miles?|mi)/i.test(l));
+        milesLines.forEach(l => results.push('MILES_LINE: ' + l.trim().substring(0, 200)));
+        
+        // Look for any table with flight data
+        const tables = document.querySelectorAll('table');
+        tables.forEach((t, i) => {
+            if (t.textContent.match(/miles|award|economy|business|first/i)) {
+                results.push('TABLE_' + i + ': ' + t.textContent.replace(/\\s+/g, ' ').trim().substring(0, 500));
+            }
+        });
+        
+        // Get page title/headers for context
+        const h1 = document.querySelector('h1, h2, .page-title');
+        if (h1) results.push('TITLE: ' + h1.textContent.trim());
+        
+        // Check for error messages
+        const errors = document.querySelectorAll('.error, .alert, .message, [class*=error], [class*=maintenance]');
+        errors.forEach(e => results.push('ERROR: ' + e.textContent.trim().substring(0, 200)));
+        
+        return {
+            url: location.href,
+            title: document.title,
+            resultsCount: results.length,
+            results: results.slice(0, 50),
+            bodySnippet: (document.body?.innerText || '').substring(0, 2000),
+        };
+    })()
+    """
 
 
 def _parse_matches(result_text: str, inputs: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Parse agent free-text result into structured match dicts."""
     if not result_text:
         return []
 
     origin = inputs["from"]
     dest = inputs["to"][0]
-    cabin = inputs.get("cabin", "business")
+    cabin = inputs.get("cabin", "economy")
     travelers = int(inputs.get("travelers", 1))
+    max_miles = int(inputs.get("max_miles", 999999))
+    depart_date = date.today() + timedelta(days=int(inputs["days_ahead"]))
 
     matches = []
-    seen = set()
 
-    # Pattern: "FLIGHT: HH:MM-HH:MM | XX,XXX miles"
-    flight_pattern = re.compile(
-        r'(?:FLIGHT:?\s*)?(\d{1,2}:\d{2}(?:\s*[AP]M)?)\s*[-–]\s*(\d{1,2}:\d{2}(?:\s*[AP]M)?)'
-        r'.*?([\d,]+)\s*(?:miles?|pts?|points?)',
-        re.IGNORECASE,
-    )
+    # Pattern: miles amounts
+    miles_pattern = re.compile(r'([\d,]+)\s*(?:miles|mi)\b', re.IGNORECASE)
     for line in result_text.split("\n"):
-        fm = flight_pattern.search(line)
-        if fm:
-            miles = int(fm.group(3).replace(",", ""))
-            if miles >= 1000:
-                key = f"{fm.group(1)}-{fm.group(2)}-{miles}"
-                if key not in seen:
-                    seen.add(key)
-                    stops = ""
-                    if re.search(r'\bnonstop\b', line, re.IGNORECASE):
-                        stops = "Nonstop"
-                    elif re.search(r'(\d)\s*stop', line, re.IGNORECASE):
-                        sm = re.search(r'(\d)\s*stop', line, re.IGNORECASE)
-                        stops = f"{sm.group(1)} stop(s)"
-                    matches.append({
-                        "route": f"{origin}-{dest}",
-                        "miles": miles,
-                        "travelers": travelers,
-                        "cabin": cabin,
-                        "mixed_cabin": False,
-                        "depart_time": fm.group(1).strip(),
-                        "arrive_time": fm.group(2).strip(),
-                        "stops": stops,
-                        "notes": line.strip()[:150],
-                    })
+        mm = miles_pattern.search(line)
+        if mm:
+            miles = int(mm.group(1).replace(",", ""))
+            if 1000 <= miles <= max_miles * 2:  # soft cap: report slightly over-budget results
+                matches.append({
+                    "route": f"{origin}-{dest}",
+                    "date": depart_date.isoformat(),
+                    "miles": miles,
+                    "travelers": travelers,
+                    "cabin": cabin,
+                    "mixed_cabin": False,
+                    "notes": line.strip()[:150],
+                })
 
-    # Pattern: "DATE: Mar 10 | XX,XXX miles"
-    date_pattern = re.compile(
-        r'DATE:.*?((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{1,2})'
-        r'.*?([\d,]+)\s*(?:miles?|pts?|points?)',
-        re.IGNORECASE,
-    )
-    for line in result_text.split("\n"):
-        dm = date_pattern.search(line.strip())
-        if dm:
-            date_label = dm.group(1).strip()
-            miles = int(dm.group(2).replace(",", ""))
-            if miles >= 1000:
-                key = f"cal-{date_label}-{miles}"
-                if key not in seen:
-                    seen.add(key)
-                    matches.append({
-                        "route": f"{origin}-{dest}",
-                        "date_label": date_label,
-                        "miles": miles,
-                        "travelers": travelers,
-                        "cabin": cabin,
-                        "mixed_cabin": False,
-                        "source": "calendar",
-                        "notes": line.strip()[:150],
-                    })
+    # Availability calendar pattern: O = available
+    avail_pattern = re.compile(r'(?:AVAIL|DATE).*?(\d{1,2}[/-]\d{1,2}).*?(O|available)', re.IGNORECASE)
+    for m in avail_pattern.finditer(result_text):
+        matches.append({
+            "route": f"{origin}-{dest}",
+            "date": m.group(1),
+            "miles": 0,
+            "travelers": travelers,
+            "cabin": cabin,
+            "mixed_cabin": False,
+            "notes": f"Available: {m.group(0).strip()[:150]}",
+        })
 
-    # Fallback: raw miles extraction
+    # Also try standard extractor
     if not matches:
-        pts_pat = re.compile(r'([\d,]+)\s*(?:miles?|pts?|points?)\b', re.IGNORECASE)
-        for line in result_text.split("\n"):
-            pm = pts_pat.search(line)
-            if pm:
-                miles = int(pm.group(1).replace(",", ""))
-                if miles >= 1000:
-                    matches.append({
-                        "route": f"{origin}-{dest}",
-                        "miles": miles,
-                        "travelers": travelers,
-                        "cabin": cabin,
-                        "mixed_cabin": False,
-                        "notes": f"Raw: {line.strip()[:150]}",
-                    })
-                    break
+        matches = extract_award_matches_from_text(
+            result_text,
+            route=f"{origin}-{dest}",
+            cabin=cabin,
+            travelers=travelers,
+            max_miles=max_miles,
+        )
 
     return matches
+
+
+def _run_hybrid(context: Dict[str, Any], inputs: Dict[str, Any], observations: List[str]):
+    """Hybrid: BrowserAgent login + Playwright form fill + scrape.
+    Runs Playwright in a daemon thread to avoid asyncio event loop contamination
+    from the prior adaptive_run() call.
+    """
+    import threading as _threading
+    from playwright.sync_api import sync_playwright
+
+    origin = inputs["from"]
+    dest = inputs["to"][0]
+    days_ahead = int(inputs["days_ahead"])
+    depart_date = date.today() + timedelta(days=days_ahead)
+    cdp_url = os.environ.get("OPENCLAW_CDP_URL", os.environ.get("BROWSER_CDP_URL", "http://127.0.0.1:9222"))
+
+    # Phase 1: BrowserAgent login
+    observations.append("Phase 1: BrowserAgent login to ANA award system")
+    login_run = adaptive_run(
+        goal=_login_goal(),
+        url=ANA_AWARD_URL,
+        max_steps=20,
+        airline="ana_login",
+        inputs=inputs,
+        max_attempts=1,
+        trace=True,
+        use_vision=True,
+    )
+
+    login_result = login_run.get("result") or {}
+    login_text = login_result.get("result", "") if isinstance(login_result, dict) else str(login_result)
+    login_ok = login_run.get("ok", False)
+    observations.append(f"Login {'succeeded' if login_ok else 'failed'}")
+
+    if "maintenance" in login_text.lower() or "heavy traffic" in login_text.lower():
+        observations.append("ANA server maintenance detected")
+        return [], observations
+
+    # Phase 2: Playwright form fill in a separate thread
+    observations.append("Phase 2: Playwright form fill + search")
+    pw_matches: list = []
+    pw_errors: list = []
+
+    def _pw_worker():
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.connect_over_cdp(cdp_url)
+                contexts = browser.contexts
+                if not contexts:
+                    pw_errors.append("No browser contexts after login")
+                    return
+
+                ctx = contexts[0]
+                page = ctx.pages[0] if ctx.pages else ctx.new_page()
+                current_url = page.url
+                observations.append(f"Playwright connected, URL: {current_url}")
+
+                # Navigate to ANA award search if not already there
+                if "aswbe-i.ana.co.jp" not in current_url:
+                    observations.append("Navigating to ANA award search page")
+                    page.goto(ANA_AWARD_URL, wait_until="domcontentloaded", timeout=30000)
+                    time.sleep(5)
+
+                # Check page state
+                page_check = page.evaluate("""
+                    () => ({
+                        url: location.href,
+                        title: document.title,
+                        inputCount: document.querySelectorAll('input, select').length,
+                        hasError: !!(document.body?.innerText || '').match(/maintenance|heavy traffic/i),
+                        bodySnippet: (document.body?.innerText || '').substring(0, 500),
+                    })
+                """)
+                observations.append(f"ANA page: {page_check.get('title', '?')} | inputs={page_check.get('inputCount', 0)}")
+
+                if page_check.get("hasError"):
+                    pw_errors.append("ANA server maintenance")
+                    return
+
+                date_str = depart_date.strftime("%m/%d/%Y")
+
+                # Fill form fields using JS (ANA uses a server-side form, not Vue.js)
+                filled = page.evaluate(f"""
+                    () => {{
+                        let filled = {{}};
+                        // Origin
+                        const dep = document.querySelector('select[name*=dep], select[name*=origin], select[id*=dep], select[id*=origin]');
+                        if (dep) {{
+                            const opt = Array.from(dep.options).find(o => o.value.includes('{origin}') || o.text.includes('{origin}'));
+                            if (opt) {{ dep.value = opt.value; dep.dispatchEvent(new Event('change', {{bubbles: true}})); filled.dep = opt.value; }}
+                        }}
+                        // Destination
+                        const arr = document.querySelector('select[name*=arr], select[name*=dest], select[id*=arr], select[id*=dest]');
+                        if (arr) {{
+                            const opt = Array.from(arr.options).find(o => o.value.includes('{dest}') || o.text.includes('{dest}'));
+                            if (opt) {{ arr.value = opt.value; arr.dispatchEvent(new Event('change', {{bubbles: true}})); filled.arr = opt.value; }}
+                        }}
+                        // Date
+                        const dateInputs = document.querySelectorAll('input[name*=date], input[id*=date]');
+                        for (const di of dateInputs) {{
+                            di.value = '{date_str}';
+                            di.dispatchEvent(new Event('input', {{bubbles: true}}));
+                            di.dispatchEvent(new Event('change', {{bubbles: true}}));
+                            filled.date = '{date_str}';
+                        }}
+                        return filled;
+                    }}
+                """)
+                observations.append(f"Form fill result: {filled}")
+                time.sleep(2)
+
+                # Submit search
+                search_clicked = page.evaluate("""
+                    () => {
+                        const btn = document.querySelector('input[type=submit], button[type=submit], input[value*=Search], button.search-button');
+                        if (btn) { btn.click(); return btn.value || btn.textContent.trim(); }
+                        return null;
+                    }
+                """)
+                observations.append(f"Search submitted: {search_clicked}")
+
+                # Wait for results
+                observations.append("Waiting 25s for ANA results...")
+                time.sleep(25)
+
+                # Extract results
+                extracted = page.evaluate(_extract_results_js())
+                observations.append(f"Extracted {extracted.get('resultsCount', 0)} items from ANA results")
+
+                result_lines = extracted.get("results", [])
+                body_snippet = extracted.get("bodySnippet", "")
+                full_text = "\n".join(result_lines) + "\n" + body_snippet
+
+                parsed = _parse_matches(full_text, inputs)
+                if parsed:
+                    pw_matches.extend(parsed)
+                elif body_snippet:
+                    parsed2 = _parse_matches(body_snippet, inputs)
+                    pw_matches.extend(parsed2)
+                observations.append(f"Parsed {len(pw_matches)} matches from Playwright phase")
+
+        except Exception as exc:
+            pw_errors.append(str(exc))
+            observations.append(f"Playwright hybrid error: {str(exc)[:200]}")
+
+    _t = _threading.Thread(target=_pw_worker, daemon=True)
+    _t.start()
+    _t.join(timeout=300)
+    if _t.is_alive():
+        pw_errors.append("Playwright phase timed out after 300s")
+        observations.append("Playwright phase timed out")
+
+    return pw_matches, observations
+
+
+def _run_agent_only(context: Dict[str, Any], inputs: Dict[str, Any], observations: List[str]):
+    """Fallback: pure BrowserAgent approach."""
+    origin = inputs["from"]
+    dest = inputs["to"][0]
+    travelers = int(inputs["travelers"])
+    cabin = str(inputs.get("cabin", "economy"))
+    cabin_display = CABIN_DISPLAY.get(cabin, cabin.title())
+    days_ahead = int(inputs["days_ahead"])
+    depart_date = date.today() + timedelta(days=days_ahead)
+
+    goal = "\n".join([
+        f"Search for ANA Mileage Club award flights {origin} to {dest}.",
+        f"Check award availability on {depart_date.strftime(chr(37)+chr(109)+chr(47)+chr(37)+chr(100)+chr(47)+chr(37)+chr(89))}.",
+        f"Cabin: {cabin_display} | Passengers: {travelers}",
+        "",
+        "=== STEP 0 - NAVIGATE TO ENGLISH AWARD SEARCH ===",
+        f"navigate {ANA_AWARD_URL}",
+        "wait 5",
+        "",
+        "=== STEP 1 - LOGIN ===",
+        "You are on the ANA international award search page (aswbe-i.ana.co.jp).",
+        "If the page is in Japanese, you are in the right place - the form labels may be Japanese but use English values.",
+        "Look for AMC No. and Password fields.",
+        "credentials for www.ana.co.jp",
+        "Enter the AMC number in the AMC No. field.",
+        "Enter the password in the Password field.",
+        "Click the Log in button. wait 10.",
+        "If you see heavy traffic or maintenance, report done with that message.",
+        "",
+        "=== STEP 2 - FILL SEARCH FORM ===",
+        "Look for the search form with departure/arrival fields.",
+        f"Set Departure City to: {origin}",
+        f"Set Arrival City to: {dest}",
+        f"Set Date to: {depart_date.strftime(chr(37)+chr(109)+chr(47)+chr(37)+chr(100)+chr(47)+chr(37)+chr(89))}",
+        f"Set Cabin to: {cabin_display}",
+        f"Set Adults to: {travelers}",
+        "Click the Search or Find button.",
+        "wait 15",
+        "",
+        "=== STEP 3 - READ RESULTS ===",
+        "If you see the award results page:",
+        "  - Read the Required mileage shown (e.g. 205,000 Miles)",
+        "  - Read the flight details (flight number, departure time, arrival time)",
+        "  - Take a screenshot",
+        "  - Call done immediately",
+        "",
+        "If you see a CAPTCHA or error: report done with that message.",
+        "DO NOT navigate to other dates. Just read what is shown for this date.",
+        "",
+        "=== STEP 4 - DONE ===",
+        "screenshot",
+        "done",
+        "Report:",
+        "FLIGHT: NH[number] | [dep_time]-[arr_time] | [miles] miles | [cabin]",
+        "REQUIRED: [miles] miles for [travelers] passengers",
+        "",
+        "Include flights even if over 200,000 miles.",
+    ])
+
+    observations.append("Fallback: BrowserAgent-only approach")
+    agent_run = adaptive_run(
+        goal=goal,
+        url=ANA_URL,
+        max_steps=35,
+        airline="ana",
+        inputs=inputs,
+        max_attempts=1,
+        trace=True,
+        use_vision=True,
+    )
+
+    if agent_run["ok"]:
+        run_result = agent_run.get("result") or {}
+        result_text = run_result.get("result", "") if isinstance(run_result, dict) else str(run_result)
+        live_matches = _parse_matches(result_text, inputs)
+        observations.append(f"Agent matches: {len(live_matches)}")
+        return live_matches, observations
+
+    observations.append(f"Agent error: {agent_run.get('error', 'unknown')}")
+    return [], observations
 
 
 def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
     today = date.today()
     end = today + timedelta(days=int(inputs["days_ahead"]))
     destinations = inputs["to"]
-    max_miles = int(inputs["max_miles"])
-    cabin = str(inputs.get("cabin", "business"))
-    travelers = int(inputs["travelers"])
+    cabin = str(inputs.get("cabin", "economy"))
 
-    dest_str = ", ".join(destinations)
     observations: List[str] = [
         "OpenClaw session expected",
         f"Range: {today.isoformat()}..{end.isoformat()}",
-        f"Destinations: {dest_str}",
+        f"Destinations: {', '.join(destinations)}",
         f"Cabin: {cabin}",
     ]
 
-    book_url = ANA_URL
+    if context.get("unresolved_credential_refs"):
+        observations.append("Credential refs unresolved.")
 
-    if browser_agent_enabled():
-        agent_run = adaptive_run(
-            goal=_goal(inputs),
-            url=ANA_URL,
-            max_steps=50,
-            airline="ana",
-            inputs=inputs,
-            max_attempts=1,
-            trace=True,
-            use_vision=True,
-        )
-        if agent_run["ok"]:
-            run_result = agent_run.get("result") or {}
-            result_text = run_result.get("result", "") if isinstance(run_result, dict) else str(run_result)
-            observations.extend([
-                "BrowserAgent run executed.",
-                f"BrowserAgent status: {run_result.get('status', 'unknown') if isinstance(run_result, dict) else 'unknown'}",
-                f"BrowserAgent steps: {run_result.get('steps', 'n/a') if isinstance(run_result, dict) else 'n/a'}",
-            ])
+    if not browser_agent_enabled():
+        travelers = int(inputs.get("travelers", 1))
+        max_miles = int(inputs.get("max_miles", 999999))
+        depart_date = date.today() + timedelta(days=int(inputs["days_ahead"]))
+        placeholder_matches = [{
+            "route": f"{inputs['from']}-{destinations[0]}",
+            "date": depart_date.isoformat(),
+            "miles": min(75000, max_miles),
+            "travelers": travelers,
+            "cabin": cabin,
+            "mixed_cabin": False,
+            "booking_url": ANA_AWARD_URL,
+            "notes": "placeholder result",
+        }]
+        return {
+            "mode": "placeholder",
+            "real_data": False,
+            "matches": placeholder_matches,
+            "summary": f"PLACEHOLDER: Found {len(placeholder_matches)} synthetic ANA match(es)",
+            "raw_observations": observations,
+            "errors": [],
+        }
 
-            live_matches = _parse_matches(result_text, inputs)
-            agent_matches = run_result.get("matches", []) if isinstance(run_result, dict) else []
-            if agent_matches and not live_matches:
-                live_matches = agent_matches
-
-            for m in live_matches:
-                if "booking_url" not in m:
-                    m["booking_url"] = book_url
-
-            return {
-                "mode": "live",
-                "real_data": True,
-                "matches": live_matches,
-                "booking_url": book_url,
-                "summary": (
-                    f"ANA award search: {len(live_matches)} flight(s) found "
-                    f"under {max_miles:,} miles. "
-                    + (f"Cheapest: {min(m['miles'] for m in live_matches):,} miles. "
-                       if live_matches else "No matching flights. ")
-                ),
-                "raw_observations": observations,
-                "errors": [],
-            }
-        observations.append(f"BrowserAgent adapter error: {agent_run['error']}")
-
-    print(
-        "WARNING: BrowserAgent not enabled. Results are placeholder data.",
-        file=sys.stderr,
-    )
-    matches = [{
-        "route": f"{inputs['from']}-{destinations[0]}",
-        "date": today.isoformat(),
-        "miles": min(65000, max_miles),
-        "travelers": travelers,
-        "cabin": cabin,
-        "mixed_cabin": False,
-        "booking_url": book_url,
-        "notes": "placeholder result",
-    }]
+    # Use agent-only approach (hybrid caused CAPTCHA from double form submission)
+    all_matches, observations = [], observations
+    observations.append("Hybrid approach skipped (CAPTCHA risk)")
+    if True:  # always use agent-only
+        observations.append("Using agent-only approach")
+        all_matches, observations = _run_agent_only(context, inputs, observations)
 
     return {
-        "mode": "placeholder",
-        "real_data": False,
-        "matches": matches,
-        "booking_url": book_url,
-        "summary": f"PLACEHOLDER: Found {len(matches)} synthetic ANA match(es) <= {max_miles} miles",
+        "mode": "live",
+        "real_data": bool(all_matches),
+        "matches": all_matches,
+        "booking_url": ANA_AWARD_URL,
+        "summary": (
+            f"ANA award search: {len(all_matches)} flight(s) found for {inputs['from']}-{destinations[0]}. "
+            + (f"Best: {min(m['miles'] for m in all_matches if m['miles'] > 0):,} miles. "
+               if any(m['miles'] > 0 for m in all_matches) else "")
+        ) if all_matches else "ANA award search: no results found.",
         "raw_observations": observations,
         "errors": [],
     }

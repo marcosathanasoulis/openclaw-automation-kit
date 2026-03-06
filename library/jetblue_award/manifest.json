@@ -10,5 +10,5 @@
     "browser": true,
     "network_domains": ["jetblue.com"]
   },
-  "requires_human_steps": ["login_email_2fa"]
+  "requires_human_steps": ["login_mfa_if_required"]
 }
