@@ -11,6 +11,32 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 
 ## Current Work
 
+- `codex/smoke-audit-20260217`
+  - Task: run full no-login smoke suite and fix breakages (excluding live airline flow ownership).
+  - Files: `scripts/e2e_no_login_smoke.sh`, `INPROCESS.md`
+  - Status: complete (`bash scripts/e2e_no_login_smoke.sh` passed)
+
+- **claude/daily-award-scan** (Claude Opus agent, Feb 16-17)
+  - Task: Daily automated award search for June 2026 across 6 airlines
+  - Commits on main: 2ac377c..c623020 (runners, daily scan, lint, multiple fixes)
+  - Status: PARTIALLY WORKING — 3 of 6 airlines producing results
+  - Results (Feb 17 overnight):
+    - SIA: 8 matches, best 44,000 miles SFO-SIN (WORKING)
+    - JetBlue: 5 matches SFO-NRT (WORKING)
+    - Delta: 7 matches earlier (13,500 best), but results page crashes Chrome on retest
+    - ANA: Login wall + site crashes Chrome (needs ANA-specific approach)
+    - AeroMexico: Form too complex, 0 matches (Spanish site with toggle)
+    - United: Rate limited from earlier testing, shows USD only
+  - Fixes applied: Delta login-first, ANA login, SIA agent-only fallback, js_eval extraction
+  - Known issues: Delta/ANA results pages crash Chrome (too heavy for CDP)
+  - Launchd: `com.athanasoulis.daily-award-search` scheduled 6 AM daily on Mac Mini
+  - Screenshots: `~/openclaw-automation-kit/debug_screenshots/` on Mac Mini
+
+- `codex/agent-ci-gate-rules`
+  - Task: update agent instruction files to require branch isolation and mandatory CI fixes before handoff/merge.
+  - Files: `AGENTS.md`, `CLAUDE.md`, `codex.md`, `INPROCESS.md`
+  - Status: complete (`ruff check .` clean; `pytest` 30 passed)
+
 - `codex/skill-confidence-v106`
   - Task: harden marketplace-facing skill docs for trust boundaries and safe defaults.
   - Files: `skills/openclaw-web-automation/SKILL.md`, `skills/openclaw-web-automation/setup.json`

@@ -12,8 +12,7 @@
     "cabin": {"type": "string", "enum": ["economy", "business", "first"], "default": "economy"},
     "credential_refs": {
       "type": "object",
-      "additionalProperties": {"type": "string"},
-      "description": "Logical references to OS/cloud secrets (not raw credentials)"
+      "additionalProperties": {"type": "string"}
     }
   }
 }
