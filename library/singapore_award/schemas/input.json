@@ -6,7 +6,7 @@
   "properties": {
     "from": {"type": "string"},
     "to": {"type": "array", "items": {"type": "string"}, "minItems": 1},
-    "days_ahead": {"type": "integer", "minimum": 1, "maximum": 90},
+    "days_ahead": {"type": "integer", "minimum": 1, "maximum": 365},
     "max_miles": {"type": "integer", "minimum": 1},
     "travelers": {"type": "integer", "minimum": 1, "maximum": 9},
     "cabin": {"type": "string", "enum": ["economy", "business", "first"], "default": "economy"},

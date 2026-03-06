@@ -224,6 +224,7 @@ PROJECT_ID=your-gcp-project REGION=us-central1 SERVICE=openclaw-demo-chat ./depl
 ### 3. Validate example automation specs
 
 ```bash
+python -m openclaw_automation.cli doctor --json
 python -m openclaw_automation.cli validate --script-dir examples/public_page_check
 python -m openclaw_automation.cli validate --script-dir library/united_award
 python -m openclaw_automation.cli validate --script-dir library/singapore_award
@@ -322,7 +323,7 @@ Here’s how this kit leverages and adds to the native functionality:
 
 *   **Standardized Automation Specification:** Provides a declarative way (via `manifest.json` and input/output schemas) to define complex automation workflows, enabling consistent structure and easier understanding compared to raw browser commands.
 *   **Intelligent Execution Engine:** Offers an execution layer that orchestrates the browser actions, handles data flow, validates inputs/outputs against schemas, and abstracts away the direct interaction with the low-level `openclaw browser` CLI.
-*   **Human-in-the-Loop Orchestration:** Integrates sophisticated mechanisms for handling real-world challenges like 2FA checkpoints and CAPTCHA solving by allowing automations to pause, collect human input (e.g., via chat), and resume, a capability not inherent in the basic browser tool.
+*   **Human-in-the-Loop Patterns:** Provides documented event contracts and connector scaffolding for 2FA/CAPTCHA checkpoints (pause, collect user input, resume). Core end-to-end orchestration remains implementation-specific by deployment.
 *   **Extensible AI-Driven Control:** Supports integration with external `BrowserAgent` implementations (which can leverage advanced AI models like Claude Vision or other agents) to perform complex UI reasoning and navigation that goes beyond deterministic scripting. This enables the automation of highly dynamic and challenging web interfaces.
 *   **Reusable "Skills" and Marketplace Readiness:** Transforms individual automations into packaged, shareable "skills" with defined contracts, ready for publication and discovery, fostering a community of reusable browser automations.
 *   **Simplified Credential Management:** Provides a structured approach for referencing user-owned credentials securely, integrating with OS-level secret stores (like macOS Keychain), rather than requiring credentials to be hardcoded or passed insecurely.
@@ -346,6 +347,26 @@ Also see:
 ## Security and credentials
 
 Read [`docs/CREDENTIALS_AND_2FA.md`](docs/CREDENTIALS_AND_2FA.md) before deploying.
+
+### Optional gate, recommended for sensitive use
+
+The recent-verification security gate is optional by default.
+
+- For demos/no-credential checks: optional.
+- For real credentialed or state-changing automations: strongly recommended.
+- If not enabled, risky runs can execute without recent verified-user proof.
+- On shared hosts or compromised runtimes, this increases unauthorized-action risk.
+
+Recommended minimum for sensitive deployments:
+
+```bash
+export OPENCLAW_SECURITY_GATE_ENABLED=true
+export OPENCLAW_SECURITY_SIGNING_KEY="<long-random-secret>"
+export OPENCLAW_SECURITY_EXPECTED_USER_ID="<your phone/email>"
+export OPENCLAW_SECURITY_MAX_AGE_SECONDS=604800   # 7 days
+export OPENCLAW_SECURITY_REQUIRED_METHOD=totp
+export OPENCLAW_SECURITY_EXPECTED_SESSION_BINDING="<device-or-session-id>"
+```
 
 ### Shared-responsibility warning
 
@@ -505,15 +526,24 @@ See [`DISCLAIMER.md`](DISCLAIMER.md) and [`SECURITY.md`](SECURITY.md).
 <!-- AUTOMATION_STATUS:START -->
 ## Daily Automation Health
 
-_Last generated (UTC): 2026-02-13 15:21:32_
+_Last generated (UTC): 2026-03-05 15:55:59_
 
 | Automation | Location | Validate | Smoke | Status | Notes |
 |---|---|---|---|---|---|
+| `aeromexico.award_search` | `library/aeromexico_award` | pass | fail | ⚪ skip | no smoke input configured |
 | `ana.award_search` | `library/ana_award` | pass | pass | ✅ pass | ok |
 | `bofa.account_alerts` | `library/bofa_alert` | pass | pass | ✅ pass | ok |
+| `delta.award_search` | `library/delta_award` | pass | fail | ⚪ skip | no smoke input configured |
 | `github.signin_check` | `library/github_signin_check` | pass | pass | ✅ pass | ok |
+| `jetblue.award_search` | `library/jetblue_award` | pass | fail | ⚪ skip | no smoke input configured |
 | `singapore.award_search` | `library/singapore_award` | pass | pass | ✅ pass | ok |
+| `web.site_headlines` | `library/site_headlines` | pass | fail | ⚪ skip | no smoke input configured |
+| `web.site_text_watch` | `library/site_text_watch` | pass | fail | ⚪ skip | no smoke input configured |
 | `united.award_search` | `library/united_award` | pass | pass | ✅ pass | ok |
+| `examples.calculator` | `examples/calculator` | pass | fail | ⚪ skip | no smoke input configured |
 | `web.public_page_check` | `examples/public_page_check` | pass | pass | ✅ pass | ok |
+| `examples.stock_price_check` | `examples/stock_price_check` | pass | fail | ⚪ skip | no smoke input configured |
+| `examples.weather_check` | `examples/weather_check` | pass | fail | ❌ fail | run failed |
+| `examples.website_status` | `examples/website_status` | pass | fail | ⚪ skip | no smoke input configured |
 
 <!-- AUTOMATION_STATUS:END -->

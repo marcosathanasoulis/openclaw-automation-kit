@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 
@@ -15,7 +16,32 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--credential-refs",
         default="{}",
-        help="JSON object mapping logical credential fields to refs",
+        help="JSON object mapping logical credential fields to refs (less safe; prefer --credential-refs-file or --credential-refs-env)",
+    )
+    parser.add_argument(
+        "--credential-refs-file",
+        default="",
+        help="Path to JSON file with credential refs (safer than inline args)",
+    )
+    parser.add_argument(
+        "--credential-refs-env",
+        default="",
+        help="Env var containing JSON credential refs (safer than inline args)",
+    )
+    parser.add_argument(
+        "--security-assertion",
+        default="{}",
+        help="Optional JSON signed assertion proving recent verified user identity",
+    )
+    parser.add_argument(
+        "--security-assertion-file",
+        default="",
+        help="Path to JSON security assertion file",
+    )
+    parser.add_argument(
+        "--security-assertion-env",
+        default="",
+        help="Env var containing JSON security assertion",
     )
     parser.add_argument(
         "--notify-imessage",
@@ -49,7 +75,7 @@ def _find_repo_root() -> Path | None:
     return None
 
 
-def _run_query(root: Path, query: str, credential_refs: str) -> dict:
+def _run_query(root: Path, query: str, args: argparse.Namespace) -> dict:
     cmd = [
         sys.executable,
         "-m",
@@ -57,13 +83,40 @@ def _run_query(root: Path, query: str, credential_refs: str) -> dict:
         "run-query",
         "--query",
         query,
-        "--credential-refs",
-        credential_refs,
     ]
-    proc = subprocess.run(cmd, cwd=root, capture_output=True, text=True)
-    if proc.returncode != 0:
-        raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "run-query failed")
-    return json.loads(proc.stdout)
+    stdin_payload: str | None = None
+    if args.credential_refs_file:
+        cmd.extend(["--credential-refs-file", args.credential_refs_file])
+    elif args.credential_refs_env:
+        cmd.extend(["--credential-refs-env", args.credential_refs_env])
+    elif args.credential_refs and args.credential_refs.strip() not in {"", "{}"}:
+        # Avoid placing credential refs in subprocess argv; pass via stdin.
+        cmd.append("--credential-refs-stdin")
+        stdin_payload = args.credential_refs
+    if args.security_assertion_file:
+        cmd.extend(["--security-assertion-file", args.security_assertion_file])
+    elif args.security_assertion_env:
+        cmd.extend(["--security-assertion-env", args.security_assertion_env])
+    elif args.security_assertion and args.security_assertion.strip() not in {"", "{}"}:
+        cmd.extend(["--security-assertion", args.security_assertion])
+    retryable_markers = (
+        "rate limit",
+        "temporarily unavailable",
+        "timeout",
+        "connection reset",
+    )
+    last_error: str | None = None
+    for attempt in range(1, 4):
+        proc = subprocess.run(cmd, cwd=root, capture_output=True, text=True, input=stdin_payload)
+        if proc.returncode == 0:
+            return json.loads(proc.stdout)
+        message = proc.stderr.strip() or proc.stdout.strip() or "run-query failed"
+        last_error = message
+        if attempt < 3 and any(marker in message.lower() for marker in retryable_markers):
+            time.sleep(2**attempt)
+            continue
+        break
+    raise RuntimeError(last_error or "run-query failed")
 
 
 def _notify_imessage(target: str, summary: str) -> None:
@@ -105,7 +158,7 @@ def main() -> int:
         return 2
 
     try:
-        result = _run_query(root, args.query, args.credential_refs)
+        result = _run_query(root, args.query, args)
     except Exception as exc:  # noqa: BLE001
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
         return 1
