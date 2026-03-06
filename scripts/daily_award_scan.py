@@ -26,6 +26,7 @@ import importlib.util
 import json
 import logging
 import os
+import re
 import sys
 import time
 from datetime import date, datetime
@@ -46,9 +47,45 @@ logging.basicConfig(
     ],
 )
 
-IMESSAGE_URL = "http://127.0.0.1:5555/send"
-IMESSAGE_TOKEN = "8sjFz81Oluqjmv3gMhpjYrL4PqX2L3AmU9H67XvR8XA"
-MY_PHONE = "+14152268266"
+IMESSAGE_URL = os.getenv(
+    "OPENCLAW_IMESSAGE_SEND_URL",
+    os.getenv("IMESSAGE_SEND_URL", "http://127.0.0.1:5555/send"),
+).strip()
+IMESSAGE_TOKEN = os.getenv(
+    "OPENCLAW_IMESSAGE_BOT_TOKEN",
+    os.getenv("BOT_SEND_TOKEN", ""),
+).strip()
+MY_PHONE = os.getenv(
+    "OPENCLAW_IMESSAGE_DEFAULT_RECIPIENT",
+    os.getenv("MARCOS_PHONE", ""),
+).strip()
+IMESSAGE_ALLOWED_RECIPIENTS = {
+    v.strip()
+    for v in os.getenv("OPENCLAW_IMESSAGE_ALLOWED_RECIPIENTS", "").split(",")
+    if v.strip()
+}
+
+
+def _normalize_handle(value: str) -> str:
+    raw = (value or "").strip()
+    if not raw:
+        return ""
+    lowered = raw.lower()
+    if "@" in lowered:
+        return lowered
+    digits = re.sub(r"\D", "", raw)
+    if len(digits) == 10:
+        return f"+1{digits}"
+    if len(digits) == 11 and digits.startswith("1"):
+        return f"+{digits}"
+    if raw.startswith("+") and digits:
+        return f"+{digits}"
+    return lowered
+
+
+IMESSAGE_ALLOWED_RECIPIENTS_NORMALIZED = {
+    norm for norm in (_normalize_handle(v) for v in IMESSAGE_ALLOWED_RECIPIENTS) if norm
+}
 
 # ── Search schedule ──────────────────────────────────────────────────────────
 # Target month — update this when you want to scan a different month
@@ -261,6 +298,16 @@ def compile_report(all_results: Dict[str, Dict]) -> str:
 
 def send_imessage(text: str):
     """Send via iMessage bot, truncate if needed."""
+    normalized_target = _normalize_handle(MY_PHONE)
+    if not IMESSAGE_TOKEN:
+        log.warning("Skipping iMessage report: OPENCLAW_IMESSAGE_BOT_TOKEN/BOT_SEND_TOKEN is not set")
+        return
+    if not normalized_target:
+        log.warning("Skipping iMessage report: OPENCLAW_IMESSAGE_DEFAULT_RECIPIENT is not set")
+        return
+    if normalized_target not in IMESSAGE_ALLOWED_RECIPIENTS_NORMALIZED:
+        log.warning("Skipping iMessage report: default recipient is not in OPENCLAW_IMESSAGE_ALLOWED_RECIPIENTS")
+        return
     if len(text) > 3000:
         text = text[:2900] + "\n\n... (truncated)"
     try:

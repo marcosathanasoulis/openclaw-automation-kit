@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["task"],
+  "additionalProperties": false,
+  "properties": {
+    "task": {
+      "type": "string",
+      "enum": ["meetings", "emails", "brief"]
+    },
+    "account_email": {
+      "type": "string"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "max_results": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50,
+      "default": 10
+    },
+    "calendar_id": {
+      "type": "string",
+      "default": "primary"
+    },
+    "gmail_query": {
+      "type": "string",
+      "default": "newer_than:7d"
+    },
+    "token_file": {
+      "type": "string"
+    },
+    "client_secret_file": {
+      "type": "string"
+    },
+    "credential_refs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  }
+}

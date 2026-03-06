@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "task",
+    "account_email",
+    "target_date",
+    "calendar_id",
+    "gmail_query",
+    "meetings",
+    "emails",
+    "summary",
+    "errors"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "task": {"type": "string"},
+    "account_email": {"type": "string"},
+    "target_date": {"type": "string"},
+    "calendar_id": {"type": "string"},
+    "gmail_query": {"type": "string"},
+    "meetings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["start", "end", "summary", "location", "account_email"],
+        "additionalProperties": false,
+        "properties": {
+          "start": {"type": "string"},
+          "end": {"type": "string"},
+          "summary": {"type": "string"},
+          "location": {"type": "string"},
+          "account_email": {"type": "string"}
+        }
+      }
+    },
+    "emails": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "from", "subject", "date", "snippet", "account_email"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string"},
+          "from": {"type": "string"},
+          "subject": {"type": "string"},
+          "date": {"type": "string"},
+          "snippet": {"type": "string"},
+          "account_email": {"type": "string"}
+        }
+      }
+    },
+    "summary": {"type": "string"},
+    "errors": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}

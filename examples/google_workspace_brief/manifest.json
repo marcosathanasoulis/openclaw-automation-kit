@@ -1,0 +1,18 @@
+{
+  "id": "google.workspace_brief",
+  "version": "0.1.0",
+  "entrypoint": "runner.py",
+  "inputs_schema": "schemas/input.json",
+  "outputs_schema": "schemas/output.json",
+  "description": "Read Google Calendar/Gmail using existing OAuth refresh tokens",
+  "execution_mode": "stateless",
+  "permissions": {
+    "browser": false,
+    "network_domains": [
+      "oauth2.googleapis.com",
+      "www.googleapis.com",
+      "gmail.googleapis.com"
+    ]
+  },
+  "requires_human_steps": []
+}
