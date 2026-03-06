@@ -74,6 +74,10 @@ To use the mock agent:
 ### BlueBubbles (iMessage bridge)
 - `BLUEBUBBLES_WEBHOOK_URL`
 - `BLUEBUBBLES_TOKEN`
+- `OPENCLAW_IMESSAGE_SEND_URL`
+  - HTTP endpoint for bot sends (default `http://127.0.0.1:5555/send`).
+- `OPENCLAW_IMESSAGE_BOT_TOKEN`
+  - Required auth token for `/send` requests.
 - `OPENCLAW_IMESSAGE_DEFAULT_RECIPIENT`
   - Optional default recipient used by helper scripts when `--notify-imessage` is omitted.
 - `OPENCLAW_IMESSAGE_ALLOWED_RECIPIENTS`

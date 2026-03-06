@@ -11,6 +11,14 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 
 ## Current Work
 
+- `codex/imessage-allowlist-identity` (security hardening pass)
+  - Task: remove embedded iMessage token/recipient from automation scripts and require env-based secure config.
+  - Files: `INPROCESS.md`, `scripts/daily_award_scan.py`, `.env.example`, `docs/CONFIGURATION.md`
+  - Status: COMPLETE
+  - Validation:
+    - `python3 -m py_compile scripts/daily_award_scan.py`
+    - `pytest -q tests/test_imessage_guardrails.py` (2 passed)
+
 - `codex/google-workspace-bridge`
   - Task: route calendar/email queries to Google Workspace bridge using existing refresh tokens on Mac Mini/home-mind.
   - Files: `INPROCESS.md`, `src/openclaw_automation/nl.py`, `examples/google_workspace_brief/*`, `.env.example`, `docs/CONFIGURATION.md`, `tests/test_nl_workspace_bridge.py`
