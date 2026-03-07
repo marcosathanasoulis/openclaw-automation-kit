@@ -1,0 +1,13 @@
+{
+  "id": "web.web_search_brief",
+  "version": "0.1.0",
+  "description": "Search the public web and return ranked results with snippet-based price hints.",
+  "entrypoint": "runner.py",
+  "execution_mode": "stateless",
+  "inputs_schema": "schemas/input.json",
+  "outputs_schema": "schemas/output.json",
+  "permissions": {
+    "browser": false,
+    "network_domains": ["html.duckduckgo.com", "duckduckgo.com"]
+  }
+}

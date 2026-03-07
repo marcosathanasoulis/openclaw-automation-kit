@@ -8,8 +8,40 @@ Use this file for short-lived cross-agent coordination so parallel work does not
   - One browser automation at a time per endpoint.
   - Lock file: `/tmp/browser_cdp.lock` (managed by BrowserAgent).
   - Before long runs, note owner and target endpoint.
+  - Current owner: `codex/united-run-stability` on `marcoss-mac-mini.local` (PID 89850, target CDP 9222).
+  - Status: manual single-run enforcement in effect while investigating missing lock-file writes.
 
 ## Current Work
+
+- `codex/openclaw-web-query-routing`
+  - Task: route Google News / restaurant / hotel NL prompts to dedicated web scripts instead of default Yahoo page check fallback.
+  - Files: `INPROCESS.md`, `src/openclaw_automation/nl.py`, `library/web_search_brief/*`, `tests/test_nl_web_query_routing.py`, `tests/test_library_web_search_brief.py`
+  - Status: COMPLETE
+  - Validation target:
+    - `pytest -q tests/test_nl_web_query_routing.py tests/test_library_web_search_brief.py`
+    - `python -m openclaw_automation.cli run-query --query "Fetch the latest headlines from Google News"`
+    - `python -m openclaw_automation.cli run-query --query "Find the best French restaurant in Marin County, California"`
+    - `python -m openclaw_automation.cli run-query --query "Find the best hotel prices for March 12-15 in Manhattan for a one-bedroom suite"`
+  - Validation results:
+    - Local tests passed: `PYTHONPATH=src pytest -q tests/test_nl_web_query_routing.py tests/test_library_web_search_brief.py tests/test_nl_workspace_bridge.py tests/test_library_public_scripts.py` (13 passed).
+    - Local run-query checks route correctly:
+      - Google News -> `library/site_headlines`
+      - Restaurant/Hotel -> `library/web_search_brief`
+    - Deployed updated files to `marcoss-mac-mini.local` and `home-mind.local`.
+    - Live mac-mini run-query checks (under `mac-mini-openclaw-cdp` lock) returned:
+      - Google News headlines summary from `news.google.com`.
+      - Marin French restaurant ranked links (Yelp/Tripadvisor/Marin Magazine).
+      - Manhattan hotel ranked links with detected best visible price hint (`$77` from Skyscanner in snippet data).
+  - Coordination notes:
+    - Claimed and released `mac-mini-openclaw-cdp` lock during live verification.
+
+- `codex/united-run-stability`
+  - Task: diagnose and fix United award run failure (`united_award_monthly.py`) seen from assistant mode tests.
+  - Files: `INPROCESS.md`, `library/united_award/*`, `tests/*`
+  - Status: IN PROGRESS
+  - Validation target:
+    - `python -m openclaw_automation.cli run-query --query "Search United business SFO to NRT this week for 2 travelers"`
+    - `pytest -q` targeted United parser/smoke tests
 
 - `codex/award-manifest-gap-fix`
   - Task: restore missing manifest/schema files for `jetblue_award` and `aeromexico_award` so `run-query` works for all target airlines.

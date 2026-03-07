@@ -37,6 +37,7 @@ AIRLINE_TO_SCRIPT = {
     "github signin": "library/github_signin_check",
     "github": "library/github_signin_check",
 }
+WEB_SEARCH_SCRIPT = "library/web_search_brief"
 
 KNOWN_AIRPORT_CODES = {
     "AMS", "ATH", "BKK", "BOS", "CDG", "DEN", "DFW", "EWR", "EZE",
@@ -71,6 +72,8 @@ def _detect_script_dir(query: str) -> str:
         return "examples/google_workspace_brief"
     if "weather" in q and not has_url:
         return "examples/weather_check"
+    if not has_url and _looks_like_google_news_headlines(query):
+        return "library/site_headlines"
     if has_url:
         return "examples/public_page_check"
     if "home page" in q or "homepage" in q:
@@ -78,6 +81,8 @@ def _detect_script_dir(query: str) -> str:
     for token, script_dir in AIRLINE_TO_SCRIPT.items():
         if token in q:
             return script_dir
+    if not has_url and (_looks_like_restaurant_search(query) or _looks_like_hotel_search(query)):
+        return WEB_SEARCH_SCRIPT
     return "examples/public_page_check"
 
 
@@ -115,6 +120,57 @@ def _extract_public_task(query: str) -> str:
     if any(token in q for token in ["summarize", "summary", "what is this page about"]):
         return "summary"
     return "keyword_count"
+
+
+def _looks_like_google_news_headlines(query: str) -> bool:
+    q = query.lower()
+    if "google news" not in q:
+        return False
+    return any(token in q for token in ["headline", "headlines", "top stories", "latest news", "news"])
+
+
+def _looks_like_restaurant_search(query: str) -> bool:
+    q = query.lower()
+    has_restaurant = any(token in q for token in ["restaurant", "restaurants", "bistro", "brasserie"])
+    has_location = any(token in q for token in ["marin", "county", "san rafael", "mill valley", "novato", "sausalito"])
+    return has_restaurant and has_location
+
+
+def _looks_like_hotel_search(query: str) -> bool:
+    q = query.lower()
+    has_hotel = any(token in q for token in ["hotel", "hotels", "suite", "room"])
+    has_location = any(token in q for token in ["manhattan", "new york", "nyc"])
+    return has_hotel and has_location
+
+
+def _detect_web_search_kind(query: str) -> str:
+    if _looks_like_restaurant_search(query):
+        return "restaurant"
+    if _looks_like_hotel_search(query):
+        return "hotel"
+    return "generic"
+
+
+def _build_web_search_query(query: str, kind: str) -> str:
+    base = re.sub(r"\s+", " ", query).strip()
+    lowered = base.lower()
+    if kind == "restaurant":
+        extras = []
+        if "french" not in lowered:
+            extras.append("french")
+        if "marin county" not in lowered and "marin" in lowered:
+            extras.append("marin county")
+        extras.extend(["best", "top rated"])
+        return f"{base} {' '.join(extras)} reviews" if extras else base
+    if kind == "hotel":
+        extras = []
+        if "manhattan" not in lowered:
+            extras.append("manhattan")
+        if "one-bedroom" not in lowered and "one bedroom" not in lowered:
+            extras.append("one-bedroom suite")
+        extras.extend(["best price", "booking", "expedia", "hotels.com"])
+        return f"{base} {' '.join(extras)}" if extras else base
+    return base
 
 
 def _extract_weather_location(query: str) -> str:
@@ -306,6 +362,26 @@ def parse_query_to_run(query: str) -> ParsedQuery:
         task = _extract_public_task(query)
         inputs = {"url": url, "keyword": keyword, "task": task}
         notes = [f"script={script_dir}", f"url={url}", f"keyword={keyword}", f"task={task}"]
+    elif script_dir == "library/site_headlines":
+        inputs = {
+            "url": "https://news.google.com",
+            "max_items": 12,
+        }
+        notes = [f"script={script_dir}", "url=https://news.google.com", "max_items=12"]
+    elif script_dir == WEB_SEARCH_SCRIPT:
+        kind = _detect_web_search_kind(query)
+        web_query = _build_web_search_query(query, kind)
+        inputs = {
+            "query": web_query,
+            "max_results": 8,
+            "kind": kind,
+        }
+        notes = [
+            f"script={script_dir}",
+            f"kind={kind}",
+            f"query={web_query}",
+            "provider=duckduckgo_html",
+        ]
     elif script_dir == "examples/weather_check":
         location = _extract_weather_location(query)
         temperature_unit = _extract_weather_unit(query)

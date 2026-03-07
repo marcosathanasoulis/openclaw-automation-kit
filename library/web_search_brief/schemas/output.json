@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["query", "search_url", "results", "best_price_hint", "summary", "errors"],
+  "additionalProperties": false,
+  "properties": {
+    "query": { "type": "string" },
+    "search_url": { "type": "string" },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["rank", "title", "url", "snippet", "price_hints"],
+        "additionalProperties": false,
+        "properties": {
+          "rank": { "type": "integer" },
+          "title": { "type": "string" },
+          "url": { "type": "string" },
+          "snippet": { "type": "string" },
+          "price_hints": {
+            "type": "array",
+            "items": { "type": "number" }
+          }
+        }
+      }
+    },
+    "best_price_hint": {
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["value", "title", "url", "rank"],
+          "additionalProperties": false,
+          "properties": {
+            "value": { "type": "number" },
+            "title": { "type": "string" },
+            "url": { "type": "string" },
+            "rank": { "type": "integer" }
+          }
+        }
+      ]
+    },
+    "summary": { "type": "string" },
+    "errors": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}
