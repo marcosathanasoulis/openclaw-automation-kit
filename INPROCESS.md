@@ -46,10 +46,13 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 - `codex/cdp-concurrency-policy`
   - Task: codify strict CDP multi-agent locking rules across assistant and OpenClaw repos so same-endpoint tab/session races are blocked.
   - Files: `INPROCESS.md`, `AGENTS.md`
-  - Status: IN PROGRESS
+  - Status: COMPLETE
   - Coordination notes:
     - No shared CDP resource currently claimed by this task (docs-only pass).
     - Policy target: one agent per endpoint, parallel only across distinct endpoints/ports with separate browser profiles.
+  - Handoff:
+    - Commit: `a1dae80` (`docs(agents): codify cdp endpoint concurrency policy`)
+    - Branch: `codex/cdp-concurrency-policy`
 
 - `codex/award-manifest-gap-fix`
   - Task: restore missing manifest/schema files for `jetblue_award` and `aeromexico_award` so `run-query` works for all target airlines.
