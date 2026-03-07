@@ -11,6 +11,16 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 
 ## Current Work
 
+- `codex/award-manifest-gap-fix`
+  - Task: restore missing manifest/schema files for `jetblue_award` and `aeromexico_award` so `run-query` works for all target airlines.
+  - Files: `INPROCESS.md`, `library/jetblue_award/manifest.json`, `library/jetblue_award/schemas/*`, `library/aeromexico_award/manifest.json`, `library/aeromexico_award/schemas/*`
+  - Status: COMPLETE
+  - Validation target:
+    - `python -m openclaw_automation.cli validate --script-dir library/jetblue_award`
+    - `python -m openclaw_automation.cli validate --script-dir library/aeromexico_award`
+    - `python -m openclaw_automation.cli run-query --query "...JetBlue..."`
+    - `python -m openclaw_automation.cli run-query --query "...AeroMexico..."`
+
 - `codex/imessage-allowlist-identity` (security hardening pass)
   - Task: remove embedded iMessage token/recipient from automation scripts and require env-based secure config.
   - Files: `INPROCESS.md`, `scripts/daily_award_scan.py`, `.env.example`, `docs/CONFIGURATION.md`
