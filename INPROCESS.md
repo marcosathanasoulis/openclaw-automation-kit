@@ -13,6 +13,24 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 
 ## Current Work
 
+- `codex/secure-skill-sync`
+  - Task: fetch secure, helpful OpenClaw skill updates from `origin/main` without regressing web-query routing behavior.
+  - Files: `INPROCESS.md`, `skills/openclaw-award-search/*`, `skills/openclaw-web-automation-basic/*`, `skills/openclaw-web-automation/SKILL.md`, `skills/openclaw-web-automation/scripts/run_query.py`
+  - Status: COMPLETE
+  - Validation target:
+    - confirm no secrets in imported skill files
+    - `PYTHONPATH=src pytest -q tests/test_nl_web_query_routing.py tests/test_library_web_search_brief.py`
+  - Coordination notes:
+    - no CDP lock required (skills/docs sync only)
+  - Validation results:
+    - Security scan: no embedded secrets/tokens/keys detected in synced skill files (only documented credential-ref placeholders).
+    - Tests passed: `PYTHONPATH=src pytest -q tests/test_nl_web_query_routing.py tests/test_library_web_search_brief.py` (8 passed).
+    - Live smoke:
+      - `home-mind`: `skills/openclaw-web-automation/scripts/run_query.py --query "Find the latest AI policy headlines today"` returned `script_id=web.web_search_brief`, `ok=true`.
+      - `mac-mini`: `skills/openclaw-web-automation/scripts/run_query.py --query "Fetch the latest headlines from Google News"` returned `script_id=web.site_headlines`, `ok=true`.
+  - Deployment:
+    - Synced updated skill files to both `home-mind` and `marcoss-mac-mini.local` at `~/openclaw-automation-kit/skills/...`.
+
 - `codex/web-query-generic-routing`
   - Task: route generic web-search intents (no URL) to `library/web_search_brief` instead of Yahoo public-page fallback.
   - Files: `INPROCESS.md`, `src/openclaw_automation/nl.py`, `tests/test_nl_web_query_routing.py`
