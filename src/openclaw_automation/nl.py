@@ -83,6 +83,8 @@ def _detect_script_dir(query: str) -> str:
             return script_dir
     if not has_url and (_looks_like_restaurant_search(query) or _looks_like_hotel_search(query)):
         return WEB_SEARCH_SCRIPT
+    if not has_url and _looks_like_generic_web_search(query):
+        return WEB_SEARCH_SCRIPT
     return "examples/public_page_check"
 
 
@@ -149,6 +151,36 @@ def _detect_web_search_kind(query: str) -> str:
     if _looks_like_hotel_search(query):
         return "hotel"
     return "generic"
+
+
+def _looks_like_generic_web_search(query: str) -> bool:
+    q = query.lower().strip()
+    if len(q) < 12:
+        return False
+    intent_tokens = (
+        "find ",
+        "search ",
+        "look up",
+        "latest",
+        "headline",
+        "headlines",
+        "news",
+        "best ",
+        "price",
+        "prices",
+        "top ",
+    )
+    # Keep weather and operational checks on their dedicated scripts.
+    blocked_tokens = (
+        "weather",
+        "homepage",
+        "home page",
+        "status page",
+        "website status",
+    )
+    if any(token in q for token in blocked_tokens):
+        return False
+    return any(token in q for token in intent_tokens)
 
 
 def _build_web_search_query(query: str, kind: str) -> str:

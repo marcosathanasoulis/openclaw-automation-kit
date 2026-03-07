@@ -13,6 +13,24 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 
 ## Current Work
 
+- `codex/web-query-generic-routing`
+  - Task: route generic web-search intents (no URL) to `library/web_search_brief` instead of Yahoo public-page fallback.
+  - Files: `INPROCESS.md`, `src/openclaw_automation/nl.py`, `tests/test_nl_web_query_routing.py`
+  - Status: COMPLETE
+  - Validation target:
+    - `PYTHONPATH=src pytest -q tests/test_nl_web_query_routing.py tests/test_library_web_search_brief.py`
+    - `python -m openclaw_automation.cli run-query --query "Find the latest AI policy headlines today"`
+  - Coordination notes:
+    - Live verification claimed/released `mac-mini-openclaw-cdp`.
+  - Validation results:
+    - Tests passed: `PYTHONPATH=src pytest -q tests/test_nl_web_query_routing.py tests/test_library_web_search_brief.py` (8 passed).
+    - Local run-query now routes generic intent to `web.web_search_brief` with Reuters/TechCrunch/Google News results.
+    - Deployed updated `src/openclaw_automation/nl.py` to `marcoss-mac-mini.local` and `home-mind.local`.
+    - Live mac-mini verification:
+      - Query: "Find the latest AI policy headlines today"
+      - `script_id: web.web_search_brief`
+      - Top results included Reuters + TechCrunch (no Yahoo fallback).
+
 - `codex/openclaw-web-query-routing`
   - Task: route Google News / restaurant / hotel NL prompts to dedicated web scripts instead of default Yahoo page check fallback.
   - Files: `INPROCESS.md`, `src/openclaw_automation/nl.py`, `library/web_search_brief/*`, `tests/test_nl_web_query_routing.py`, `tests/test_library_web_search_brief.py`

@@ -30,3 +30,15 @@ def test_explicit_url_still_uses_public_page_check() -> None:
     parsed = parse_query_to_run("Check https://example.com and summarize headlines")
     assert parsed.script_dir == "examples/public_page_check"
     assert parsed.inputs["url"] == "https://example.com"
+
+
+def test_generic_search_intent_routes_to_web_search_brief() -> None:
+    parsed = parse_query_to_run("Find the latest AI policy headlines today")
+    assert parsed.script_dir == "library/web_search_brief"
+    assert parsed.inputs["kind"] == "generic"
+    assert "latest AI policy headlines" in parsed.inputs["query"]
+
+
+def test_weather_intent_keeps_weather_script() -> None:
+    parsed = parse_query_to_run("What is the weather in Mill Valley today?")
+    assert parsed.script_dir == "examples/weather_check"
