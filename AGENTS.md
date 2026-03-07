@@ -47,6 +47,17 @@ Function: `_pick_browser_runner()` in `src/agent/tools.py`
 - If you see a lock from a dead PID, it's safe to delete
 - **Never run two browser automations on the same Chrome simultaneously**
 
+## Multi-Agent CDP Concurrency (Required)
+
+- One agent per CDP endpoint at a time (endpoint = host + port).
+- Different tabs on the same endpoint are not safe for parallel agents; they share one browser session and can race on target attach/state.
+- Safe parallelism requires separate endpoints (for example mac mini `:9222` and home-mind `:9226`) or fully separate browser instances with different `--remote-debugging-port` and `--user-data-dir`.
+- Claim a lock before any long run/restart, and release it when done.
+- Record lock ownership and expiry in `INPROCESS.md` while a lock is held.
+- If lock cannot be acquired, fail closed:
+  - use alternate endpoint when available, or
+  - defer execution instead of forcing concurrent use of the same endpoint.
+
 ## Key Config (.env)
 
 Each machine's `~/openclaw-automation-kit/.env` must have:

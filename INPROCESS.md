@@ -43,6 +43,14 @@ Use this file for short-lived cross-agent coordination so parallel work does not
     - `python -m openclaw_automation.cli run-query --query "Search United business SFO to NRT this week for 2 travelers"`
     - `pytest -q` targeted United parser/smoke tests
 
+- `codex/cdp-concurrency-policy`
+  - Task: codify strict CDP multi-agent locking rules across assistant and OpenClaw repos so same-endpoint tab/session races are blocked.
+  - Files: `INPROCESS.md`, `AGENTS.md`
+  - Status: IN PROGRESS
+  - Coordination notes:
+    - No shared CDP resource currently claimed by this task (docs-only pass).
+    - Policy target: one agent per endpoint, parallel only across distinct endpoints/ports with separate browser profiles.
+
 - `codex/award-manifest-gap-fix`
   - Task: restore missing manifest/schema files for `jetblue_award` and `aeromexico_award` so `run-query` works for all target airlines.
   - Files: `INPROCESS.md`, `library/jetblue_award/manifest.json`, `library/jetblue_award/schemas/*`, `library/aeromexico_award/manifest.json`, `library/aeromexico_award/schemas/*`
