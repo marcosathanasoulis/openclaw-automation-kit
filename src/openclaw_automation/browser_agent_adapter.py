@@ -31,8 +31,10 @@ def run_browser_agent_goal(
     module_path = os.getenv("OPENCLAW_BROWSER_AGENT_PATH", "").strip()
     cdp_url = os.getenv("OPENCLAW_CDP_URL", "http://127.0.0.1:9222").strip() or "http://127.0.0.1:9222"
     trace_env = os.getenv("OPENCLAW_BROWSER_TRACE", "").strip().lower()
+    updates_env = os.getenv("OPENCLAW_BROWSER_SEND_UPDATES", "").strip().lower()
     if trace_env in {"0", "false", "no", "off"}:
         trace = False
+    send_updates = updates_env in {"1", "true", "yes", "on"}
     if module_path:
         resolved = str(Path(module_path).expanduser().resolve())
         if resolved not in sys.path:
@@ -55,6 +57,7 @@ def run_browser_agent_goal(
             max_steps=max_steps,
             use_vision=use_vision,
             trace=trace,
+            send_updates=send_updates,
         )
         result = agent.run()
         return {"ok": True, "error": None, "result": result}

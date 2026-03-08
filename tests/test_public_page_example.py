@@ -29,8 +29,9 @@ def test_plain_english_url_maps_with_quoted_keyword() -> None:
 
 def test_headline_query_maps_to_headlines_task() -> None:
     parsed = parse_query_to_run("Check yahoo.com and tell me the top headlines")
-    assert parsed.script_dir == "examples/public_page_check"
-    assert parsed.inputs["task"] == "headlines"
+    assert parsed.script_dir == "library/web_search_brief"
+    assert parsed.inputs["query"] == "Check yahoo.com and tell me the top headlines"
+    assert parsed.inputs["kind"] == "generic"
 
 
 def test_fallback_without_airline_uses_public_page_check() -> None:

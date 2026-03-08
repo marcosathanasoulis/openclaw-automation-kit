@@ -15,10 +15,11 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 
 - `codex/award-search-reliability`
   - Task: diagnose why airline award sessions lose cookies / trigger frequent 2FA and validate six live business/economy search scenarios end to end.
-  - Files: `INPROCESS.md`, runtime observations only; no library code edits yet
+  - Files: `INPROCESS.md`, `src/openclaw_automation/browser_agent_adapter.py`, `tests/test_public_page_example.py`
   - Status: IN PROGRESS
   - Coordination notes:
     - No CDP endpoint currently claimed.
+    - Safe to proceed with non-CDP repo changes only; do not touch `library/united_award/*` while `codex/united-run-stability` is active there.
     - Avoiding `library/united_award/*` while `codex/united-run-stability` is active there.
     - Latest live findings from `mac-mini` `9222`:
       - United `SFO->BKK`, business, 2 travelers, next 30 days: runner hung idle and was terminated
@@ -30,6 +31,9 @@ Use this file for short-lived cross-agent coordination so parallel work does not
     - Interpretation:
       - empty match lists are currently not trustworthy unless the runner explicitly reports a completed live path without BrowserAgent errors
       - failure mode is shared across airlines and points to the active BrowserAgent/runtime stack, not just one script
+    - Current local work:
+      - `src/openclaw_automation/browser_agent_adapter.py`: wire `OPENCLAW_BROWSER_SEND_UPDATES` into `BrowserAgent(...)`
+      - `tests/test_public_page_example.py`: align headline-routing expectation with current NL router so CI passes
 
 - `codex/secure-skill-sync`
   - Task: fetch secure, helpful OpenClaw skill updates from `origin/main` without regressing web-query routing behavior.
