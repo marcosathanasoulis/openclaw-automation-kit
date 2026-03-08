@@ -13,6 +13,24 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 
 ## Current Work
 
+- `codex/award-search-reliability`
+  - Task: diagnose why airline award sessions lose cookies / trigger frequent 2FA and validate six live business/economy search scenarios end to end.
+  - Files: `INPROCESS.md`, runtime observations only; no library code edits yet
+  - Status: IN PROGRESS
+  - Coordination notes:
+    - No CDP endpoint currently claimed.
+    - Avoiding `library/united_award/*` while `codex/united-run-stability` is active there.
+    - Latest live findings from `mac-mini` `9222`:
+      - United `SFO->BKK`, business, 2 travelers, next 30 days: runner hung idle and was terminated
+      - Delta `SFO->{LHR,CDG,AMS,FRA,MAD}`, business, 2 travelers, next 30 days: runner hung idle and was terminated
+      - JetBlue `SFO->{NRT,HND}`, business, 2 travelers, next 30 days: `BrowserAgent status: error`, `steps: 0`, empty matches
+      - ANA `SFO->{HND,NRT}`, business, 2 travelers, next 30 days: `real_data: false`, BrowserAgent-only fallback, empty matches
+      - AeroMexico `SFO->{PVR,CUN}`, economy, 2 travelers, next 30 days: `BrowserAgent status: error`, `steps: 1`, empty matches
+      - Singapore `SFO->BKK`, business, 2 travelers, next 30 days: runner hung idle and was terminated
+    - Interpretation:
+      - empty match lists are currently not trustworthy unless the runner explicitly reports a completed live path without BrowserAgent errors
+      - failure mode is shared across airlines and points to the active BrowserAgent/runtime stack, not just one script
+
 - `codex/secure-skill-sync`
   - Task: fetch secure, helpful OpenClaw skill updates from `origin/main` without regressing web-query routing behavior.
   - Files: `INPROCESS.md`, `skills/openclaw-award-search/*`, `skills/openclaw-web-automation-basic/*`, `skills/openclaw-web-automation/SKILL.md`, `skills/openclaw-web-automation/scripts/run_query.py`
