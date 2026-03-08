@@ -14,11 +14,26 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 ## Current Work
 
 - `codex/award-search-reliability`
-  - Task: diagnose why airline award sessions lose cookies / trigger frequent 2FA, fix the active BrowserAgent/runtime path, and move United toward the true award-search flow.
+  - Task: diagnose why airline award sessions lose cookies / trigger frequent 2FA, fix the active BrowserAgent/runtime path, and replace United's cash/Money+Miles workaround with a deterministic true-award path.
   - Files: `INPROCESS.md`, `src/openclaw_automation/browser_agent_adapter.py`, `src/openclaw_automation/adaptive.py`, `src/openclaw_automation/engine.py`, `library/united_award/runner.py`, `tests/test_award_runners.py`, `tests/test_browser_agent_adapter.py`, `tests/test_public_page_example.py`, `scripts/e2e_no_login_smoke.sh`
   - Status: IN PROGRESS
   - Coordination notes:
     - No CDP endpoint currently claimed.
+    - User confirmed this is the only active agent for the current pass; safe to proceed on `library/united_award/*` with repo-only changes before any new live browser run.
+    - Latest deterministic United work:
+      - `library/united_award/runner.py` now tries a direct Playwright award flow first (real `at=1 ... tqp=A` URL, persistent CDP context, keychain-backed credentials, explicit miles-sign-in detection, homepage-submit fallback, debug screenshot/text capture).
+      - `tests/test_award_runners.py` now asserts the United fallback path starts on the real award URL rather than the old cash URL.
+      - Local validation still passes:
+        - `PYTHONPATH=src .venv/bin/python -m pytest -q tests/test_award_runners.py tests/test_browser_agent_adapter.py` (9 passed)
+        - `python3 -m py_compile library/united_award/runner.py`
+      - Live `mac-mini` probe (`SFO -> BKK`, business, 2 travelers, next 30 days, direct path only) now fails closed with explicit state:
+        - `United required an extra sign-in for miles pricing`
+        - final blocker: `United still requires sign-in to view miles results`
+        - debug artifacts captured on `mac-mini`:
+          - `/tmp/united_direct_debug_1772999145.png`
+          - `/tmp/united_direct_debug_1772999145.txt`
+        - current review page published at `http://marcoss-mac-mini.local:8888/united_miles_prompt.html`
+        - iMessage sent to Marcos asking him to manually finish the United sign-in on the persistent Chrome session and reply `done`
     - Validated locally:
       - `PYTHONPATH=src .venv/bin/python -m pytest -q tests/test_award_runners.py tests/test_browser_agent_adapter.py` (8 passed)
       - `python3 -m py_compile library/united_award/runner.py src/openclaw_automation/browser_agent_adapter.py tests/test_award_runners.py tests/test_browser_agent_adapter.py`

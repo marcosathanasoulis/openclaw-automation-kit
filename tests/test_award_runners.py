@@ -43,13 +43,14 @@ def test_plain_english_query_parsing() -> None:
     assert parsed.inputs["travelers"] == 2
 
 
-def test_united_runner_starts_on_cash_results_url(monkeypatch) -> None:
+def test_united_runner_fallback_starts_on_award_results_url(monkeypatch) -> None:
     captured = {}
 
     def fake_run_browser_agent_goal(**kwargs):
         captured.update(kwargs)
         return {"ok": False, "error": "forced adapter failure", "result": None}
 
+    monkeypatch.setattr(united_runner, "_run_direct_award_search", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(united_runner, "browser_agent_enabled", lambda: True)
     monkeypatch.setattr(united_runner, "run_browser_agent_goal", fake_run_browser_agent_goal)
 
@@ -66,8 +67,22 @@ def test_united_runner_starts_on_cash_results_url(monkeypatch) -> None:
 
     depart_date = united_runner.date.today() + united_runner.timedelta(days=30)
     expected_url = united_runner._booking_url(
-        "SFO", "BKK", depart_date, "business", 2, award=False,
+        "SFO", "BKK", depart_date, "business", 2, award=True,
     )
 
     assert captured["url"] == expected_url
     assert result["mode"] == "placeholder"
+
+
+def test_united_award_url_uses_real_award_params() -> None:
+    depart_date = united_runner.date(2026, 4, 6)
+
+    url = united_runner._booking_url(
+        "SFO", "BKK", depart_date, "business", 2, award=True,
+    )
+
+    assert "at=1" in url
+    assert "tqp=A" in url
+    assert "act=2" in url
+    assert "px=2%2C0%2C0%2C0%2C0%2C0%2C0%2C0" in url
+    assert "sc=6" in url
