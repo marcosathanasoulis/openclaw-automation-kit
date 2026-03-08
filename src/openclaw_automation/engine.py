@@ -10,6 +10,48 @@ from typing import Any, Dict
 from .contract import validate_inputs, validate_manifest, validate_output
 from .credentials import redacted_keys, resolve_credential_refs
 
+_BROWSER_AGENT_FAILURE_STATUSES = {"error", "stuck", "max_steps", "interrupted"}
+
+
+def _browser_agent_failure_details(result: Dict[str, Any]) -> Dict[str, Any]:
+    observations = result.get("raw_observations") or []
+    status = ""
+    detail = ""
+    for item in observations:
+        if not isinstance(item, str):
+            continue
+        lower = item.lower()
+        if lower.startswith("browseragent status:"):
+            status = item.split(":", 1)[1].strip().lower()
+        if lower.startswith("browseragent adapter error:"):
+            detail = item.split(":", 1)[1].strip()
+            if not status and "browseragent status:" in lower:
+                status = lower.split("browseragent status:", 1)[1].split(";", 1)[0].strip()
+    if status in _BROWSER_AGENT_FAILURE_STATUSES:
+        return {"status": status, "detail": detail}
+    return {}
+
+
+def _normalize_browser_agent_result(result: Dict[str, Any]) -> tuple[Dict[str, Any], list[str]]:
+    details = _browser_agent_failure_details(result)
+    if not details:
+        return result, []
+
+    normalized = dict(result)
+    normalized["real_data"] = False
+    normalized["matches"] = []
+    summary = str(normalized.get("summary", "")).strip()
+    prefix = "UNRELIABLE LIVE RUN"
+    if summary:
+        normalized["summary"] = summary if summary.startswith(prefix) else f"{prefix}: {summary}"
+    else:
+        normalized["summary"] = f"{prefix}: BrowserAgent ended with status {details['status']}."
+
+    warnings = [f"BrowserAgent ended with status '{details['status']}'. Live availability was not confirmed."]
+    if details["detail"]:
+        warnings.append(details["detail"])
+    return normalized, warnings
+
 
 class AutomationEngine:
     def __init__(self, root_dir: Path) -> None:
@@ -97,8 +139,9 @@ class AutomationEngine:
                 "error": f"output schema validation failed: {exc}",
             }
 
-        mode = str(result.get("mode", "live"))
-        real_data = bool(result.get("real_data", mode != "placeholder"))
+        normalized_result, normalization_warnings = _normalize_browser_agent_result(result)
+        mode = str(normalized_result.get("mode", "live"))
+        real_data = bool(normalized_result.get("real_data", mode != "placeholder"))
 
         envelope = {
             "ok": True,
@@ -117,12 +160,11 @@ class AutomationEngine:
                 ["Runner returned placeholder data; BrowserAgent/live integration is not active."]
                 if mode == "placeholder"
                 else []
-            ),
-            "result": result,
+            ) + normalization_warnings,
+            "result": normalized_result,
         }
         return envelope
 
 
 def pretty_json(data: Dict[str, Any]) -> str:
     return json.dumps(data, indent=2, sort_keys=True)
-

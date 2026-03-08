@@ -15,7 +15,7 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 
 - `codex/award-search-reliability`
   - Task: diagnose why airline award sessions lose cookies / trigger frequent 2FA and validate six live business/economy search scenarios end to end.
-  - Files: `INPROCESS.md`, `src/openclaw_automation/browser_agent_adapter.py`, `tests/test_public_page_example.py`
+  - Files: `INPROCESS.md`, `src/openclaw_automation/browser_agent_adapter.py`, `src/openclaw_automation/adaptive.py`, `src/openclaw_automation/engine.py`, `tests/test_public_page_example.py`
   - Status: IN PROGRESS
   - Coordination notes:
     - No CDP endpoint currently claimed.
@@ -34,6 +34,10 @@ Use this file for short-lived cross-agent coordination so parallel work does not
     - Current local work:
       - `src/openclaw_automation/browser_agent_adapter.py`: wire `OPENCLAW_BROWSER_SEND_UPDATES` into `BrowserAgent(...)`
       - `tests/test_public_page_example.py`: align headline-routing expectation with current NL router so CI passes
+      - `src/openclaw_automation/adaptive.py` / `engine.py`: fail closed when BrowserAgent returns `status=error|stuck|max_steps|interrupted` so assistant mode stops treating those as real empty availability
+    - Validation completed:
+      - `PYTHONPATH=src .venv/bin/python -m pytest -q tests/test_browser_agent_adapter.py tests/test_public_page_example.py tests/test_award_runners.py tests/test_engine_envelope.py` (15 passed)
+      - direct normalization check confirms BrowserAgent `status=error` now clears matches and marks result non-real
 
 - `codex/secure-skill-sync`
   - Task: fetch secure, helpful OpenClaw skill updates from `origin/main` without regressing web-query routing behavior.

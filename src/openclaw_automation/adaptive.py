@@ -7,7 +7,7 @@ from __future__ import annotations
 import sys
 from typing import Any, Dict
 
-from openclaw_automation.browser_agent_adapter import run_browser_agent_goal
+from openclaw_automation.browser_agent_adapter import run_browser_agent_goal, summarize_browser_agent_run
 
 
 def adaptive_run(
@@ -26,6 +26,7 @@ def adaptive_run(
     On failure, diagnoses the error and retries with adjusted parameters.
     """
     last_error = ""
+    last_result = None
     for attempt in range(1, max_attempts + 1):
         result = run_browser_agent_goal(
             goal=goal,
@@ -34,10 +35,11 @@ def adaptive_run(
             trace=trace,
             use_vision=use_vision,
         )
-        if result["ok"]:
-            run_result = result.get("result") or {}
+        summary = summarize_browser_agent_run(result)
+        if summary["succeeded"]:
+            run_result = summary["result"]
             # Check if the result has useful data
-            result_text = str(run_result.get("result", ""))
+            result_text = summary["result_text"]
             has_miles = "miles" in result_text.lower()
             has_data = has_miles or run_result.get("matches")
 
@@ -47,14 +49,16 @@ def adaptive_run(
                     file=sys.stderr,
                 )
                 last_error = "No miles data in result"
+                last_result = run_result
                 continue
             return result
 
-        last_error = result.get("error", "unknown")
+        last_error = summary["error"] or result.get("error", "unknown")
+        last_result = summary["result"]
         diag = f"unknown: {last_error}"
         print(
             f"adaptive_run [{airline}] attempt {attempt}: ok={result['ok']}, diag={diag}",
             file=sys.stderr,
         )
 
-    return {"ok": False, "error": last_error, "result": None}
+    return {"ok": False, "error": last_error, "result": last_result}

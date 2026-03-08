@@ -6,8 +6,46 @@ import sys
 from pathlib import Path
 from typing import Any, Dict
 
+SUCCESS_STATUSES = {"success"}
+FAILURE_STATUSES = {"error", "stuck", "max_steps", "interrupted"}
+
+
 def browser_agent_enabled() -> bool:
     return os.getenv("OPENCLAW_USE_BROWSER_AGENT", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def summarize_browser_agent_run(agent_run: Dict[str, Any] | None) -> Dict[str, Any]:
+    """Normalize adapter output so callers can reason about run status consistently."""
+    payload = agent_run if isinstance(agent_run, dict) else {}
+    run_result = payload.get("result")
+    if not isinstance(run_result, dict):
+        run_result = {}
+
+    status = str(run_result.get("status", "unknown")).strip().lower() or "unknown"
+    matches = run_result.get("matches", [])
+    result_text = str(run_result.get("result", ""))
+    has_content = bool(matches) or bool(result_text.strip())
+    succeeded = bool(payload.get("ok")) and (
+        status in SUCCESS_STATUSES or (status == "unknown" and has_content)
+    )
+    error = payload.get("error")
+    if not error and status in FAILURE_STATUSES:
+        error = f"BrowserAgent status: {status}"
+    if not error and payload.get("ok") is False and status != "unknown":
+        error = f"BrowserAgent status: {status}"
+
+    return {
+        "status": status,
+        "steps": run_result.get("steps", "n/a"),
+        "trace_dir": run_result.get("trace_dir", "n/a"),
+        "review_url": run_result.get("review_url"),
+        "current_url": run_result.get("current_url"),
+        "matches": matches,
+        "result_text": result_text,
+        "result": run_result,
+        "succeeded": succeeded,
+        "error": error,
+    }
 
 
 def run_browser_agent_goal(
@@ -60,6 +98,18 @@ def run_browser_agent_goal(
             send_updates=send_updates,
         )
         result = agent.run()
-        return {"ok": True, "error": None, "result": result}
+        payload = {"ok": True, "error": None, "result": result}
+        summary = summarize_browser_agent_run(payload)
+        if summary["succeeded"]:
+            return payload
+
+        failure_bits = [summary["error"] or "BrowserAgent returned an unsuccessful terminal status"]
+        if summary["review_url"]:
+            failure_bits.append(f"review_url={summary['review_url']}")
+        if summary["current_url"]:
+            failure_bits.append(f"current_url={summary['current_url']}")
+        if summary["trace_dir"] not in {"", None, "n/a"}:
+            failure_bits.append(f"trace_dir={summary['trace_dir']}")
+        return {"ok": False, "error": "; ".join(failure_bits), "result": result}
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "error": f"run failed: {exc}", "result": None}
