@@ -62,8 +62,9 @@ from pathlib import Path
 
 result = json.loads(Path("/tmp/openclaw_public_query.json").read_text())
 assert result["ok"] is True
-assert result["script_id"] == "web.public_page_check"
-assert result["result"]["task"] == "headlines"
+assert result["script_id"] == "web.web_search_brief"
+assert result["inputs"]["kind"] == "generic"
+assert result["result"]["results"]
 print("public_query_ok")
 PY
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import os
 import sys
 from pathlib import Path
@@ -24,7 +25,7 @@ def summarize_browser_agent_run(agent_run: Dict[str, Any] | None) -> Dict[str, A
     status = str(run_result.get("status", "unknown")).strip().lower() or "unknown"
     matches = run_result.get("matches", [])
     result_text = str(run_result.get("result", ""))
-    has_content = bool(matches) or bool(result_text.strip())
+    has_content = bool(run_result) or bool(matches) or bool(result_text.strip())
     succeeded = bool(payload.get("ok")) and (
         status in SUCCESS_STATUSES or (status == "unknown" and has_content)
     )
@@ -88,15 +89,22 @@ def run_browser_agent_goal(
         return {"ok": False, "error": f"BrowserAgent not found in module '{module_name}'", "result": None}
 
     try:
-        agent = agent_cls(
-            goal=goal,
-            url=url,
-            cdp_url=cdp_url,
-            max_steps=max_steps,
-            use_vision=use_vision,
-            trace=trace,
-            send_updates=send_updates,
+        init_signature = inspect.signature(agent_cls)
+        init_kwargs = {
+            "goal": goal,
+            "url": url,
+            "cdp_url": cdp_url,
+            "max_steps": max_steps,
+            "use_vision": use_vision,
+            "trace": trace,
+        }
+        accepts_kwargs = any(
+            parameter.kind == inspect.Parameter.VAR_KEYWORD
+            for parameter in init_signature.parameters.values()
         )
+        if accepts_kwargs or "send_updates" in init_signature.parameters:
+            init_kwargs["send_updates"] = send_updates
+        agent = agent_cls(**init_kwargs)
         result = agent.run()
         payload = {"ok": True, "error": None, "result": result}
         summary = summarize_browser_agent_run(payload)
