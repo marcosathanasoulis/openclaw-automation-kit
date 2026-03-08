@@ -2,6 +2,7 @@ from pathlib import Path
 
 from openclaw_automation.engine import AutomationEngine
 from openclaw_automation.nl import parse_query_to_run
+from library.united_award import runner as united_runner
 
 
 def _inputs() -> dict:
@@ -40,3 +41,33 @@ def test_plain_english_query_parsing() -> None:
     assert parsed.script_dir == "library/ana_award"
     assert parsed.inputs["cabin"] == "economy"
     assert parsed.inputs["travelers"] == 2
+
+
+def test_united_runner_starts_on_cash_results_url(monkeypatch) -> None:
+    captured = {}
+
+    def fake_run_browser_agent_goal(**kwargs):
+        captured.update(kwargs)
+        return {"ok": False, "error": "forced adapter failure", "result": None}
+
+    monkeypatch.setattr(united_runner, "browser_agent_enabled", lambda: True)
+    monkeypatch.setattr(united_runner, "run_browser_agent_goal", fake_run_browser_agent_goal)
+
+    inputs = {
+        "from": "SFO",
+        "to": ["BKK"],
+        "days_ahead": 30,
+        "max_miles": 500000,
+        "travelers": 2,
+        "cabin": "business",
+    }
+
+    result = united_runner.run({}, inputs)
+
+    depart_date = united_runner.date.today() + united_runner.timedelta(days=30)
+    expected_url = united_runner._booking_url(
+        "SFO", "BKK", depart_date, "business", 2, award=False,
+    )
+
+    assert captured["url"] == expected_url
+    assert result["mode"] == "placeholder"

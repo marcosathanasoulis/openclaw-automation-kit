@@ -76,8 +76,14 @@ def run_browser_agent_goal(
     send_updates = updates_env in {"1", "true", "yes", "on"}
     if module_path:
         resolved = str(Path(module_path).expanduser().resolve())
-        if resolved not in sys.path:
-            sys.path.append(resolved)
+        if resolved in sys.path:
+            sys.path.remove(resolved)
+        sys.path.insert(0, resolved)
+
+        cached_module = sys.modules.get(module_name)
+        cached_file = getattr(cached_module, "__file__", "") if cached_module else ""
+        if cached_module and cached_file and not str(cached_file).startswith(resolved):
+            sys.modules.pop(module_name, None)
 
     try:
         module = importlib.import_module(module_name)

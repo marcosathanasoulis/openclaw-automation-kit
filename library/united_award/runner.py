@@ -153,8 +153,10 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
     if context.get("unresolved_credential_refs"):
         observations.append("Credential refs unresolved; run would require manual auth flow.")
 
-    mid_days = max(7, int(inputs["days_ahead"]) // 2)
-    depart_date = today + timedelta(days=mid_days)
+    depart_date = today + timedelta(days=int(inputs["days_ahead"]))
+    cash_url = _booking_url(
+        inputs["from"], destinations[0], depart_date, cabin, travelers, award=False,
+    )
     booking_url = _booking_url(
         inputs["from"], destinations[0], depart_date, cabin, travelers, award=True,
     )
@@ -162,7 +164,7 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
     if browser_agent_enabled():
         agent_run = run_browser_agent_goal(
             goal=_goal(inputs),
-            url=UNITED_URL,
+            url=cash_url,
             max_steps=60,
             trace=True,
             use_vision=True,

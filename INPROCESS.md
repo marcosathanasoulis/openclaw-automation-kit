@@ -8,21 +8,32 @@ Use this file for short-lived cross-agent coordination so parallel work does not
   - One browser automation at a time per endpoint.
   - Lock file: `/tmp/browser_cdp.lock` (managed by BrowserAgent).
   - Before long runs, note owner and target endpoint.
-  - Current owner: `codex/united-run-stability` on `marcoss-mac-mini.local` (PID 89850, target CDP 9222).
-  - Status: manual single-run enforcement in effect while investigating missing lock-file writes.
+  - Current owner: none.
+  - Status: lock currently clear on `marcoss-mac-mini.local:9222` after the latest United probes; stale lock cleanup verified.
 
 ## Current Work
 
 - `codex/award-search-reliability`
-  - Task: diagnose why airline award sessions lose cookies / trigger frequent 2FA and validate six live business/economy search scenarios end to end.
-  - Files: `INPROCESS.md`, `src/openclaw_automation/browser_agent_adapter.py`, `src/openclaw_automation/adaptive.py`, `src/openclaw_automation/engine.py`, `tests/test_public_page_example.py`, `scripts/e2e_no_login_smoke.sh`
+  - Task: diagnose why airline award sessions lose cookies / trigger frequent 2FA, fix the active BrowserAgent/runtime path, and move United toward the true award-search flow.
+  - Files: `INPROCESS.md`, `src/openclaw_automation/browser_agent_adapter.py`, `src/openclaw_automation/adaptive.py`, `src/openclaw_automation/engine.py`, `library/united_award/runner.py`, `tests/test_award_runners.py`, `tests/test_browser_agent_adapter.py`, `tests/test_public_page_example.py`, `scripts/e2e_no_login_smoke.sh`
   - Status: IN PROGRESS
   - Coordination notes:
     - No CDP endpoint currently claimed.
+    - Validated locally:
+      - `PYTHONPATH=src .venv/bin/python -m pytest -q tests/test_award_runners.py tests/test_browser_agent_adapter.py` (8 passed)
+      - `python3 -m py_compile library/united_award/runner.py src/openclaw_automation/browser_agent_adapter.py tests/test_award_runners.py tests/test_browser_agent_adapter.py`
+    - New fixes landed:
+      - `src/openclaw_automation/browser_agent_adapter.py`: `OPENCLAW_BROWSER_AGENT_PATH` now wins over repo-local `src/browser_agent.py`, so runtime finally imports `/Users/marcos/athanasoulis-ai-assistant/src/browser/browser_agent.py`.
+      - `library/united_award/runner.py`: start BrowserAgent on the cash-results URL instead of the homepage, and use `days_ahead` consistently for the goal and initial URL.
+      - `tests/test_browser_agent_adapter.py`: regression for explicit module-path precedence.
+      - `tests/test_award_runners.py`: regression that United starts on the cash-results URL.
     - Safe to proceed with non-CDP repo changes only; do not touch `library/united_award/*` while `codex/united-run-stability` is active there.
-    - Avoiding `library/united_award/*` while `codex/united-run-stability` is active there.
+    - `library/united_award/*` was clean in the local worktree when the above minimal fix landed; no concurrent live process was active on `marcoss-mac-mini.local:9222` during those edits.
     - Latest live findings from `mac-mini` `9222`:
-      - United `SFO->BKK`, business, 2 travelers, next 30 days: runner hung idle and was terminated
+      - United cash-results rerun now completes end-to-end with the correct assistant BrowserAgent, CDP lock, screenshots, and run trace.
+      - That corrected cash-results path still returns only USD fares, because it is following United's Money/Money+Miles product rather than the true award-search path.
+      - Deterministic homepage submit with award checkbox checked creates a different URL: `...at=1...tqp=A`, which appears to be the true award path.
+      - The `at=1` path currently shows a sign-in modal over skeleton award cards. Keychain credential lookup works there, but the remembered-account shortcut returned `The account information entered is invalid`, so the next likely fix is a deterministic `Switch accounts` or homepage-submit flow.
       - Delta `SFO->{LHR,CDG,AMS,FRA,MAD}`, business, 2 travelers, next 30 days: runner hung idle and was terminated
       - JetBlue `SFO->{NRT,HND}`, business, 2 travelers, next 30 days: `BrowserAgent status: error`, `steps: 0`, empty matches
       - ANA `SFO->{HND,NRT}`, business, 2 travelers, next 30 days: `real_data: false`, BrowserAgent-only fallback, empty matches
