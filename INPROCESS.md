@@ -39,6 +39,10 @@ Use this file for short-lived cross-agent coordination so parallel work does not
       - `PYTHONPATH=src .venv/bin/python -m pytest -q tests/test_browser_agent_adapter.py tests/test_public_page_example.py tests/test_award_runners.py tests/test_engine_envelope.py` (15 passed)
       - direct normalization check confirms BrowserAgent `status=error` now clears matches and marks result non-real
       - `bash scripts/e2e_no_login_smoke.sh` now passes after updating the public-query expectation and restoring backward compatibility for mock BrowserAgent implementations without `send_updates` / `status`
+      - Live mac-mini validation after runtime deploy:
+        - JetBlue `SFO -> NRT`, 2 travelers, business, next 30 days now progresses through real site navigation and login flow instead of failing immediately with `status=error`, `steps=0`
+        - Current blocker is login-form semantics: the agent repeatedly tried to `type` into literal selector labels (`input[name=\"username\"]`, `#username`) and timed out instead of reliably targeting the actual field
+        - Browser process was released after the probe; no CDP lock file remained
 
 - `codex/secure-skill-sync`
   - Task: fetch secure, helpful OpenClaw skill updates from `origin/main` without regressing web-query routing behavior.
