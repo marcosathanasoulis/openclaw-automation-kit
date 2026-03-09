@@ -120,6 +120,23 @@ def test_united_award_url_uses_real_award_params() -> None:
     assert "sc=6" in url
 
 
+def test_united_resolve_cdp_lock_file_uses_port(monkeypatch) -> None:
+    monkeypatch.delenv("OPENCLAW_CDP_LOCK_FILE", raising=False)
+    monkeypatch.delenv("OPENCLAW_CDP_LOCK_PATH", raising=False)
+
+    lock_file = united_runner._resolve_cdp_lock_file("http://127.0.0.1:18810")
+
+    assert lock_file == Path("/tmp/browser_cdp_18810.lock")
+
+
+def test_united_resolve_cdp_lock_file_prefers_env_override(monkeypatch) -> None:
+    monkeypatch.setenv("OPENCLAW_CDP_LOCK_FILE", "/tmp/custom.lock")
+
+    lock_file = united_runner._resolve_cdp_lock_file("http://127.0.0.1:18810")
+
+    assert lock_file == Path("/tmp/custom.lock")
+
+
 def test_united_result_text_parser_prefers_business_and_marks_mixed() -> None:
     text = """
     67.8k
@@ -180,6 +197,44 @@ def test_united_result_text_parser_prefers_business_and_marks_mixed() -> None:
     assert matches[1]["miles"] == 250000
     assert matches[1]["taxes"] == "23.20"
     assert matches[1]["mixed_cabin"] is True
+
+
+def test_united_result_text_parser_accepts_plain_business_label() -> None:
+    text = """
+    67.8k
+    miles
+    +
+    $24.80
+    United Economy (YN)
+    Select fare for Economy
+    200k
+    miles
+    +
+    $24.80
+    United Premium Plus (ON)
+    Select fare for Premium Economy
+    250k
+    miles
+    +
+    $36.30
+    United Polaris business (JN)
+    Select fare for Business
+    """
+
+    matches = united_runner._extract_united_matches_from_text(
+        text,
+        route="SFO-BKK",
+        depart_date=united_runner.date(2026, 4, 7),
+        travelers=2,
+        cabin="business",
+        max_miles=500000,
+    )
+
+    assert len(matches) == 1
+    assert matches[0]["miles"] == 250000
+    assert matches[0]["taxes"] == "36.30"
+    assert matches[0]["mixed_cabin"] is False
+    assert matches[0]["carrier"] == "United"
 
 
 def test_united_calendar_text_parser_reads_7day_business_strip() -> None:

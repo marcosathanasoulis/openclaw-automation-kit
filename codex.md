@@ -11,11 +11,12 @@ Always pull before making changes to avoid conflicts.
 The system has two machines that can run browser automation:
 
 ### Mac Mini (primary) — `marcoss-mac-mini.local`
-- **Chrome CDP**: port 9222 (real Chrome with user profile)
+- **Chrome CDP**: port 18810 (dedicated airline-assistant profile; default for authenticated airline work)
+- **Legacy Chrome CDP**: port 9222 (main Chrome profile; do not use for airline-auth runs unless explicitly needed)
 - **Kit path**: `~/openclaw-automation-kit/`
 - **Credentials**: macOS automation keychain (`~/Library/Keychains/automation.keychain-db`)
 - **SMS 2FA**: Direct access to `~/Library/Messages/chat.db`
-- **CDPLock**: `/tmp/browser_cdp.lock` — file-based lock to prevent concurrent browser use
+- **CDPLock**: `/tmp/browser_cdp_18810.lock` for the dedicated airline runner
 - **Start Chrome**: `/tmp/launch_chrome_cdp.sh`
 
 ### Home-mind (secondary) — `home-mind.local` (Ubuntu)
@@ -23,29 +24,42 @@ The system has two machines that can run browser automation:
 - **Kit path**: `~/openclaw-automation-kit/`
 - **Credentials**: File-based at `~/.credentials.json` (add new sites here)
 - **SMS 2FA**: Via SSH to Mac Mini (`/tmp/read_sms_code.py`)
-- **CDPLock**: `/tmp/browser_cdp.lock`
+- **CDPLock**: `/tmp/browser_cdp_9226.lock`
 - **Start Chrome**: `/tmp/start_chrome_real.sh`
 
 ## Runner Selection (automatic)
 
-The AI agent on home-mind (`src/agent/tools.py`) automatically picks the runner:
+The AI agent on home-mind (`src/agent/tools.py`) can use either runner, but airline-auth work should stay on the stable cookied endpoint:
 
-1. Checks Mac Mini's `/tmp/browser_cdp.lock` via SSH
-2. If lock exists and PID is alive → Mac Mini is **busy** → runs locally on home-mind
-3. If no lock or stale lock → Mac Mini is **free** → SSHes search to Mac Mini
-4. If Mac Mini unreachable → falls back to home-mind
+1. Prefer `mac-mini:18810` for authenticated airline searches.
+2. Use `home-mind:9226` only when it has a known-good cookied session for that airline or for separate non-auth work.
+3. Check the endpoint-specific lock file before attaching.
+4. If the target endpoint is busy, either defer or use a different endpoint with a different user-data-dir.
 
-Function: `_pick_browser_runner()` in `src/agent/tools.py`
+Function: `search_award_flights` wrapper in `athanasoulis-ai-assistant/src/agent/tools.py`
 
 ## CDPLock Protocol
 
-**CRITICAL**: Only one BrowserAgent can use Chrome at a time per machine.
+**CRITICAL**: Only one BrowserAgent can use a given CDP endpoint at a time.
 
-- Lock file: `/tmp/browser_cdp.lock`
+- Lock file: derived from the endpoint port, for example:
+  - `marcoss-mac-mini.local:18810` -> `/tmp/browser_cdp_18810.lock`
+  - `home-mind.local:9226` -> `/tmp/browser_cdp_9226.lock`
 - Contains: `{"pid": 12345, "started": "2026-02-16T20:31:25"}`
 - The BrowserAgent acquires the lock on start and releases on exit
 - If you see a lock from a dead PID, it's safe to delete
-- **Never run two browser automations on the same Chrome simultaneously**
+- **Never run two browser automations on the same endpoint simultaneously**
+
+## Multi-Agent CDP Concurrency (Required)
+
+- One agent per CDP endpoint at a time (endpoint = host + port).
+- Different tabs on the same endpoint are not safe for parallel agents; they share one browser session and can race on target attach/state.
+- Safe parallelism requires separate endpoints (for example mac mini `:18810` and home-mind `:9226`) or fully separate browser instances with different `--remote-debugging-port` and `--user-data-dir`.
+- Claim a lock before any long run/restart, and release it when done.
+- Record lock ownership and expiry in `INPROCESS.md` while a lock is held.
+- If lock cannot be acquired, fail closed:
+  - use alternate endpoint when available, or
+  - defer execution instead of forcing concurrent use of the same endpoint.
 
 ## Key Config (.env)
 
@@ -54,10 +68,11 @@ Each machine's `~/openclaw-automation-kit/.env` must have:
 OPENCLAW_USE_BROWSER_AGENT=true
 OPENCLAW_BROWSER_AGENT_PATH=/path/to/src/browser
 OPENCLAW_CDP_URL=http://127.0.0.1:<port>
+OPENCLAW_CDP_LOCK_FILE=/tmp/browser_cdp_<port>.lock
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-Mac Mini uses port 9222, home-mind uses port 9226.
+Mac Mini airline-auth default uses port 18810, home-mind uses port 9226.
 
 ## Running a Search
 

@@ -8,9 +8,10 @@ import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable, Dict, List
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 from openclaw_automation.browser_agent_adapter import browser_agent_enabled, run_browser_agent_goal
+from openclaw_automation.cdp_lock import CDPLock, DEFAULT_LOCK_PATH
 from openclaw_automation.result_extract import extract_award_matches_from_text
 
 UNITED_URL = "https://www.united.com/en/us"
@@ -126,6 +127,39 @@ def _load_browser_helpers() -> tuple[Callable[..., Any] | None, Callable[..., An
     except Exception:
         return None, None
     return getattr(module, "get_credentials", None), getattr(module, "read_sms_code", None)
+
+
+def _resolve_cdp_lock_file(cdp_url: str) -> Path:
+    explicit = (
+        os.getenv("OPENCLAW_CDP_LOCK_FILE", "").strip()
+        or os.getenv("OPENCLAW_CDP_LOCK_PATH", "").strip()
+    )
+    if explicit:
+        return Path(explicit).expanduser()
+    try:
+        port = urlparse(cdp_url).port
+    except ValueError:
+        port = None
+    if port:
+        return Path(f"/tmp/browser_cdp_{port}.lock")
+    return DEFAULT_LOCK_PATH
+
+
+def _acquire_cdp_lock(cdp_url: str, observations: List[str]) -> CDPLock | None:
+    lock_file = _resolve_cdp_lock_file(cdp_url)
+    lock = CDPLock(
+        lock_file=lock_file,
+        timeout_seconds=int(os.getenv("OPENCLAW_CDP_LOCK_TIMEOUT", "600")),
+        retry_seconds=int(os.getenv("OPENCLAW_CDP_LOCK_RETRY_SECONDS", "5")),
+        owner_pid=os.getpid(),
+    )
+    try:
+        lock.acquire()
+    except TimeoutError as exc:
+        observations.append(f"United CDP lock unavailable: {exc}")
+        return None
+    observations.append(f"United CDP lock acquired: {lock_file}")
+    return lock
 
 
 def _resolve_united_credentials(context: Dict[str, Any]) -> tuple[str, str]:
@@ -377,6 +411,61 @@ def _browser_page_inventory(browser: Any) -> List[str]:
     return inventory or ["<no contexts>"]
 
 
+def _connect_cdp_browser(playwright: Any, cdp_url: str, observations: List[str], attempts: int = 3) -> Any | None:
+    last_error = ""
+    for attempt in range(1, attempts + 1):
+        try:
+            return playwright.chromium.connect_over_cdp(cdp_url, timeout=15000)
+        except Exception as exc:
+            last_error = str(exc)
+            observations.append(f"United CDP connect retry {attempt}/{attempts} failed: {exc}")
+            time.sleep(min(2 * attempt, 6))
+    observations.append(f"United CDP connect failed after {attempts} attempts: {last_error}")
+    return None
+
+
+def _acquire_united_page(
+    playwright: Any,
+    cdp_url: str,
+    observations: List[str],
+    *,
+    fresh_note: str,
+    reuse_note: str,
+    attempts: int = 2,
+) -> tuple[Any | None, Any | None, Any | None]:
+    browser = _connect_cdp_browser(playwright, cdp_url, observations)
+    if browser is None:
+        return None, None, None
+
+    for attempt in range(1, attempts + 1):
+        context_pw, existing_page = _select_cdp_context(browser)
+        if context_pw is None:
+            observations.append(f"United CDP page acquire attempt {attempt}/{attempts}: no usable contexts")
+        else:
+            try:
+                page = context_pw.new_page()
+                observations.append(fresh_note)
+                return browser, context_pw, page
+            except Exception as exc:
+                observations.append(
+                    f"United CDP page acquire attempt {attempt}/{attempts}: fresh page unavailable: {exc}"
+                )
+                page = existing_page or _active_united_page(context_pw)
+                if _page_is_live(page):
+                    observations.append(reuse_note)
+                    return browser, context_pw, page
+                observations.append(
+                    "United CDP page acquire inventory: " + " | ".join(_page_inventory(context_pw))
+                )
+
+        if attempt < attempts:
+            browser = _connect_cdp_browser(playwright, cdp_url, observations)
+            if browser is None:
+                return None, None, None
+
+    return browser, None, None
+
+
 def _dismiss_united_overlays(page: Any) -> None:
     for locator in (
         page.get_by_role("button", name=re.compile(r"accept cookies", re.IGNORECASE)),
@@ -585,6 +674,97 @@ def _set_united_travelers_only(page: Any, travelers: int) -> list[str]:
     return _set_united_travelers_and_cabin(page, travelers, cabin="")
 
 
+def _submit_united_booking_form(page: Any, observations: List[str]) -> bool:
+    js_submit = """() => {
+        const form = document.querySelector('#bookFlightForm');
+        if (!form) return false;
+        const button = form.querySelector(
+            "button[type='submit'][aria-label='Find flights'], button[type='submit']"
+        );
+        if (button) {
+            button.click();
+            return true;
+        }
+        if (typeof form.requestSubmit === 'function') {
+            form.requestSubmit();
+            return true;
+        }
+        if (typeof form.submit === 'function') {
+            form.submit();
+            return true;
+        }
+        return false;
+    }"""
+
+    try:
+        submitted = bool(page.evaluate(js_submit))
+    except Exception as exc:
+        observations.append(f"United homepage scoped form submit failed: {exc}")
+        submitted = False
+
+    if submitted:
+        observations.append("United homepage search: submitted scoped booking form")
+        return True
+
+    if _try_click_any(
+        page,
+        [
+            "#bookFlightForm button[type='submit'][aria-label='Find flights']",
+            "#bookFlightForm button[type='submit']",
+            "button[aria-label='Find flights']",
+            "button:has-text('Find flights')",
+        ],
+        timeout=5000,
+    ):
+        observations.append("United homepage search: clicked fallback booking submit")
+        return True
+
+    observations.append("United homepage search: search button not found")
+    return False
+
+
+def _wait_for_united_award_transition(
+    page: Any,
+    observations: List[str],
+    timeout_s: int = 20,
+) -> bool:
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        if not _page_is_live(page):
+            observations.append("United homepage submit lost the live page before award transition")
+            return False
+        try:
+            page.wait_for_load_state("domcontentloaded", timeout=2000)
+        except Exception:
+            pass
+        _dismiss_united_overlays(page)
+        try:
+            page_url = page.url or ""
+        except Exception:
+            page_url = ""
+        try:
+            body_text = page.locator("body").inner_text(timeout=2000)
+        except Exception:
+            body_text = ""
+        state = _page_state(page)
+
+        if "destination-map" in page_url:
+            observations.append("United homepage search drifted to destination map instead of award results")
+            return False
+        if "choose-flights" in page_url:
+            return True
+        if "Flight Search Results" in body_text:
+            return True
+        if _is_sign_in_visible(page) or _needs_miles_sign_in(page):
+            return True
+        if _looks_like_united_results_page(page, state, body_text):
+            return True
+        time.sleep(1)
+
+    observations.append("United homepage search did not transition to the award results flow")
+    return False
+
+
 def _submit_homepage_award_search(
     page: Any,
     origin: str,
@@ -643,29 +823,94 @@ def _submit_homepage_award_search(
 
     observations.extend(_set_united_travelers_only(page, travelers))
 
-    if not (
-        _try_click_any(
-            page,
-            [
-                "button[aria-label='Find flights']",
-                "button:has-text('Find flights')",
-            ],
-            timeout=5000,
-        )
-    ):
-        observations.append("United homepage search: search button not found")
+    if not _submit_united_booking_form(page, observations):
         return False
 
-    _wait_for_award_results(page, timeout_s=25)
-    state = _page_state(page)
-    try:
-        body_text = page.locator("body").inner_text(timeout=3000)
-    except Exception:
-        body_text = ""
-    if _looks_like_united_results_page(page, state, body_text):
-        return True
-    observations.append("United homepage search did not reach a reliable results page")
-    return False
+    return _wait_for_united_award_transition(page, observations, timeout_s=20)
+
+
+def _complete_homepage_award_flow(
+    page: Any,
+    browser: Any,
+    context_pw: Any,
+    context: Dict[str, Any],
+    observations: List[str],
+    *,
+    origin: str,
+    dest: str,
+    depart_date: date,
+    cabin: str,
+    travelers: int,
+    max_miles: int,
+    booking_url: str,
+    context_label: str,
+) -> Dict[str, Any] | None:
+    if not _submit_homepage_award_search(
+        page,
+        origin,
+        dest,
+        depart_date,
+        cabin,
+        travelers,
+        observations,
+    ):
+        return None
+
+    if not _page_is_live(page):
+        context_pw, page = _wait_for_active_united_page_in_browser(
+            browser,
+            current_context=context_pw,
+            current_page=page,
+            timeout_s=12,
+        )
+        if not _page_is_live(page):
+            observations.append(f"United {context_label} ended with no live page after submit")
+            return {
+                "mode": "live",
+                "real_data": False,
+                "matches": [],
+                "booking_url": booking_url,
+                "summary": "United award page closed before reliable results could be parsed.",
+                "raw_observations": observations,
+                "errors": ["No live United page available after submit"],
+            }
+
+    if _is_sign_in_visible(page) or _needs_miles_sign_in(page):
+        page, logged_in, login_error = _ensure_united_login(
+            page,
+            browser,
+            context_pw,
+            context,
+            observations,
+        )
+        if not logged_in:
+            observations.append(f"United {context_label} login gate: {login_error}")
+            if _page_is_live(page):
+                observations.extend(
+                    _capture_debug_artifacts(page, f"united_{context_label.replace(' ', '_')}_login_gate")
+                )
+            return None
+
+    _wait_for_award_results(page, timeout_s=40)
+    if not _page_is_live(page):
+        context_pw, page = _wait_for_active_united_page_in_browser(
+            browser,
+            current_context=context_pw,
+            current_page=page,
+            timeout_s=12,
+        )
+    return _finalize_united_result_page(
+        page,
+        observations,
+        origin=origin,
+        dest=dest,
+        depart_date=depart_date,
+        travelers=travelers,
+        cabin=cabin,
+        max_miles=max_miles,
+        booking_url=booking_url,
+        context_label=context_label,
+    )
 
 
 def _page_state(page: Any) -> Dict[str, Any]:
@@ -833,7 +1078,7 @@ def _extract_united_matches_from_text(
 
     fare_pattern = re.compile(
         r"(?P<miles>[\d.,]+k?)\s*miles\s*\+\s*\$(?P<taxes>\d+(?:\.\d{1,2})?)\s*"
-        r"(?P<notes>.*?)Select fare for (?P<label>Economy|Premium Economy|Business \(lowest\))",
+        r"(?P<notes>.*?)Select fare for (?P<label>Economy|Premium Economy|Business(?: \(lowest\))?)",
         re.IGNORECASE | re.DOTALL,
     )
 
@@ -1034,46 +1279,69 @@ def _finalize_united_result_page(
     )
     observations.append(f"United current URL: {page.url}")
 
+    def collect_matches(current_text: str) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        current_calendar_matches: List[Dict[str, Any]] = []
+        if cabin.lower().strip() in {"business", "first"} and view_config["sorted"]:
+            current_calendar_matches = _extract_united_calendar_matches_from_text(
+                current_text,
+                route=f"{origin}-{dest}",
+                travelers=travelers,
+                cabin=cabin,
+                max_miles=max_miles,
+            )
+            if current_calendar_matches and not view_config["mixed_hidden"]:
+                observations.append(
+                    "United calendar fares found before mixed-cabin hide could be confirmed; discarding them."
+                )
+            current_calendar_matches = []
+
+        current_matches = _extract_united_matches_from_text(
+            current_text,
+            route=f"{origin}-{dest}",
+            depart_date=depart_date,
+            travelers=travelers,
+            cabin=cabin,
+            max_miles=max_miles,
+        )
+        current_matches = _filter_united_matches(
+            current_matches,
+            cabin=cabin,
+            allow_mixed=allow_mixed,
+        )
+        if current_calendar_matches:
+            filtered_calendar_matches = _filter_united_matches(
+                current_calendar_matches,
+                cabin=cabin,
+                allow_mixed=False,
+            )
+            if filtered_calendar_matches and len(filtered_calendar_matches) >= 5:
+                return filtered_calendar_matches, filtered_calendar_matches
+            if filtered_calendar_matches and not current_matches:
+                return filtered_calendar_matches, filtered_calendar_matches
+            if filtered_calendar_matches and current_matches:
+                observations.append(
+                    "United calendar fares were incomplete; keeping detailed business rows instead."
+                )
+                return current_matches, filtered_calendar_matches
+            current_calendar_matches = filtered_calendar_matches
+        return current_matches, current_calendar_matches
+
     view_config = _configure_united_results_view(page, cabin, observations)
     if view_config["sorted"] or view_config["mixed_hidden"]:
         _wait_for_award_results(page, timeout_s=15)
 
     result_text = _collect_result_text(page)
     allow_mixed = cabin.lower().strip() == "economy"
-    calendar_matches = []
-    if cabin.lower().strip() in {"business", "first"} and view_config["sorted"]:
-        calendar_matches = _extract_united_calendar_matches_from_text(
-            result_text,
-            route=f"{origin}-{dest}",
-            travelers=travelers,
-            cabin=cabin,
-            max_miles=max_miles,
-        )
-        if calendar_matches and not view_config["mixed_hidden"]:
-            observations.append(
-                "United calendar fares found before mixed-cabin hide could be confirmed; discarding them."
-            )
-            calendar_matches = []
+    matches, calendar_matches = collect_matches(result_text)
 
-    matches = _extract_united_matches_from_text(
-        result_text,
-        route=f"{origin}-{dest}",
-        depart_date=depart_date,
-        travelers=travelers,
-        cabin=cabin,
-        max_miles=max_miles,
-    )
-    if not matches and _looks_like_united_results_page(page, state, result_text):
-        matches = extract_award_matches_from_text(
-            result_text,
-            route=f"{origin}-{dest}",
-            cabin=cabin,
-            travelers=travelers,
-            max_miles=max_miles,
+    if not matches and state["skeletons"] > 0:
+        observations.append(
+            f"United {context_label} still shows skeleton loaders; waiting one more time before giving up"
         )
-    matches = _filter_united_matches(matches, cabin=cabin, allow_mixed=allow_mixed)
-    if calendar_matches:
-        matches = _filter_united_matches(calendar_matches, cabin=cabin, allow_mixed=False)
+        _wait_for_award_results(page, timeout_s=25)
+        state = _page_state(page)
+        result_text = _collect_result_text(page)
+        matches, calendar_matches = collect_matches(result_text)
 
     if matches:
         best = min(match["miles"] for match in matches)
@@ -1132,7 +1400,6 @@ def _run_homepage_award_search(
     inputs: Dict[str, Any],
     observations: List[str],
 ) -> Dict[str, Any] | None:
-    del context
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
@@ -1147,52 +1414,37 @@ def _run_homepage_award_search(
     depart_date = date.today() + timedelta(days=int(inputs["days_ahead"]))
     award_url = _booking_url(origin, dest, depart_date, cabin, travelers, award=True)
     cdp_url = os.getenv("OPENCLAW_CDP_URL", "http://127.0.0.1:9222").strip() or "http://127.0.0.1:9222"
+    lock = _acquire_cdp_lock(cdp_url, observations)
+    if lock is None:
+        return None
 
-    page: Any | None = None
     try:
         with sync_playwright() as p:
-            browser = p.chromium.connect_over_cdp(cdp_url)
-            context_pw, _existing_page = _select_cdp_context(browser)
-            if context_pw is None:
-                observations.append("United homepage path found no usable CDP browser contexts")
-                return None
-
-            try:
-                page = context_pw.new_page()
-                observations.append("United homepage path opened a fresh page in the persistent CDP context")
-            except Exception as exc:
-                observations.append(f"United homepage path could not open a fresh page: {exc}")
-                page = _active_united_page(context_pw)
-                if _page_is_live(page):
-                    observations.append("United homepage path reusing an existing live page")
-            if not _page_is_live(page):
-                observations.append(
-                    "United homepage path found no reusable page in the selected CDP context: "
-                    + " | ".join(_page_inventory(context_pw))
-                )
+            browser, context_pw, page = _acquire_united_page(
+                p,
+                cdp_url,
+                observations,
+                fresh_note="United homepage path opened a fresh page in the persistent CDP context",
+                reuse_note="United homepage path reusing an existing live page",
+            )
+            if browser is None or context_pw is None or not _page_is_live(page):
+                observations.append("United homepage path found no usable CDP browser pages after retries")
                 return None
 
             page.set_default_timeout(15000)
             page.set_default_navigation_timeout(30000)
             observations.append("United trying deterministic homepage award search first")
-            if not _submit_homepage_award_search(
+            return _complete_homepage_award_flow(
                 page,
-                origin,
-                dest,
-                depart_date,
-                cabin,
-                travelers,
-                observations,
-            ):
-                return None
-            return _finalize_united_result_page(
-                page,
+                browser,
+                context_pw,
+                context,
                 observations,
                 origin=origin,
                 dest=dest,
                 depart_date=depart_date,
-                travelers=travelers,
                 cabin=cabin,
+                travelers=travelers,
                 max_miles=max_miles,
                 booking_url=award_url,
                 context_label="homepage search",
@@ -1201,9 +1453,8 @@ def _run_homepage_award_search(
         observations.append(f"United homepage path failed before a reliable result: {exc}")
         return None
     finally:
-        # CDP-attached United results pages can hang on close(); prefer reliability
-        # and prune stale tabs before later runs instead of forcing teardown here.
-        pass
+        lock.release()
+        observations.append(f"United CDP lock released: {lock.lock_file}")
 
 
 def _capture_debug_artifacts(page: Any, label: str) -> list[str]:
@@ -1551,37 +1802,34 @@ def _run_direct_award_search(
     depart_date = date.today() + timedelta(days=int(inputs["days_ahead"]))
     award_url = _booking_url(origin, dest, depart_date, cabin, travelers, award=True)
     cdp_url = os.getenv("OPENCLAW_CDP_URL", "http://127.0.0.1:9222").strip() or "http://127.0.0.1:9222"
+    lock = _acquire_cdp_lock(cdp_url, observations)
+    if lock is None:
+        return None
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.connect_over_cdp(cdp_url)
-            context_pw, existing_page = _select_cdp_context(browser)
-            if context_pw is None:
-                observations.append("Direct United path found no usable CDP browser contexts")
+            browser, context_pw, page = _acquire_united_page(
+                p,
+                cdp_url,
+                observations,
+                fresh_note="Direct United path opened a fresh page in the persistent CDP context",
+                reuse_note="Direct United path reusing an existing live page after fresh-page failure",
+            )
+            if browser is None or context_pw is None or not _page_is_live(page):
+                observations.append("Direct United path found no usable CDP browser pages after retries")
                 return None
 
             def reconnect_after_login() -> tuple[Any | None, Any | None, Any | None]:
-                fresh_browser = p.chromium.connect_over_cdp(cdp_url)
-                fresh_context, fresh_page = _select_cdp_context(fresh_browser)
+                fresh_browser, fresh_context, fresh_page = _acquire_united_page(
+                    p,
+                    cdp_url,
+                    observations,
+                    fresh_note="United direct path refreshed the CDP connection after login with a fresh page",
+                    reuse_note="United direct path refreshed the CDP connection by reusing an existing live page",
+                )
                 if fresh_context is not None:
                     observations.append("United direct path refreshed the CDP connection after login attempt")
                 return fresh_browser, fresh_context, fresh_page
-
-            page = existing_page
-            try:
-                page = context_pw.new_page()
-                observations.append("Direct United path opened a fresh page in the persistent CDP context")
-            except Exception as exc:
-                observations.append(f"Fresh CDP page unavailable in selected context: {exc}")
-                page = existing_page or _active_united_page(context_pw)
-                if page is not None:
-                    observations.append("Direct United path reusing an existing live page after fresh-page failure")
-            if not _page_is_live(page):
-                observations.append(
-                    "Direct United path found no reusable page in the selected CDP context: "
-                    + " | ".join(_page_inventory(context_pw))
-                )
-                return None
 
             page.set_default_timeout(15000)
             page.set_default_navigation_timeout(30000)
@@ -1589,27 +1837,22 @@ def _run_direct_award_search(
                 time.sleep(3)
                 _dismiss_united_overlays(page)
                 observations.append("United trying deterministic homepage award search first")
-                if _submit_homepage_award_search(
+                homepage_result = _complete_homepage_award_flow(
                     page,
-                    origin,
-                    dest,
-                    depart_date,
-                    cabin,
-                    travelers,
+                    browser,
+                    context_pw,
+                    context,
                     observations,
-                ):
-                    homepage_result = _finalize_united_result_page(
-                        page,
-                        observations,
-                        origin=origin,
-                        dest=dest,
-                        depart_date=depart_date,
-                        travelers=travelers,
-                        cabin=cabin,
-                        max_miles=max_miles,
-                        booking_url=award_url,
-                        context_label="homepage search",
-                    )
+                    origin=origin,
+                    dest=dest,
+                    depart_date=depart_date,
+                    cabin=cabin,
+                    travelers=travelers,
+                    max_miles=max_miles,
+                    booking_url=award_url,
+                    context_label="homepage search",
+                )
+                if homepage_result is not None:
                     if homepage_result.get("real_data"):
                         return homepage_result
                     observations.append(
@@ -1682,23 +1925,18 @@ def _run_direct_award_search(
                                 observations.append(
                                     f"United homepage fallback could not open a new page: {exc}"
                                 )
-                    if _page_is_live(page) and _submit_homepage_award_search(
-                        page,
-                        origin,
-                        dest,
-                        depart_date,
-                        cabin,
-                        travelers,
-                        observations,
-                    ):
-                        return _finalize_united_result_page(
+                    if _page_is_live(page):
+                        return _complete_homepage_award_flow(
                             page,
+                            browser,
+                            context_pw,
+                            context,
                             observations,
                             origin=origin,
                             dest=dest,
                             depart_date=depart_date,
-                            travelers=travelers,
                             cabin=cabin,
+                            travelers=travelers,
                             max_miles=max_miles,
                             booking_url=award_url,
                             context_label="homepage fallback",
@@ -1748,27 +1986,21 @@ def _run_direct_award_search(
                 observations.append(
                     "United direct award URL stalled on skeleton loaders; retrying via homepage submit"
                 )
-                if _submit_homepage_award_search(
+                return _complete_homepage_award_flow(
                     page,
-                    origin,
-                    dest,
-                    depart_date,
-                    cabin,
-                    travelers,
+                    browser,
+                    context_pw,
+                    context,
                     observations,
-                ):
-                    return _finalize_united_result_page(
-                        page,
-                        observations,
-                        origin=origin,
-                        dest=dest,
-                        depart_date=depart_date,
-                        travelers=travelers,
-                        cabin=cabin,
-                        max_miles=max_miles,
-                        booking_url=award_url,
-                        context_label="homepage fallback",
-                    )
+                    origin=origin,
+                    dest=dest,
+                    depart_date=depart_date,
+                    cabin=cabin,
+                    travelers=travelers,
+                    max_miles=max_miles,
+                    booking_url=award_url,
+                    context_label="homepage fallback",
+                )
             return _finalize_united_result_page(
                 page,
                 observations,
@@ -1785,9 +2017,8 @@ def _run_direct_award_search(
         observations.append(f"Direct United path failed before a reliable result: {exc}")
         return None
     finally:
-        # CDP-attached United results pages can hang on close(); prefer reliability
-        # and prune stale tabs before later runs instead of forcing teardown here.
-        pass
+        lock.release()
+        observations.append(f"United CDP lock released: {lock.lock_file}")
 
 
 def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:

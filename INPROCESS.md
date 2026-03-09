@@ -6,10 +6,10 @@ Use this file for short-lived cross-agent coordination so parallel work does not
 
 - `CDP browser`:
   - One browser automation at a time per endpoint.
-  - Lock file: `/tmp/browser_cdp.lock` (managed by BrowserAgent).
+  - Lock file: derived from endpoint port (`/tmp/browser_cdp_18810.lock`, `/tmp/browser_cdp_9226.lock`, etc.; managed by BrowserAgent).
   - Before long runs, note owner and target endpoint.
   - Current owner: none.
-  - Status: lock currently clear on `marcoss-mac-mini.local:9222` after the latest United probes; stale lock cleanup verified.
+  - Status: lock currently clear on `marcoss-mac-mini.local:18810` and `home-mind.local:9226`; stale lock cleanup must be verified before each live run.
 
 ## Current Work
 
@@ -22,6 +22,9 @@ Use this file for short-lived cross-agent coordination so parallel work does not
     - 2026-03-09 00:06 UTC: landed the first code-side fix for that pass. `library/united_award/runner.py` now treats the visible `Choose ... with fares starting at ...` strip as the 7-day calendar load signal, can extract those day fares, clicks United's `Business` sort + `Hide mixed cabin fares` controls before trusting calendar fares, and filters mixed-cabin business rows out of detailed results. Local targeted validation is clean (`pytest -q tests/test_award_runners.py tests/test_browser_agent_adapter.py`, `16 passed`), and replaying the saved `mac-mini` `united_postsuccess.txt` proves the parser now sees 7 calendar days plus only non-mixed business row fares.
     - 2026-03-09 00:12 UTC: investigating GitHub Actions failure for `E2E No-Login Smoke` run `22832993128`. Scope is limited to workflow-smoke breakage and any directly affected files; live CDP work remains untouched during this pass.
     - 2026-03-09 00:16 UTC: CI failure root cause was `ruff` F841 on two stale `created_page = True` assignments in `library/united_award/runner.py` from the latest United refactor. Removed the dead assignments only. Revalidated with `.venv/bin/ruff check`, `PYTHONPATH=src .venv/bin/python -m pytest -q tests/test_award_runners.py tests/test_browser_agent_adapter.py`, and `bash scripts/e2e_no_login_smoke.sh` locally; all passed.
+    - 2026-03-09 00:20 UTC: resumed live award-search reliability work. Current scope is `library/united_award/runner.py` plus any directly required helper/tests to eliminate the homepage submit/unwind drift and add explicit human-help escalation instead of hangs or false empties.
+    - 2026-03-09 00:41 UTC: resuming live award-search reliability work with per-endpoint CDP locks only. Current pass will verify `mac-mini:18810` and `home-mind:9226` health, keep airline auth on the stable cookied endpoint, and only use parallel runs across different endpoints.
+    - 2026-03-09 01:09 UTC: runtime aligned to per-endpoint CDP locks and stable host envs. mac-mini OpenClaw now uses `OPENCLAW_CDP_URL=http://127.0.0.1:18810` + `OPENCLAW_CDP_LOCK_FILE=/tmp/browser_cdp_18810.lock`; home-mind uses `OPENCLAW_CDP_LOCK_FILE=/tmp/browser_cdp_9226.lock`; home-mind assistant env now exports `MAC_MINI_OPENCLAW_CDP_URL=http://127.0.0.1:18810`. Validated locally: assistant lock-path tests (`7 passed`) and OpenClaw targeted suite (`21 passed`). Live United results on mac-mini: one locked run returned real data without re-triggering 2FA, and the saved page text now parses 6 business rows locally after widening the `Select fare for Business` regex. Remaining blocker: the United direct path can still hang after reaching the correct post-sort/post-filter URL (`st=MIN-BUSINESS-SURP-OR-DISP_ASC`, `mc=0`), so next pass should instrument or simplify the direct-path unwind instead of relying on it blindly.
     - No CDP endpoint currently claimed.
     - User confirmed this is the only active agent for the current pass; safe to proceed on `library/united_award/*` with repo-only changes before any new live browser run.
     - Latest deterministic United work:
