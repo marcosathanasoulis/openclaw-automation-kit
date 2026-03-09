@@ -5,7 +5,7 @@ import os
 import re
 import sys
 import time
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, List
 
 from openclaw_automation.browser_agent_adapter import browser_agent_enabled, run_browser_agent_goal
@@ -38,9 +38,69 @@ CITY_NAMES = {
     "TPE": "Taipei",
 }
 
+MONTH_ABBREVIATIONS = {
+    "jan": 1,
+    "feb": 2,
+    "mar": 3,
+    "apr": 4,
+    "may": 5,
+    "jun": 6,
+    "jul": 7,
+    "aug": 8,
+    "sep": 9,
+    "oct": 10,
+    "nov": 11,
+    "dec": 12,
+}
+
 
 def _booking_url(origin: str, dest: str, depart_date: date) -> str:
     return SIA_REDEEM_URL
+
+
+def _normalize_scraped_date(date_text: str, today: date) -> date | None:
+    value = (date_text or "").strip()
+    if not value or value.lower() == "flight":
+        return None
+
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(value, fmt).date()
+        except ValueError:
+            pass
+
+    match = re.search(r"(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+(\d{1,2})\s+([A-Za-z]{3})", value)
+    if not match:
+        match = re.search(r"\b(\d{1,2})\s+([A-Za-z]{3})\b", value)
+    if not match:
+        return None
+
+    day = int(match.group(1))
+    month = MONTH_ABBREVIATIONS.get(match.group(2).lower())
+    if not month:
+        return None
+
+    candidate = date(today.year, month, day)
+    if candidate < today - timedelta(days=30):
+        candidate = date(today.year + 1, month, day)
+    return candidate
+
+
+def _filter_results_to_window(
+    raw_results: List[Dict[str, Any]],
+    start_date: date,
+    end_date: date,
+) -> List[Dict[str, Any]]:
+    filtered: List[Dict[str, Any]] = []
+    for item in raw_results:
+        normalized = _normalize_scraped_date(str(item.get("date", "")), start_date)
+        if normalized is None:
+            continue
+        if start_date <= normalized <= end_date:
+            enriched = dict(item)
+            enriched["normalized_date"] = normalized.isoformat()
+            filtered.append(enriched)
+    return filtered
 
 
 def _login_goal() -> str:
@@ -444,7 +504,9 @@ def _run_hybrid(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, An
     cabin = str(inputs.get("cabin", "economy"))
     days_ahead = int(inputs["days_ahead"])
     mid_days = days_ahead
-    depart_date = date.today() + timedelta(days=mid_days)
+    today = date.today()
+    depart_date = today + timedelta(days=mid_days)
+    range_end = today + timedelta(days=days_ahead)
 
     # Phase 1: BrowserAgent login
     observations.append("Phase 1: BrowserAgent login")
@@ -536,13 +598,17 @@ def _run_hybrid(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, An
                 observations.append("Phase 3: Scraping results")
                 raw_results = _scrape_results(page, depart_date.month, depart_date.year)
                 observations.append(f"Scraped {len(raw_results)} date entries")
+                filtered_results = _filter_results_to_window(raw_results, today, range_end)
+                observations.append(
+                    f"Kept {len(filtered_results)} date entries within {today.isoformat()}..{range_end.isoformat()}"
+                )
 
                 book_url = _booking_url(origin, dest, depart_date)
-                for r in raw_results:
+                for r in filtered_results:
                     if r["miles"] > 0:
                         matches.append({
                             "route": f"{origin}-{dest}",
-                            "date": r["date"],
+                            "date": r["normalized_date"],
                             "miles": r["miles"],
                             "travelers": travelers,
                             "cabin": cabin,
