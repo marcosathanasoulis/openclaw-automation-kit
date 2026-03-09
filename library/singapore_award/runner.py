@@ -103,21 +103,65 @@ def _filter_results_to_window(
     return filtered
 
 
+def _search_anchor_days(days_ahead: int) -> int:
+    """Pick a search date near the middle of the requested window.
+
+    SIA only exposes a 7-day strip around the selected date. Centering longer
+    searches reduces the amount of paging needed to cover the full window.
+    """
+    if days_ahead <= 7:
+        return days_ahead
+    return min(14, max(7, days_ahead // 2))
+
+
+def _results_page_matches_search(
+    page_text: str,
+    origin: str,
+    dest: str,
+    travelers: int,
+    depart_date: date,
+) -> bool:
+    text = re.sub(r"\s+", " ", page_text or "").upper()
+    date_token = depart_date.strftime("%d %b").upper()
+    travelers_token = f"{travelers} ADULT" if travelers == 1 else f"{travelers} ADULTS"
+    return (
+        f"{origin}-{dest}" in text
+        and travelers_token in text
+        and "ONE WAY" in text
+        and date_token in text
+        and "SHOW FLIGHTS FOR" in text
+    )
+
+
 def _login_goal() -> str:
     return "\n".join([
         "Login to Singapore Airlines KrisFlyer.",
         "",
-        "1. Start from the Singapore Airlines English homepage.",
-        "2. If a cookie or privacy banner is visible, dismiss it first.",
-        "3. Use the visible Sign in / Log in / KrisFlyer control on the page.",
-        "   Do NOT rely on deprecated ppsclub-krisflyer login URLs.",
-        "4. If already logged in (you see a name, welcome message, or account menu), report done immediately.",
-        "5. KrisFlyer number: 8814147288",
-        "6. Get password from keychain for www.singaporeair.com.",
-        "7. Enter credentials and click login.",
-        "8. After successful login, navigate to: "
+        "STEP 1:",
+        "Start from the Singapore Airlines English homepage.",
+        "If a cookie or privacy banner is visible, dismiss it first.",
+        "",
+        "STEP 2:",
+        "Use the visible Sign in / Log in / KrisFlyer control on the page.",
+        "Do NOT rely on deprecated ppsclub-krisflyer login URLs.",
+        "If already logged in (you see a name, welcome message, or account menu), skip to STEP 5.",
+        "",
+        "STEP 3:",
+        "KrisFlyer number: 8814147288",
+        "Get password from keychain for www.singaporeair.com.",
+        "Enter the KrisFlyer number.",
+        "Enter the password.",
+        "",
+        "STEP 4:",
+        "After entering the password, EXPLICITLY click the visible Log in / Sign in / Submit button.",
+        "Do not stop after typing the password.",
+        "Wait 5 seconds for the post-login navigation to finish.",
+        "If the current tab becomes about:blank but another Singapore Airlines tab is open, continue on the real Singapore tab.",
+        "",
+        "STEP 5:",
+        "After successful login, navigate to: "
         "https://www.singaporeair.com/en_UK/us/home#/book/redeemflight",
-        "9. Use the done action when you see the redemption search form.",
+        "Use the done action only when you can see the redemption search form.",
     ])
 
 
@@ -503,7 +547,7 @@ def _run_hybrid(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, An
     travelers = int(inputs["travelers"])
     cabin = str(inputs.get("cabin", "economy"))
     days_ahead = int(inputs["days_ahead"])
-    mid_days = days_ahead
+    mid_days = _search_anchor_days(days_ahead)
     today = date.today()
     depart_date = today + timedelta(days=mid_days)
     range_end = today + timedelta(days=days_ahead)
@@ -574,18 +618,35 @@ def _run_hybrid(inputs: Dict[str, Any], observations: List[str]) -> Dict[str, An
             if page is None:
                 page = context.new_page()
 
-            # Two-step navigation: homepage first (loads Angular), then redeem hash
-            homepage = "https://www.singaporeair.com/en_UK/us/home"
-            page.goto(homepage, wait_until="domcontentloaded", timeout=30000)
-            time.sleep(6)
-            page.goto(SIA_REDEEM_URL, wait_until="domcontentloaded", timeout=30000)
-            time.sleep(5)
+            existing_text = ""
+            try:
+                existing_text = page.locator("body").inner_text(timeout=5000)
+            except Exception:
+                existing_text = ""
+
+            already_on_matching_results = (
+                "loadFlightSearchPage.form" in page.url
+                and _results_page_matches_search(existing_text, origin, dest, travelers, depart_date)
+            )
+
+            if already_on_matching_results:
+                observations.append("Reusing already-open Singapore redemption results page")
+            else:
+                # Two-step navigation: homepage first (loads Angular), then redeem hash
+                homepage = "https://www.singaporeair.com/en_UK/us/home"
+                page.goto(homepage, wait_until="domcontentloaded", timeout=30000)
+                time.sleep(6)
+                page.goto(SIA_REDEEM_URL, wait_until="domcontentloaded", timeout=30000)
+                time.sleep(5)
 
             observations.append(f"Playwright connected, page URL: {page.url}")
 
-            form_result = _fill_form_and_search(
-                page, origin, dest, cabin, travelers, depart_date,
-            )
+            if already_on_matching_results:
+                form_result = {"ok": True, "errors": []}
+            else:
+                form_result = _fill_form_and_search(
+                    page, origin, dest, cabin, travelers, depart_date,
+                )
             if form_result.get("errors"):
                 errors.extend(form_result["errors"])
                 for e in form_result["errors"]:
@@ -682,7 +743,7 @@ def _goal(inputs: Dict[str, Any]) -> str:
     cabin = str(inputs.get("cabin", "economy"))
     cabin_display = CABIN_MAP.get(cabin, cabin.title())
     days_ahead = int(inputs["days_ahead"])
-    mid_days = days_ahead
+    mid_days = _search_anchor_days(days_ahead)
     depart_date = date.today() + timedelta(days=mid_days)
     range_end = date.today() + timedelta(days=days_ahead)
     travelers = int(inputs["travelers"])
