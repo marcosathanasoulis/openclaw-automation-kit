@@ -11,8 +11,8 @@ from typing import Any, Dict, List
 from openclaw_automation.browser_agent_adapter import browser_agent_enabled, run_browser_agent_goal
 from openclaw_automation.adaptive import adaptive_run
 
-SIA_URL = "https://www.singaporeair.com"
-SIA_LOGIN_URL = "https://www.singaporeair.com/en_UK/us/ppsclub-krisflyer/login/"
+SIA_URL = "https://www.singaporeair.com/en_UK/us/home"
+SIA_LOGIN_URL = SIA_URL
 SIA_REDEEM_URL = "https://www.singaporeair.com/en_UK/us/home#/book/redeemflight"
 
 CABIN_MAP = {
@@ -47,14 +47,17 @@ def _login_goal() -> str:
     return "\n".join([
         "Login to Singapore Airlines KrisFlyer.",
         "",
-        "1. Go to the login page if not already there.",
-        "2. KrisFlyer number: 8814147288",
-        "3. Get password from keychain for www.singaporeair.com.",
-        "4. Enter credentials and click login.",
-        "5. If already logged in (you see a name or welcome message), report done immediately.",
-        "6. After successful login, navigate to: "
+        "1. Start from the Singapore Airlines English homepage.",
+        "2. If a cookie or privacy banner is visible, dismiss it first.",
+        "3. Use the visible Sign in / Log in / KrisFlyer control on the page.",
+        "   Do NOT rely on deprecated ppsclub-krisflyer login URLs.",
+        "4. If already logged in (you see a name, welcome message, or account menu), report done immediately.",
+        "5. KrisFlyer number: 8814147288",
+        "6. Get password from keychain for www.singaporeair.com.",
+        "7. Enter credentials and click login.",
+        "8. After successful login, navigate to: "
         "https://www.singaporeair.com/en_UK/us/home#/book/redeemflight",
-        "7. Use the done action when you see the redemption search form.",
+        "9. Use the done action when you see the redemption search form.",
     ])
 
 
@@ -67,6 +70,83 @@ def _click_suggest_item(page: Any, text: str, timeout: int = 5000) -> bool:
         return True
     except Exception:
         return False
+
+
+def _first_visible(candidates: list[Any]) -> Any | None:
+    for candidate in candidates:
+        try:
+            locator = candidate.first
+        except Exception:
+            locator = candidate
+        try:
+            if locator.is_visible():
+                return locator
+        except Exception:
+            continue
+    return None
+
+
+def _dismiss_overlays(page: Any) -> None:
+    """Dismiss cookie/promo overlays that block the redemption widget."""
+    try:
+        page.evaluate("""() => {
+            const clickIf = (selector) => {
+                const el = document.querySelector(selector);
+                if (el) el.click();
+            };
+            clickIf('button.dwc--SiaCookie__PopupClose');
+            clickIf('.cookie-accept-btn');
+            for (const el of document.querySelectorAll('button,a')) {
+                const text = (el.innerText || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+                if (text === 'accept' || text === 'close' || text === 'ok' || text === \"don't show me again\") {
+                    el.click();
+                }
+            }
+            for (const selector of ['.dwc--SiaCookie__Popup', '.cookie-overlay', '.cookie-banner']) {
+                const overlay = document.querySelector(selector);
+                if (overlay) overlay.remove();
+            }
+        }""")
+        time.sleep(1)
+    except Exception:
+        pass
+
+    for selector in (
+        "button:has-text('Close')",
+        "button:has-text('OK')",
+        "text=ACCEPT",
+        "text=Don't show me again",
+    ):
+        try:
+            button = page.locator(selector).first
+            if button.is_visible(timeout=1000):
+                button.click(timeout=2000)
+                time.sleep(0.5)
+        except Exception:
+            continue
+
+    try:
+        page.keyboard.press("Escape")
+        time.sleep(0.5)
+    except Exception:
+        pass
+
+
+def _wait_for_redeem_widget(page: Any, timeout: int = 15000) -> bool:
+    """Wait for the live redemption widget, not the legacy form wrapper."""
+    required = [
+        "input[name='flightOrigin']",
+        "input[name='redeemFlightDestination']",
+        "input[name='departDate']",
+        "input[name='flightClass']",
+        "input[name='flightPassengers']",
+    ]
+    for selector in required:
+        try:
+            page.locator(selector).first.wait_for(state="visible", timeout=timeout)
+        except Exception:
+            return False
+    return True
 
 
 def _fill_form_and_search(
@@ -85,36 +165,22 @@ def _fill_form_and_search(
     date_str = depart_date.strftime("%Y-%m-%d")
     errors: List[str] = []
 
-    try:
-        page.wait_for_selector("form.redeem-flight", timeout=15000)
-    except Exception:
-        return {"ok": False, "error": "Form not found after login", "errors": ["form.redeem-flight not found"]}
-
-    # Dismiss cookie popup
-    try:
-        page.evaluate("""() => {
-            let btn = document.querySelector('button.dwc--SiaCookie__PopupClose, button:has-text("ACCEPT"), .cookie-accept-btn');
-            if (btn) btn.click();
-            let overlay = document.querySelector('.dwc--SiaCookie__Popup, .cookie-overlay, .cookie-banner');
-            if (overlay) overlay.remove();
-        }""")
-        time.sleep(1)
-    except Exception:
-        pass
+    _dismiss_overlays(page)
 
     try:
-        accept_btn = page.locator("text=ACCEPT").first
-        if accept_btn.is_visible(timeout=2000):
-            accept_btn.click(timeout=3000)
+        redeem_radio = page.locator("input#redeemFlights").first
+        if redeem_radio.count() > 0 and not redeem_radio.is_checked():
+            page.locator("label[for='redeemFlights']").first.click(timeout=3000)
             time.sleep(1)
     except Exception:
         pass
 
-    try:
-        page.keyboard.press("Escape")
-        time.sleep(0.5)
-    except Exception:
-        pass
+    if not _wait_for_redeem_widget(page, timeout=15000):
+        return {
+            "ok": False,
+            "error": "Form not found after login",
+            "errors": ["redeem widget fields not found"],
+        }
 
     try:
         # --- Origin field ---
@@ -215,9 +281,15 @@ def _fill_form_and_search(
 
         # --- Click Search ---
         time.sleep(3)
-        search_btn = page.locator("form.redeem-flight button[type='submit']")
-        if search_btn.count() > 0:
-            search_btn.first.click()
+        search_btn = _first_visible(
+            [
+                page.locator("form.redeem-flight button[type='submit']"),
+                page.locator("button.btn.btn-primary:has-text('SEARCH')"),
+                page.locator("button:has-text('SEARCH')"),
+            ]
+        )
+        if search_btn:
+            search_btn.click()
         else:
             errors.append("Search button not found")
             return {"ok": False, "error": "Search button not found", "errors": errors}
