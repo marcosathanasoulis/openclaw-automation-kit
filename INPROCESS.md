@@ -18,6 +18,8 @@ Use this file for short-lived cross-agent coordination so parallel work does not
   - Files: `INPROCESS.md`, `src/openclaw_automation/browser_agent_adapter.py`, `src/openclaw_automation/adaptive.py`, `src/openclaw_automation/engine.py`, `library/united_award/runner.py`, `tests/test_award_runners.py`, `tests/test_browser_agent_adapter.py`, `tests/test_public_page_example.py`, `scripts/e2e_no_login_smoke.sh`
   - Status: IN PROGRESS
   - Coordination notes:
+    - 2026-03-08 23:54 UTC: current pass is limited to `library/united_award/runner.py` + `tests/test_award_runners.py` to make the homepage flow wait for the 7-day calendar and enforce non-mixed business extraction. No other agent should edit those files during this pass.
+    - 2026-03-09 00:06 UTC: landed the first code-side fix for that pass. `library/united_award/runner.py` now treats the visible `Choose ... with fares starting at ...` strip as the 7-day calendar load signal, can extract those day fares, clicks United's `Business` sort + `Hide mixed cabin fares` controls before trusting calendar fares, and filters mixed-cabin business rows out of detailed results. Local targeted validation is clean (`pytest -q tests/test_award_runners.py tests/test_browser_agent_adapter.py`, `16 passed`), and replaying the saved `mac-mini` `united_postsuccess.txt` proves the parser now sees 7 calendar days plus only non-mixed business row fares.
     - No CDP endpoint currently claimed.
     - User confirmed this is the only active agent for the current pass; safe to proceed on `library/united_award/*` with repo-only changes before any new live browser run.
     - Latest deterministic United work:
