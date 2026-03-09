@@ -1148,7 +1148,6 @@ def _run_homepage_award_search(
     award_url = _booking_url(origin, dest, depart_date, cabin, travelers, award=True)
     cdp_url = os.getenv("OPENCLAW_CDP_URL", "http://127.0.0.1:9222").strip() or "http://127.0.0.1:9222"
 
-    created_page = False
     page: Any | None = None
     try:
         with sync_playwright() as p:
@@ -1160,7 +1159,6 @@ def _run_homepage_award_search(
 
             try:
                 page = context_pw.new_page()
-                created_page = True
                 observations.append("United homepage path opened a fresh page in the persistent CDP context")
             except Exception as exc:
                 observations.append(f"United homepage path could not open a fresh page: {exc}")
@@ -1570,10 +1568,8 @@ def _run_direct_award_search(
                 return fresh_browser, fresh_context, fresh_page
 
             page = existing_page
-            created_page = False
             try:
                 page = context_pw.new_page()
-                created_page = True
                 observations.append("Direct United path opened a fresh page in the persistent CDP context")
             except Exception as exc:
                 observations.append(f"Fresh CDP page unavailable in selected context: {exc}")
@@ -1679,7 +1675,6 @@ def _run_direct_award_search(
                         if not _page_is_live(page):
                             try:
                                 page = context_pw.new_page()
-                                created_page = True
                                 observations.append(
                                     "United homepage fallback reopened a fresh page after direct miles gate"
                                 )
@@ -1729,7 +1724,6 @@ def _run_direct_award_search(
             if not _page_is_live(page):
                 try:
                     page = context_pw.new_page()
-                    created_page = True
                     observations.append("United direct path reopened a fresh page after results target loss")
                 except Exception as exc:
                     observations.append(f"United could not reopen a page after results target loss: {exc}")
