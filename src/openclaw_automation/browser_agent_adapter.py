@@ -56,6 +56,7 @@ def run_browser_agent_goal(
     max_steps: int,
     trace: bool = True,
     use_vision: bool = True,
+    preferred_account: str | None = None,
 ) -> Dict[str, Any]:
     """Run an external BrowserAgent implementation, if available.
 
@@ -110,6 +111,8 @@ def run_browser_agent_goal(
         )
         if accepts_kwargs or "send_updates" in init_signature.parameters:
             init_kwargs["send_updates"] = send_updates
+        if preferred_account and (accepts_kwargs or "preferred_account" in init_signature.parameters):
+            init_kwargs["preferred_account"] = preferred_account
         agent = agent_cls(**init_kwargs)
         result = agent.run()
         payload = {"ok": True, "error": None, "result": result}

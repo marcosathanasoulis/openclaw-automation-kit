@@ -114,3 +114,21 @@ def test_adapter_allows_env_to_disable_trace(monkeypatch):
     )
     assert _FakeBrowserAgent.last_kwargs is not None
     assert _FakeBrowserAgent.last_kwargs["trace"] is False
+
+
+def test_adapter_passes_preferred_account_when_supported(monkeypatch):
+    fake_module = types.SimpleNamespace(BrowserAgent=_FakeBrowserAgent)
+    monkeypatch.setenv("OPENCLAW_BROWSER_AGENT_MODULE", "fake_browser_agent")
+    monkeypatch.setitem(sys.modules, "fake_browser_agent", fake_module)
+
+    run_browser_agent_goal(
+        goal="test goal",
+        url="https://example.com",
+        max_steps=3,
+        trace=False,
+        use_vision=False,
+        preferred_account="ka388724",
+    )
+
+    assert _FakeBrowserAgent.last_kwargs is not None
+    assert _FakeBrowserAgent.last_kwargs["preferred_account"] == "ka388724"

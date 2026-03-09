@@ -76,24 +76,35 @@ def _goal(inputs: Dict[str, Any]) -> str:
     travelers = int(inputs["travelers"])
     cabin = str(inputs.get("cabin", "economy"))
     depart_date = date.today() + timedelta(days=int(inputs["days_ahead"]))
-    award_url = _booking_url(origin, dest, depart_date, cabin, travelers, award=True)
+    date_label = depart_date.strftime("%B %-d, %Y")
+    business_filter_note = ""
+    if cabin.lower().strip() == "business":
+        business_filter_note = (
+            "5. On the results page, select the Business fare view and hide mixed cabin fares before reading any prices.\n"
+            "6. Wait for the 7-day strip to finish loading after those filters apply.\n"
+        )
 
     return "\n".join(
         [
-            f"Search for United award flights {origin} to {dest}, {travelers} adult(s), {cabin} class.",
-            f"Use the real award results path: {award_url}",
+            f"Search for United award flights {origin} to {dest}, {travelers} adult(s), {cabin} class on {date_label}.",
             "",
-            "If a sign-in modal is visible:",
-            "1. If you see a masked MileagePlus number or an invalid-account error, click 'Switch accounts' first.",
-            "2. Use credentials for www.united.com.",
-            "3. Keep 'Remember me' checked.",
-            f"4. If SMS 2FA is requested, use read_sms_code sender={UNITED_SMS_SENDER} and do not require a keyword match.",
-            "5. After login, wait for the award results to finish loading.",
+            "Use the United homepage search form, not a hand-built award URL.",
+            "1. If a sign-in modal is visible, click 'Switch accounts' first if a masked account or invalid-account error is shown.",
+            f"2. Use credentials for www.united.com account {DEFAULT_MILEAGEPLUS_USERNAME} and keep 'Remember me' or 'Remember this browser' checked.",
+            f"3. If SMS 2FA is requested, use read_sms_code sender={UNITED_SMS_SENDER} and do not require a keyword match.",
+            "4. On the homepage form, select One-way and Book with miles, then set:",
+            f"   - From: {origin}",
+            f"   - To: {dest}",
+            f"   - Depart date: {depart_date.strftime('%m/%d/%Y')}",
+            f"   - Travelers: {travelers} adults",
+            f"   - Cabin: {cabin}",
+            "   Submit the search and wait for results to load.",
+            business_filter_note.rstrip(),
             "",
             "Then:",
             "- Take a screenshot.",
             "- Done.",
-            "- Report whether you see miles prices, a real no-results state, or a blocking error.",
+            "- Report whether you see miles prices, a real no-results state, or a blocking error or CAPTCHA.",
             "- If you see award prices, format them as MATCH|YYYY-MM-DD|MILES|TAXES|STOPS|United|notes",
             "  so the parser can extract them reliably.",
         ]
@@ -182,9 +193,9 @@ def _resolve_united_credentials(context: Dict[str, Any]) -> tuple[str, str]:
                 creds = get_credentials("www.united.com", username)
                 if not creds:
                     creds = get_credentials("united.com", username)
-            if not creds:
+            if not creds and not username:
                 creds = get_credentials("www.united.com")
-            if not creds:
+            if not creds and not username:
                 creds = get_credentials("united.com")
             if creds:
                 username = username or str(creds[0]).strip()
@@ -251,6 +262,29 @@ def _fill(locator: Any, value: str) -> bool:
             return False
 
 
+def _set_input_value(locator: Any, value: str) -> bool:
+    try:
+        locator.evaluate(
+            """(el, nextValue) => {
+                if (!el) return false;
+                el.focus();
+                if ('value' in el) {
+                    el.value = '';
+                    el.value = nextValue;
+                } else {
+                    el.textContent = nextValue;
+                }
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+                return true;
+            }""",
+            value,
+        )
+        return True
+    except Exception:
+        return False
+
+
 def _try_click_selector(page: Any, selector: str, timeout: int = 3000) -> bool:
     try:
         locator = page.locator(selector)
@@ -280,11 +314,41 @@ def _try_click_any(page: Any, selectors: list[str], timeout: int = 3000) -> bool
     return False
 
 
+def _iter_selector_candidates(page: Any, selectors: list[str]) -> list[Any]:
+    candidates: list[Any] = []
+    seen: set[tuple[str, int]] = set()
+    for selector in selectors:
+        try:
+            locator = page.locator(selector)
+            count = locator.count()
+        except Exception:
+            continue
+        for idx in range(min(count, 12)):
+            try:
+                candidate = locator.nth(idx)
+                if not candidate.is_visible():
+                    continue
+            except Exception:
+                continue
+            key = (selector, idx)
+            if key in seen:
+                continue
+            seen.add(key)
+            candidates.append(candidate)
+    return candidates
+
+
 def _fill_selector(page: Any, selectors: list[str], value: str) -> bool:
-    locator = _first_visible([page.locator(selector) for selector in selectors])
-    if not locator:
-        return False
-    return _fill(locator, value)
+    for locator in _iter_selector_candidates(page, selectors):
+        if _fill(locator, value):
+            return True
+        if _set_input_value(locator, value):
+            return True
+    return False
+
+
+def _env_true(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _goto_with_retry(page: Any, url: str, observations: List[str], attempts: int = 3) -> bool:
@@ -310,7 +374,19 @@ def _page_is_live(page: Any | None) -> bool:
         return False
 
 
+def _page_has_host(page: Any | None, host: str = "united.com") -> bool:
+    if not _page_is_live(page):
+        return False
+    try:
+        return host in ((page.url or "").lower())
+    except Exception:
+        return False
+
+
 def _active_united_page(context_pw: Any, current_page: Any | None = None) -> Any | None:
+    if _page_has_host(current_page):
+        return current_page
+
     try:
         pages = list(context_pw.pages)
     except Exception:
@@ -388,6 +464,8 @@ def _wait_for_active_united_page_in_browser(
     deadline = time.time() + max(timeout_s, 0.0)
     context = current_context
     page = current_page if _page_is_live(current_page) else None
+    if _page_has_host(page, preferred_host):
+        return context, page
     while time.time() <= deadline:
         found_context, found_page = _select_cdp_context(browser, preferred_host=preferred_host)
         if found_context is not None:
@@ -495,6 +573,36 @@ def _is_sign_in_visible(page: Any) -> bool:
             ]
         )
     )
+
+
+def _close_united_sign_in_modal(page: Any, observations: List[str], attempts: int = 3) -> bool:
+    if not _is_sign_in_visible(page):
+        return True
+
+    for _ in range(max(attempts, 1)):
+        if _try_click_any(
+            page,
+            [
+                "button[aria-label='Close']",
+                "button[aria-label*='Close']",
+                "button:has-text('Close')",
+                "[role='button'][aria-label='Close']",
+            ],
+            timeout=1500,
+        ):
+            time.sleep(1)
+        try:
+            page.keyboard.press("Escape")
+            time.sleep(0.5)
+        except Exception:
+            pass
+        _dismiss_united_overlays(page)
+        if not _is_sign_in_visible(page):
+            observations.append("United homepage search: dismissed sign-in modal")
+            return True
+
+    observations.append("United homepage search: sign-in modal remained visible")
+    return False
 
 
 def _needs_miles_sign_in(page: Any) -> bool:
@@ -779,6 +887,7 @@ def _submit_homepage_award_search(
     time.sleep(3)
     _dismiss_united_overlays(page)
     _try_click_any(page, ["a:has-text('Accept cookies')", "text=/Accept cookies/i"], timeout=1500)
+    _close_united_sign_in_modal(page, observations)
 
     _try_click_selector(page, "#radiofield-item-id-flightType-1")
     _try_click_selector(page, "label:has-text('One-way')")
@@ -793,7 +902,13 @@ def _submit_homepage_award_search(
 
     if not _fill_selector(
         page,
-        ["#bookFlightOriginInput", "input[id='bookFlightOriginInput']"],
+        [
+            "#bookFlightOriginInput",
+            "input[id='bookFlightOriginInput']",
+            "input[name='bookFlightOriginInput']",
+            "input[aria-label*='From']",
+            "input[placeholder*='From']",
+        ],
         origin,
     ):
         observations.append("United homepage search: origin field not found")
@@ -806,7 +921,15 @@ def _submit_homepage_award_search(
 
     if not _fill_selector(
         page,
-        ["#bookFlightDestinationInput", "input[id='bookFlightDestinationInput']"],
+        [
+            "#bookFlightDestinationInput",
+            "input[id='bookFlightDestinationInput']",
+            "input[name='bookFlightDestinationInput']",
+            "input[aria-label*='To']",
+            "input[placeholder*='To']",
+            "input[aria-label*='Destination']",
+            "input[placeholder*='Destination']",
+        ],
         dest,
     ):
         observations.append("United homepage search: destination field not found")
@@ -821,7 +944,7 @@ def _submit_homepage_award_search(
         observations.append("United homepage search: depart date field not found")
         return False
 
-    observations.extend(_set_united_travelers_only(page, travelers))
+    observations.extend(_set_united_travelers_and_cabin(page, travelers, cabin))
 
     if not _submit_united_booking_form(page, observations):
         return False
@@ -1279,7 +1402,9 @@ def _finalize_united_result_page(
     )
     observations.append(f"United current URL: {page.url}")
 
-    def collect_matches(current_text: str) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    def collect_matches(
+        current_text: str,
+    ) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
         current_calendar_matches: List[Dict[str, Any]] = []
         if cabin.lower().strip() in {"business", "first"} and view_config["sorted"]:
             current_calendar_matches = _extract_united_calendar_matches_from_text(
@@ -1293,7 +1418,7 @@ def _finalize_united_result_page(
                 observations.append(
                     "United calendar fares found before mixed-cabin hide could be confirmed; discarding them."
                 )
-            current_calendar_matches = []
+                current_calendar_matches = []
 
         current_matches = _extract_united_matches_from_text(
             current_text,
@@ -1308,6 +1433,7 @@ def _finalize_united_result_page(
             cabin=cabin,
             allow_mixed=allow_mixed,
         )
+        detail_matches = list(current_matches)
         if current_calendar_matches:
             filtered_calendar_matches = _filter_united_matches(
                 current_calendar_matches,
@@ -1315,16 +1441,16 @@ def _finalize_united_result_page(
                 allow_mixed=False,
             )
             if filtered_calendar_matches and len(filtered_calendar_matches) >= 5:
-                return filtered_calendar_matches, filtered_calendar_matches
+                return filtered_calendar_matches, detail_matches, filtered_calendar_matches
             if filtered_calendar_matches and not current_matches:
-                return filtered_calendar_matches, filtered_calendar_matches
+                return filtered_calendar_matches, detail_matches, filtered_calendar_matches
             if filtered_calendar_matches and current_matches:
                 observations.append(
                     "United calendar fares were incomplete; keeping detailed business rows instead."
                 )
-                return current_matches, filtered_calendar_matches
+                return current_matches, detail_matches, filtered_calendar_matches
             current_calendar_matches = filtered_calendar_matches
-        return current_matches, current_calendar_matches
+        return current_matches, detail_matches, current_calendar_matches
 
     view_config = _configure_united_results_view(page, cabin, observations)
     if view_config["sorted"] or view_config["mixed_hidden"]:
@@ -1332,7 +1458,7 @@ def _finalize_united_result_page(
 
     result_text = _collect_result_text(page)
     allow_mixed = cabin.lower().strip() == "economy"
-    matches, calendar_matches = collect_matches(result_text)
+    matches, detail_matches, calendar_matches = collect_matches(result_text)
 
     if not matches and state["skeletons"] > 0:
         observations.append(
@@ -1341,7 +1467,7 @@ def _finalize_united_result_page(
         _wait_for_award_results(page, timeout_s=25)
         state = _page_state(page)
         result_text = _collect_result_text(page)
-        matches, calendar_matches = collect_matches(result_text)
+        matches, detail_matches, calendar_matches = collect_matches(result_text)
 
     if matches:
         best = min(match["miles"] for match in matches)
@@ -1349,6 +1475,8 @@ def _finalize_united_result_page(
             "mode": "live",
             "real_data": True,
             "matches": matches,
+            "detail_matches": detail_matches,
+            "calendar_matches": calendar_matches,
             "booking_url": booking_url,
             "summary": (
                 f"United {context_label}: {len(matches)} flight(s) found. "
@@ -2043,22 +2171,25 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
     award_url = _booking_url(
         inputs["from"], destinations[0], depart_date, cabin, travelers, award=True,
     )
+    homepage_result: Dict[str, Any] | None = None
+    browser_agent_error = ""
 
     homepage_result = _run_homepage_award_search(context, inputs, observations)
     if homepage_result is not None:
-        return homepage_result
-
-    direct_result = _run_direct_award_search(context, inputs, observations)
-    if direct_result is not None:
-        return direct_result
+        if homepage_result.get("real_data"):
+            return homepage_result
+        observations.append(
+            "United homepage-first path did not return reliable data; trying fallback automation before returning failure."
+        )
 
     if browser_agent_enabled():
         agent_run = run_browser_agent_goal(
             goal=_goal(inputs),
-            url=award_url,
+            url=UNITED_URL,
             max_steps=60,
             trace=True,
             use_vision=True,
+            preferred_account=DEFAULT_MILEAGEPLUS_USERNAME,
         )
         if agent_run["ok"]:
             run_result = agent_run.get("result") or {}
@@ -2095,7 +2226,30 @@ def run(context: Dict[str, Any], inputs: Dict[str, Any]) -> Dict[str, Any]:
                 "raw_observations": observations,
                 "errors": [],
             }
-        observations.append(f"BrowserAgent fallback error: {agent_run['error']}")
+        browser_agent_error = str(agent_run["error"])
+        observations.append(f"BrowserAgent fallback error: {browser_agent_error}")
+
+    if _env_true("OPENCLAW_UNITED_ENABLE_DIRECT_PATH"):
+        observations.append("United direct award URL path enabled explicitly for this run")
+        direct_result = _run_direct_award_search(context, inputs, observations)
+        if direct_result is not None:
+            return direct_result
+    else:
+        observations.append("United direct award URL path disabled by default; skipping diagnostic direct flow")
+
+    if homepage_result is not None:
+        return homepage_result
+
+    if browser_agent_error:
+        return {
+            "mode": "live",
+            "real_data": False,
+            "matches": [],
+            "booking_url": award_url,
+            "summary": "United live automation reached a blocked or unreliable state before reliable award results were available.",
+            "raw_observations": observations,
+            "errors": [browser_agent_error],
+        }
 
     print(
         "WARNING: BrowserAgent not enabled. Results are placeholder data.",
