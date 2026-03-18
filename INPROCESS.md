@@ -232,6 +232,17 @@ Use this file for short-lived cross-agent coordination so parallel work does not
   - Validation: `pytest -q tests/test_imessage_guardrails.py` (2 passed)
   - Note: Restrict outbound to Marcos only (`+14152268266`, `marcos@athanasoulis.net`) unless explicitly expanded.
 
+- `codex/disable-daily-award-scan`
+  - Task: disable the recurring airline test run and keep award searches on-demand only.
+  - Files: `INPROCESS.md`, `scripts/run_daily_award_scan.sh`, `.env.example`, `docs/CONFIGURATION.md`
+  - Status: COMPLETE
+  - Validation:
+    - `bash -n scripts/run_daily_award_scan.sh`
+    - `com.athanasoulis.daily-award-search` disabled in macOS launchd
+  - Deployment:
+    - `~/Library/LaunchAgents/com.athanasoulis.daily-award-search.plist` moved to `~/Library/LaunchAgents.disabled/com.athanasoulis.daily-award-search.plist.disabled` on `marcoss-mac-mini.local`
+    - `OPENCLAW_ENABLE_DAILY_AWARD_SCAN=false` written to `~/openclaw-automation-kit/.env` on `marcoss-mac-mini.local`
+
 - **claude/daily-award-scan** (Claude Opus agent, Feb 16-17)
   - Task: Daily automated award search for June 2026 across 6 airlines
   - Commits on main: 2ac377c (runners), e1527d1 (daily scan), 348652d (fix), f7e8f9f (lint)

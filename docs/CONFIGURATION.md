@@ -85,6 +85,11 @@ To use the mock agent:
   - Recommended: `+14152268266,marcos@athanasoulis.net`
 - `OPENCLAW_IMESSAGE_AGENT_LABEL`
   - Prefix added to outbound messages to distinguish this agent (default: `[OpenClaw Parallel]`).
+- `OPENCLAW_ENABLE_DAILY_AWARD_SCAN`
+  - Gate for the scheduled `scripts/run_daily_award_scan.sh` wrapper.
+  - Default/recommended: `false`
+  - Set to `true` only if you explicitly want a recurring launchd-driven scan.
+  - Manual/on-demand searches are unaffected.
 
 ### WhatsApp Cloud API
 - `WHATSAPP_PHONE_NUMBER_ID`
