@@ -778,8 +778,6 @@ def _count_united_calendar_days(text: str) -> int:
 
 def _wait_for_award_results(page: Any, timeout_s: int = 60) -> None:
     deadline = time.time() + timeout_s
-    prev_calendar_days = -1
-    stable_polls = 0
     while time.time() < deadline:
         if not _page_is_live(page):
             return
@@ -791,29 +789,16 @@ def _wait_for_award_results(page: Any, timeout_s: int = 60) -> None:
         state = _page_state(page)
         if state["flight_cards"] or state["no_results"]:
             return
+        if state["skeletons"] < 40 and state["miles_mentions"] >= 20:
+            return
         try:
             body_text = page.locator("body").inner_text(timeout=2000)
         except Exception:
             body_text = ""
-        calendar_days = _count_united_calendar_days(body_text)
-        # Full 7-day strip rendered — safe to parse immediately.
-        if calendar_days >= 7:
+        if _count_united_calendar_days(body_text) >= 5:
             return
-        # Calendar partially present: wait for the strip to stop growing before
-        # parsing so we never read a half-rendered week (the cause of the
-        # "could not extract reliable award result" empty runs).
-        if calendar_days >= 5:
-            if calendar_days == prev_calendar_days:
-                stable_polls += 1
-                if stable_polls >= 3:
-                    return
-            else:
-                stable_polls = 0
-            if state["skeletons"] < 40 and state["miles_mentions"] >= 20:
-                return
-            if state["skeletons"] < 120 and re.search(r"Select fare for", body_text, re.IGNORECASE):
-                return
-        prev_calendar_days = calendar_days
+        if state["skeletons"] < 120 and re.search(r"Select fare for", body_text, re.IGNORECASE):
+            return
         time.sleep(1)
 
 
