@@ -1833,11 +1833,19 @@ def _finalize_united_result_page(
             f"(min={min(_lm)//1000 if _lm else 0}k max={max(_lm)//1000 if _lm else 0}k); "
             f"cabin-toggle reset {cabin} -> {opposite}"
         )
-        reset_url = _booking_url(origin, dest, depart_date, opposite, travelers, award=True)
-        if _goto_with_retry(page, reset_url, observations, attempts=2):
+        # Toggle to the opposite premium cabin and BACK to the requested cabin
+        # (e.g. business -> first -> business). The round-trip resets United's
+        # calendar, and we end on the cabin we actually want.
+        toggled = False
+        for phase_cabin, wait_s in ((opposite, 12), (cabin, 60)):
+            reset_url = _booking_url(origin, dest, depart_date, phase_cabin, travelers, award=True)
+            if not _goto_with_retry(page, reset_url, observations, attempts=2):
+                break
             _wait_for_united_award_transition(page, observations, timeout_s=15)
-            _wait_for_award_results(page, timeout_s=60)
-            view_config = _configure_united_results_view(page, opposite, observations)
+            _wait_for_award_results(page, timeout_s=wait_s)
+            toggled = True
+        if toggled:
+            view_config = _configure_united_results_view(page, cabin, observations)
             if view_config["sorted"] or view_config["mixed_hidden"]:
                 _wait_for_award_results(page, timeout_s=30)
             state = _page_state(page)
@@ -1845,7 +1853,7 @@ def _finalize_united_result_page(
             matches, detail_matches, calendar_matches = collect_matches(result_text)
             _lm2 = [int(c.get("miles") or 0) for c in calendar_matches if int(c.get("miles") or 0) > 0]
             observations.append(
-                f"United {context_label} after economy-leak reset ({opposite}): "
+                f"United {context_label} after economy-leak reset ({cabin} via {opposite}): "
                 f"min={min(_lm2)//1000 if _lm2 else 0}k max={max(_lm2)//1000 if _lm2 else 0}k "
                 f"matches={len(matches)}"
             )
