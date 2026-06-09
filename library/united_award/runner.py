@@ -1627,6 +1627,25 @@ def _configure_united_results_view(page: Any, cabin: str, observations: List[str
     return applied
 
 
+def _calendar_looks_like_economy(matches: List[Dict[str, Any]]) -> bool:
+    """Detect United returning ECONOMY miles in the 7-day calendar despite a
+    business/first search.
+
+    Per observed behavior, business/first SFO->Asia awards are ~120k+ miles, so
+    the calendar has economy fares leaking in if EVERY day is under 100k OR ANY
+    single day is under 80k. The fix (handled by the caller) is to re-issue the
+    search on the opposite premium cabin, which resets United's calendar.
+    """
+    miles = [int(m.get("miles") or 0) for m in matches if int(m.get("miles") or 0) > 0]
+    if not miles:
+        return False
+    if max(miles) < 100_000:  # all days under 100k
+        return True
+    if min(miles) < 80_000:   # any single day under 80k
+        return True
+    return False
+
+
 def _finalize_united_result_page(
     page: Any,
     observations: List[str],
@@ -1797,6 +1816,39 @@ def _finalize_united_result_page(
             f"flight_cards={state['flight_cards']} skeletons={state['skeletons']} "
             f"matches={len(matches)}"
         )
+
+    # Economy-leak reset: United sometimes returns ECONOMY fares in the 7-day
+    # calendar even for a business/first search. Detect it (all days < 100k or any
+    # day < 80k) and re-issue the search on the OPPOSITE premium cabin — business
+    # and first price identically on these routes, and the toggle resets United's
+    # calendar to the correct premium fares. Bounded to one reset.
+    if (
+        cabin.lower().strip() in {"business", "first"}
+        and _calendar_looks_like_economy(calendar_matches)
+    ):
+        _lm = [int(c.get("miles") or 0) for c in calendar_matches if int(c.get("miles") or 0) > 0]
+        opposite = "first" if cabin.lower().strip() == "business" else "business"
+        observations.append(
+            f"United {context_label}: 7-day calendar looks like ECONOMY leaked in "
+            f"(min={min(_lm)//1000 if _lm else 0}k max={max(_lm)//1000 if _lm else 0}k); "
+            f"cabin-toggle reset {cabin} -> {opposite}"
+        )
+        reset_url = _booking_url(origin, dest, depart_date, opposite, travelers, award=True)
+        if _goto_with_retry(page, reset_url, observations, attempts=2):
+            _wait_for_united_award_transition(page, observations, timeout_s=15)
+            _wait_for_award_results(page, timeout_s=60)
+            view_config = _configure_united_results_view(page, opposite, observations)
+            if view_config["sorted"] or view_config["mixed_hidden"]:
+                _wait_for_award_results(page, timeout_s=30)
+            state = _page_state(page)
+            result_text = _collect_result_text(page)
+            matches, detail_matches, calendar_matches = collect_matches(result_text)
+            _lm2 = [int(c.get("miles") or 0) for c in calendar_matches if int(c.get("miles") or 0) > 0]
+            observations.append(
+                f"United {context_label} after economy-leak reset ({opposite}): "
+                f"min={min(_lm2)//1000 if _lm2 else 0}k max={max(_lm2)//1000 if _lm2 else 0}k "
+                f"matches={len(matches)}"
+            )
 
     if matches:
         best = min(match["miles"] for match in matches)
