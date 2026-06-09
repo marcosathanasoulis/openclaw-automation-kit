@@ -741,12 +741,18 @@ def _looks_logged_in(page: Any) -> bool:
     ):
         return False
     # Require a genuine authenticated marker (NOT the "Hi, Marcos" greeting).
+    # When signed in, United's header shows the account menu plus the member's
+    # miles balance / "Cardmember" / "travel credits" — none of which appear when
+    # signed out. (Confirmed live: "Hi, Marcos | Cardmember | 315,855 miles | $100 travel credits".)
     return bool(
         _first_visible(
             [
                 page.get_by_role("button", name=re.compile(r"sign out", re.IGNORECASE)),
                 page.get_by_role("link", name=re.compile(r"sign out", re.IGNORECASE)),
                 page.get_by_role("link", name=re.compile(r"my trips", re.IGNORECASE)),
+                page.get_by_text(re.compile(r"\bcardmember\b", re.IGNORECASE)),
+                page.get_by_text(re.compile(r"[\d,]+\s*miles\b", re.IGNORECASE)),
+                page.get_by_text(re.compile(r"travel credits?", re.IGNORECASE)),
             ]
         )
     )
@@ -2138,7 +2144,11 @@ def _ensure_united_login(
     )
     used_switch_accounts = False
 
-    if not username_input and switch_accounts:
+    # Only switch accounts if we can fill NEITHER username NOR password. On the
+    # remembered-account modal United shows just a password field (no username)
+    # for the saved MileagePlus account — there we fill the password directly.
+    # Clicking "Switch accounts" in that case wipes the form and loops.
+    if not username_input and not password_input and switch_accounts:
         _click(switch_accounts)
         refresh(2, timeout_s=10)
         if not _page_is_live(page):
