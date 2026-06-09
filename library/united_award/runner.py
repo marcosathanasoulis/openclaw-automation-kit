@@ -1140,24 +1140,11 @@ def _complete_homepage_award_flow(
     booking_url: str,
     context_label: str,
 ) -> Dict[str, Any] | None:
-    # Log in FIRST, before searching. United gates award/miles results behind
-    # authentication, and the cached "Hi, Marcos" greeting is NOT proof of login.
-    # Searching while unauthenticated yields a perpetual skeleton/loading page.
-    if not _looks_logged_in(page):
-        _goto_with_retry(page, UNITED_URL, observations, attempts=2)
-        time.sleep(2)
-        _dismiss_united_overlays(page)
-        if not _looks_logged_in(page):
-            page, pre_logged_in, pre_login_error = _ensure_united_login(
-                page, browser, context_pw, context, observations
-            )
-            if pre_logged_in:
-                observations.append("United logged in before running the search")
-            else:
-                observations.append(
-                    f"United {context_label} pre-search login did not confirm: {pre_login_error}"
-                )
-
+    # NOTE: login is handled AFTER the search submit (the sign-in/miles gate at
+    # the post-submit check below), then the search is re-issued via
+    # _ensure_united_result_travelers. This matches the proven live sequence
+    # (search -> handle login prompt -> re-search -> 7-day calendar). Do NOT add
+    # a pre-search login here — it double-prompts and loops.
     if not _submit_homepage_award_search(
         page,
         origin,
