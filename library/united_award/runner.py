@@ -723,14 +723,30 @@ def _needs_miles_sign_in(page: Any) -> bool:
 
 
 def _looks_logged_in(page: Any) -> bool:
+    # NOT logged in if the miles results are gated...
     if _needs_miles_sign_in(page):
         return False
+    # ...or a sign-in modal/password field is showing...
+    if _is_sign_in_visible(page):
+        return False
+    # ...or a top-nav "Sign in" link/button is visible. United keeps showing a
+    # cached "Hi, Marcos" greeting even when the session is NOT authenticated, so
+    # "Hi, Marcos" is NOT proof of login — a visible "Sign in" affordance is the
+    # real tell that we still need to authenticate.
+    if _first_visible(
+        [
+            page.get_by_role("link", name=re.compile(r"^\s*sign\s*in\s*$", re.IGNORECASE)),
+            page.get_by_role("button", name=re.compile(r"^\s*sign\s*in\s*$", re.IGNORECASE)),
+        ]
+    ):
+        return False
+    # Require a genuine authenticated marker (NOT the "Hi, Marcos" greeting).
     return bool(
         _first_visible(
             [
-                page.get_by_text(re.compile(r"\bHi,\s*Marcos\b", re.IGNORECASE)),
-                page.get_by_role("link", name=re.compile(r"my trips", re.IGNORECASE)),
                 page.get_by_role("button", name=re.compile(r"sign out", re.IGNORECASE)),
+                page.get_by_role("link", name=re.compile(r"sign out", re.IGNORECASE)),
+                page.get_by_role("link", name=re.compile(r"my trips", re.IGNORECASE)),
             ]
         )
     )
